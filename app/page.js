@@ -23,8 +23,11 @@ const DESKTOP_NAV = [
   { id: 'pharma-health',   label: 'Pharma & Health',  icon: '💊' },
   { id: 'auto-ev',         label: 'Auto & EV',        icon: '🚗' },
   { id: 'metals-mining',   label: 'Metals & Mining',  icon: '⚙️' },
+  { id: 'renewables',      label: 'Renewables',       icon: '☀️' },
   { id: 'real-estate',     label: 'Real Estate',      icon: '🏠' },
+  { id: 'infrastructure',  label: 'Infrastructure',   icon: '🔧' },
   { id: 'fmcg-consumer',   label: 'FMCG & Consumer',  icon: '🛒' },
+  { id: 'telecom-media',   label: 'Telecom & Media',  icon: '📡' },
   { type: 'label', text: 'MORE' },
   { id: 'portfolio',       label: 'My Portfolio',     icon: '💰' },
 ]
@@ -49,8 +52,11 @@ const SECTORS_SECTIONS = [
   { id: 'pharma-health',  label: 'Pharma',      icon: '💊' },
   { id: 'auto-ev',        label: 'Auto & EV',   icon: '🚗' },
   { id: 'metals-mining',  label: 'Metals',      icon: '⚙️' },
+  { id: 'renewables',     label: 'Renewables',  icon: '☀️' },
   { id: 'real-estate',    label: 'Real Estate', icon: '🏠' },
+  { id: 'infrastructure', label: 'Infra',       icon: '🔧' },
   { id: 'fmcg-consumer',  label: 'FMCG',        icon: '🛒' },
+  { id: 'telecom-media',  label: 'Telecom',     icon: '📡' },
 ]
 
 const ALL_SECTIONS = [
@@ -66,8 +72,11 @@ const ALL_SECTIONS = [
   { id: 'pharma-health',   label: 'Pharma & Health'   },
   { id: 'auto-ev',         label: 'Auto & EV'         },
   { id: 'metals-mining',   label: 'Metals & Mining'   },
+  { id: 'renewables',      label: 'Renewables'        },
   { id: 'real-estate',     label: 'Real Estate'       },
+  { id: 'infrastructure',  label: 'Infrastructure'    },
   { id: 'fmcg-consumer',   label: 'FMCG & Consumer'   },
+  { id: 'telecom-media',   label: 'Telecom & Media'   },
   { id: 'portfolio',       label: 'My Portfolio'      },
 ]
 
