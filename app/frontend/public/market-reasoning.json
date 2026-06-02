@@ -1,0 +1,29 @@
+{
+  "today": {
+    "date": "2026-06-02",
+    "readyAt": "16:00",
+    "sensex": {
+      "verdict": "Could not fetch today's market reasoning. Please update manually.",
+      "factors": "",
+      "verdictSentiment": "neutral"
+    },
+    "nifty": {
+      "verdict": "Could not fetch today's market reasoning. Please update manually.",
+      "factors": "",
+      "verdictSentiment": "neutral"
+    }
+  },
+  "yesterday": {
+    "date": "2026-06-02",
+    "sensex": {
+      "verdict": "Could not fetch today's market reasoning. Please update manually.",
+      "factors": "",
+      "verdictSentiment": "neutral"
+    },
+    "nifty": {
+      "verdict": "Could not fetch today's market reasoning. Please update manually.",
+      "factors": "",
+      "verdictSentiment": "neutral"
+    }
+  }
+}

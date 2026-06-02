@@ -1,0 +1,37 @@
+{
+  "today": {
+    "date": "2026-06-02",
+    "readyAt": "16:00",
+    "indian": {
+      "verdict": "Markets closed higher; IT stocks rallied amid US-India trade talks and AI momentum.",
+      "factors": "IT sector +4%, FIIs sold ₹3,911 Cr, Oil $94.35/bbl, Nifty expiry day short covering",
+      "verdictSentiment": "positive",
+      "marketTime": "3:30 PM IST",
+      "updatedAt": "Updated 07:00 PM IST"
+    },
+    "us": {
+      "verdict": "S&P 500, Nasdaq, and Dow hit records as Nvidia surges on new AI chip for PCs",
+      "factors": "Nvidia surged 6% on new PC chip, Oil prices rose amid Iran tensions, Tech sector gained 2%",
+      "verdictSentiment": "positive",
+      "marketTime": "4:00 PM EST",
+      "updatedAt": "Updated 07:00 PM IST"
+    }
+  },
+  "yesterday": {
+    "date": "2026-06-02",
+    "indian": {
+      "verdict": "Indian markets bounced back midday on June 2, driven by IT rally despite geopolitical headwinds.",
+      "factors": "IT stocks surged 2.06%, FIIs sold ₹3,912 Cr, US-Iran tensions weighed on sentiment",
+      "verdictSentiment": "positive",
+      "marketTime": "3:30 PM IST",
+      "updatedAt": "Updated 06:50 PM IST"
+    },
+    "us": {
+      "verdict": "S&P 500, Nasdaq, and Dow hit records as Nvidia's AI chip announcement outweighed Middle East tensions.",
+      "factors": "Nvidia surged 6% on new PC chip, Trump signaled Iran peace progress, Oil prices rose on geopolitical tensions",
+      "verdictSentiment": "positive",
+      "marketTime": "4:00 PM EST",
+      "updatedAt": "Updated 06:50 PM IST"
+    }
+  }
+}
