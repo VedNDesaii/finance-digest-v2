@@ -9,6 +9,7 @@ import { useAuth } from '../hooks/useAuth'
 const DESKTOP_NAV = [
   { type: 'label', text: 'GENERAL' },
   { id: 'headlines',       label: 'Major Headlines',  icon: '📰' },
+  { id: 'quiz',            label: 'Daily Quiz',       icon: '🧠' },
   { type: 'label', text: 'MARKETS' },
   { id: 'indian-markets',  label: 'Indian Markets',   icon: '🇮🇳' },
   { id: 'us-markets',      label: 'US Markets',       icon: '🇺🇸' },
@@ -60,6 +61,7 @@ const SECTORS_SECTIONS = [
 
 const ALL_SECTIONS = [
   { id: 'headlines',       label: 'Major Headlines'   },
+  { id: 'quiz',            label: 'Daily Quiz'        },
   { id: 'indian-markets',  label: 'Indian Markets'    },
   { id: 'us-markets',      label: 'US Markets'        },
   { id: 'global-economy',  label: 'Global Economy'    },
@@ -129,6 +131,7 @@ function isWeekend() {
 
 function getActiveMobileTab(section) {
   if (section === 'headlines') return 'top'
+  if (section === 'quiz') return 'top'
   if (['indian-markets','us-markets','global-economy'].includes(section)) return 'markets'
   if (SECTOR_IDS.includes(section)) return 'sectors'
   if (['banking-finance','macro-policy'].includes(section)) return 'finance'
@@ -561,32 +564,14 @@ function YesterdayQuiz({ dark, isMobile, addIQ, earnedBadges, awardBadge }) {
   async function fetchYesterdayQuiz() {
     setLoading(true)
     try {
-      // Fetch articles from yesterday
-      const yesterday = new Date()
-      yesterday.setDate(yesterday.getDate() - 1)
-      yesterday.setHours(0, 0, 0, 0)
-      const dayBefore = new Date(yesterday)
-      dayBefore.setHours(23, 59, 59, 999)
-
       const { data } = await supabase
         .from('processed_articles')
         .select('title, simplified_article, glossary, category')
-        .gte('created_at', yesterday.toISOString())
-        .lte('created_at', dayBefore.toISOString())
         .not('glossary', 'is', null)
-        .limit(30)
+        .order('created_at', { ascending: false })
+        .limit(40)
 
-      // If no yesterday articles, fall back to recent
       let articles = data || []
-      if (articles.length < 3) {
-        const { data: recent } = await supabase
-          .from('processed_articles')
-          .select('title, simplified_article, glossary, category')
-          .not('glossary', 'is', null)
-          .order('created_at', { ascending: false })
-          .limit(30)
-        articles = recent || []
-      }
 
       // Build questions from glossary terms
       const allTerms = []
@@ -1257,6 +1242,14 @@ export default function Home() {
               <MarketSummaryCard market={activeSection} dark={dark} isMobile={isMobile} />
             )}
 
+            {/* Daily Quiz section */}
+            {activeSection === 'quiz' && (
+              <YesterdayQuiz
+                dark={dark} isMobile={isMobile}
+                addIQ={addIQ} earnedBadges={earnedBadges} awardBadge={awardBadge}
+              />
+            )}
+
             {/* Prediction Game — headlines only */}
             {activeSection === 'headlines' && !loading && (
               <PredictionGame
@@ -1301,13 +1294,7 @@ export default function Home() {
               </div>
             )}
 
-            {/* Yesterday's Quiz — shown at bottom of headlines after articles load */}
-            {activeSection === 'headlines' && !loading && articles.length > 0 && (
-              <YesterdayQuiz
-                dark={dark} isMobile={isMobile}
-                addIQ={addIQ} earnedBadges={earnedBadges} awardBadge={awardBadge}
-              />
-            )}
+
 
             <div style={{ marginTop: '48px', paddingTop: '24px', borderTop: `1px solid ${dark ? '#2C2822' : '#EDE8E0'}`, textAlign: 'center' }}>
               <p style={{ fontSize: '12px', color: dark ? '#3C3530' : '#C4B9AE', letterSpacing: '0.05em' }}>

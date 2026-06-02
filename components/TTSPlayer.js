@@ -1,7 +1,7 @@
 'use client'
 import { useState, useRef } from 'react'
 
-const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_TTS_KEY
+
 
 export default function TTSPlayer({ article }) {
   const [isPlaying, setIsPlaying] = useState(false)
@@ -26,7 +26,7 @@ export default function TTSPlayer({ article }) {
 
   async function fetchGoogleTTS(text) {
     const response = await fetch(
-      `https://texttospeech.googleapis.com/v1/text:synthesize?key=${GOOGLE_API_KEY}`,
+      `https://texttospeech.googleapis.com/v1/text:synthesize?key=${process.env.NEXT_PUBLIC_GOOGLE_TTS_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

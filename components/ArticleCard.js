@@ -1,6 +1,5 @@
 'use client'
 import { useState, useEffect } from 'react'
-import TTSPlayer from './TTSPlayer'
 
 export default function ArticleCard({ article, dark }) {
   const [showGlossary, setShowGlossary] = useState(false)
@@ -218,7 +217,7 @@ export default function ArticleCard({ article, dark }) {
               )}
 
               <div style={{ paddingTop: '4px' }}>
-                <TTSPlayer article={article} />
+                
               </div>
             </div>
           )}
@@ -432,7 +431,7 @@ export default function ArticleCard({ article, dark }) {
           </div>
         )}
 
-        <TTSPlayer article={article} />
+        
         <div style={{ marginTop: '12px' }} />
       </div>
 
