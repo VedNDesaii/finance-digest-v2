@@ -579,8 +579,8 @@ function YesterdayQuiz({ dark, isMobile, addIQ, earnedBadges, awardBadge }) {
         const g = article.glossary
         if (Array.isArray(g)) {
           g.forEach(item => {
-            if (item.term && item.definition && item.definition.length < 150)
-              allTerms.push({ ...item, articleTitle: article.title })
+            if ((item.term || item.word) && (item.definition || item.meaning))
+              allTerms.push({ term: item.term || item.word, definition: item.definition || item.meaning, articleTitle: article.title })
           })
         }
       })
