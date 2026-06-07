@@ -1,86 +1,65 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 
-const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_TTS_KEY
-
 export default function NewsReader({ newsItems, currentIndex, onIndexChange, dark = false }) {
-  const [isPaused, setIsPaused]           = useState(false)
-  const [isListening, setIsListening]     = useState(false)
-  const [hasStarted, setHasStarted]       = useState(false)
-  const [transcript, setTranscript]       = useState('')
-  const [agentAnswer, setAgentAnswer]     = useState('')
-  const [statusMessage, setStatusMessage] = useState('')
-  const [isLoadingVoice, setIsLoadingVoice] = useState(false)
+  const [isPaused, setIsPaused]             = useState(false)
+  const [isListening, setIsListening]       = useState(false)
+  const [hasStarted, setHasStarted]         = useState(false)
+  const [transcript, setTranscript]         = useState('')
+  const [agentAnswer, setAgentAnswer]       = useState('')
+  const [statusMessage, setStatusMessage]   = useState('')
+  const [isSpeaking, setIsSpeaking]         = useState(false)
 
   const recognitionRef  = useRef(null)
   const isListeningRef  = useRef(false)
   const hasStartedRef   = useRef(false)
-  const audioRef        = useRef(null)
-  const audioBlobUrlRef = useRef(null)
+  const voiceRef        = useRef(null)
+  const utteranceRef    = useRef(null)
 
-  useEffect(() => { isListeningRef.current = isListening }, [isListening])
-  useEffect(() => { hasStartedRef.current  = hasStarted  }, [hasStarted])
-
-  // ── Google Neural2 TTS ──
-  async function fetchGoogleTTS(text) {
-    const response = await fetch(
-      `https://texttospeech.googleapis.com/v1/text:synthesize?key=${GOOGLE_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          input: { text },
-          voice: {
-            languageCode: 'en-US',
-            name: 'en-US-Neural2-F',  // warm, clear, natural female voice
-            ssmlGender: 'FEMALE',
-          },
-          audioConfig: {
-            audioEncoding: 'MP3',
-            speakingRate: 0.92,
-            pitch: 1.0,
-            effectsProfileId: ['headphone-class-device'],
-          },
-        }),
+  // ── Load best Apple voice ─────────────────────────────────────────────────
+  useEffect(() => {
+    function loadVoice() {
+      const voices = window.speechSynthesis.getVoices()
+      if (!voices.length) return
+      const preferred = ['Samantha', 'Karen', 'Victoria', 'Moira', 'Tessa']
+      let picked = null
+      for (const name of preferred) {
+        picked = voices.find(v => v.name === name)
+        if (picked) break
       }
-    )
-    if (!response.ok) throw new Error('Google TTS failed')
-    const data = await response.json()
-    const binary = atob(data.audioContent)
-    const bytes = new Uint8Array(binary.length)
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-    return new Blob([bytes], { type: 'audio/mp3' })
-  }
-
-  function cleanupAudio() {
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ''; audioRef.current = null }
-    if (audioBlobUrlRef.current) { URL.revokeObjectURL(audioBlobUrlRef.current); audioBlobUrlRef.current = null }
-  }
-
-  const speak = useCallback(async (text, onEnd) => {
-    if (!text?.trim()) return
-    cleanupAudio()
-    setIsLoadingVoice(true)
-    try {
-      const blob = await fetchGoogleTTS(text)
-      const url = URL.createObjectURL(blob)
-      audioBlobUrlRef.current = url
-      const audio = new Audio(url)
-      audioRef.current = audio
-      audio.oncanplaythrough = () => { setIsLoadingVoice(false); audio.play() }
-      audio.onended = () => { cleanupAudio(); if (onEnd) onEnd() }
-      audio.onerror = () => { setIsLoadingVoice(false); cleanupAudio() }
-    } catch (err) {
-      console.error('Google TTS error:', err)
-      setIsLoadingVoice(false)
+      if (!picked) {
+        picked = voices.find(v => v.lang === 'en-US' && v.localService) ||
+                 voices.find(v => v.lang.startsWith('en'))
+      }
+      voiceRef.current = picked || null
     }
+    loadVoice()
+    window.speechSynthesis.onvoiceschanged = loadVoice
+    return () => { window.speechSynthesis.onvoiceschanged = null }
+  }, [])
+
+  // ── Speak using Apple voice ───────────────────────────────────────────────
+  const speak = useCallback((text, onEnd) => {
+    if (!text?.trim()) return
+    window.speechSynthesis.cancel()
+    const utterance = new SpeechSynthesisUtterance(text)
+    if (voiceRef.current) utterance.voice = voiceRef.current
+    utterance.rate   = 0.93
+    utterance.pitch  = 1.0
+    utterance.volume = 1.0
+    utterance.onstart = () => setIsSpeaking(true)
+    utterance.onend   = () => { setIsSpeaking(false); onEnd?.() }
+    utterance.onerror = () => setIsSpeaking(false)
+    utteranceRef.current = utterance
+    window.speechSynthesis.speak(utterance)
   }, [])
 
   const stopSpeaking = useCallback(() => {
-    cleanupAudio()
-    setIsLoadingVoice(false)
+    window.speechSynthesis.cancel()
+    setIsSpeaking(false)
   }, [])
 
+  // ── Auto-read when article changes ────────────────────────────────────────
   useEffect(() => {
     if (hasStarted && !isPaused && newsItems?.[currentIndex]?.simplified_article) {
       speak(newsItems[currentIndex].simplified_article)
@@ -88,83 +67,97 @@ export default function NewsReader({ newsItems, currentIndex, onIndexChange, dar
     }
   }, [currentIndex, hasStarted])
 
-  const detectIntentLocally = (text) => {
+  // ── Local intent detection ────────────────────────────────────────────────
+  const detectIntent = (text) => {
     const t = text.toLowerCase().trim()
-    if (!hasStartedRef.current && /\b(start|begin|play|read|let's go|lets go|yes|yeah|sure|okay|ok|yep|go ahead|read out|read the news|read news|read it|start reading)\b/.test(t)) return 'start'
+    if (!hasStartedRef.current && /\b(start|begin|play|read|yes|yeah|sure|okay|ok|go ahead|read out|read the news)\b/.test(t)) return 'start'
     if (hasStartedRef.current && /\b(read out|read the news|read it|read this|read again)\b/.test(t)) return 'resume'
     if (/\b(next|forward|skip|after|move on)\b/.test(t)) return 'next'
     if (/\b(previous|back|before|prior|last one|go back)\b/.test(t)) return 'previous'
     if (/\b(stop|pause|hold|wait|freeze|quiet|enough)\b/.test(t)) return 'pause'
     if (/\b(resume|continue|go on|carry on|unpause|keep going)\b/.test(t)) return 'resume'
-    if (/\b(what|why|how|when|who|where|explain|tell me|what is|what are|what does|what happened|what was|what will|can you|could you|define|meaning of|means)\b/.test(t) || t.endsWith('?')) return 'question'
+    if (/\b(what|why|how|when|who|where|explain|tell me|what is|what are|what does|what happened|define|meaning of)\b/.test(t) || t.endsWith('?')) return 'question'
     return 'ignore'
   }
 
+  // ── Handle command ────────────────────────────────────────────────────────
   const handleCommand = useCallback(async (spokenText) => {
     if (!spokenText?.trim()) return
-    const localIntent = detectIntentLocally(spokenText)
-    if (localIntent === 'ignore') return
+    const intent = detectIntent(spokenText)
+    if (intent === 'ignore') return
 
-    if (localIntent === 'start') {
+    if (intent === 'start') {
       setHasStarted(true); hasStartedRef.current = true
       setStatusMessage('Starting…')
       speak(newsItems[currentIndex]?.simplified_article ?? '')
       return
     }
-    if (localIntent === 'next') {
+    if (intent === 'next') {
       stopSpeaking(); setStatusMessage('Next article')
       setTimeout(() => onIndexChange(i => Math.min(i + 1, newsItems.length - 1)), 200)
       return
     }
-    if (localIntent === 'previous') {
+    if (intent === 'previous') {
       stopSpeaking(); setStatusMessage('Previous article')
       setTimeout(() => onIndexChange(i => Math.max(i - 1, 0)), 200)
       return
     }
-    if (localIntent === 'pause') {
+    if (intent === 'pause') {
       setIsPaused(true); stopSpeaking(); setStatusMessage('Paused'); return
     }
-    if (localIntent === 'resume') {
+    if (intent === 'resume') {
       setIsPaused(false); setStatusMessage('Resuming…')
       speak(newsItems[currentIndex]?.simplified_article ?? ''); return
     }
-    if (localIntent === 'question') {
+    if (intent === 'question') {
       stopSpeaking(); setStatusMessage('Thinking…')
+      speak('Let me find that for you.')
       try {
         const res = await fetch('/api/voice-intent', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type: 'question', text: spokenText, articleContext: newsItems[currentIndex]?.simplified_article }),
+          body: JSON.stringify({
+            type: 'question',
+            text: spokenText,
+            articleContext: newsItems[currentIndex]?.simplified_article,
+          }),
         })
         const data = await res.json()
         const answer = data.result ?? "I had trouble answering. Please try again."
         setAgentAnswer(answer); setStatusMessage('')
         speak(answer)
-      } catch (e) {
+      } catch {
         speak('Something went wrong. Please try again.'); setStatusMessage('')
       }
     }
   }, [currentIndex, newsItems, speak, stopSpeaking, onIndexChange])
 
+  // ── Start listening ───────────────────────────────────────────────────────
   const startListening = useCallback(() => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition
-    if (!SR) { alert('Please use Chrome for speech recognition.'); return }
+    if (!SR) { alert('Please use Chrome for voice features.'); return }
     if (isListeningRef.current) return
+
     const recognition = new SR()
     recognition.continuous = false
     recognition.interimResults = false
     recognition.lang = 'en-US'
+
     recognition.onresult = (e) => {
       const text = e.results[e.results.length - 1][0].transcript.trim()
       if (text) { setTranscript(text); handleCommand(text) }
     }
     recognition.onerror = (e) => {
-      if (e.error === 'no-speech' && isListeningRef.current) { try { recognition.start() } catch (_) {} }
-      else if (e.error !== 'aborted') { setIsListening(false); isListeningRef.current = false }
+      if (e.error === 'no-speech' && isListeningRef.current) {
+        try { recognition.start() } catch (_) {}
+      } else if (e.error !== 'aborted') {
+        setIsListening(false); isListeningRef.current = false
+      }
     }
     recognition.onend = () => {
       if (isListeningRef.current) { try { recognition.start() } catch (_) {} }
     }
+
     recognitionRef.current = recognition
     recognition.start()
     setIsListening(true); isListeningRef.current = true
@@ -173,9 +166,21 @@ export default function NewsReader({ newsItems, currentIndex, onIndexChange, dar
   const stopListening = useCallback(() => {
     isListeningRef.current = false; setIsListening(false)
     try { recognitionRef.current?.stop() } catch (_) {}
-  }, [])
+    stopSpeaking()
+  }, [stopSpeaking])
 
-  // ── Styles ──
+  // ── Toggle voice agent ────────────────────────────────────────────────────
+  const toggleVoiceAgent = useCallback(() => {
+    if (isListeningRef.current) {
+      stopListening()
+      return
+    }
+    // Greet first, then start listening
+    speak('Hi! How may I help you? You can say next, pause, go back, or ask me anything about the news.')
+    setTimeout(() => startListening(), 3500)
+  }, [speak, startListening, stopListening])
+
+  // ── Styles ────────────────────────────────────────────────────────────────
   const btnBase = {
     padding: '6px 14px', borderRadius: '99px',
     fontFamily: 'var(--font-ui)', fontSize: '12px',
@@ -217,38 +222,32 @@ export default function NewsReader({ newsItems, currentIndex, onIndexChange, dar
       )}
 
       {/* Status */}
-      {(statusMessage || isLoadingVoice) && (
+      {(statusMessage || isSpeaking) && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--accent)', fontFamily: 'var(--font-ui)', letterSpacing: '0.04em' }}>
-          {isLoadingVoice && (
-            <div style={{ width: '10px', height: '10px', border: '1.5px solid var(--border-accent)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+          {isSpeaking && (
+            <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
+              {[0, 0.15, 0.3].map((delay, i) => (
+                <div key={i} style={{ width: '3px', height: '10px', background: 'var(--accent)', borderRadius: '2px', animation: `pulse 0.8s ease ${delay}s infinite` }} />
+              ))}
+            </div>
           )}
-          {isLoadingVoice ? 'Preparing voice...' : `⏳ ${statusMessage}`}
+          {statusMessage || (isSpeaking ? 'Speaking...' : '')}
         </div>
       )}
 
-      {/* Controls row */}
+      {/* Controls */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-        <button style={voiceBtn} onClick={() => {
-          if (isListeningRef.current) { stopListening(); return }
-          if (!hasStartedRef.current) {
-            speak('How can I help you?').then?.(() => startListening())
-            setTimeout(() => startListening(), 2000)
-          } else { startListening() }
-        }}>
+        <button style={voiceBtn} onClick={toggleVoiceAgent}>
           {isListening ? '🎙️ Listening…' : '🎤 Voice Agent'}
         </button>
-
         <button style={navBtn} onClick={() => { stopSpeaking(); onIndexChange(i => Math.max(i - 1, 0)) }}>◀ Prev</button>
-
         <button style={navBtn} onClick={() => {
           if (isPaused) { setIsPaused(false); speak(newsItems[currentIndex]?.simplified_article ?? '') }
           else { setIsPaused(true); stopSpeaking() }
         }}>
           {isPaused ? '▶ Resume' : '⏸ Pause'}
         </button>
-
         <button style={navBtn} onClick={() => { stopSpeaking(); onIndexChange(i => Math.min(i + 1, newsItems.length - 1)) }}>Next ▶</button>
-
         <span style={{ fontSize: '11px', fontFamily: 'var(--font-ui)', color: dark ? '#4A4438' : '#C4B9AE', letterSpacing: '0.04em' }}>
           Article {currentIndex + 1} of {newsItems.length}
         </span>
@@ -263,8 +262,12 @@ export default function NewsReader({ newsItems, currentIndex, onIndexChange, dar
 
       {/* Hint */}
       <p style={{ fontSize: '11px', color: dark ? '#3C3530' : '#C4B9AE', fontFamily: 'var(--font-ui)', margin: 0 }}>
-        {hasStarted ? 'Say: "Next", "Previous", "Pause", "Resume", or ask a question' : 'Click Voice Agent — say "Read out the news" to start'}
+        {hasStarted
+          ? 'Say: "Next", "Previous", "Pause", "Resume", or ask a question'
+          : 'Click Voice Agent — say "Read out the news" to start'}
       </p>
+
+      <style>{`@keyframes pulse { 0%,100% { transform: scaleY(1); } 50% { transform: scaleY(0.4); } }`}</style>
     </div>
   )
 }
