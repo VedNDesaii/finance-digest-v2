@@ -1,79 +1,62 @@
 // hooks/useVoiceAgent.js
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 
 export function useVoiceAgent({ news, currentIndex, onNext, onPrev, onPause, onResume, onAnswer }) {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const recognitionRef = useRef(null);
-  const audioRef = useRef(null);
+  const voiceRef = useRef(null);
 
-  // ── ElevenLabs TTS speak function ─────────────────────────────────────────
-  const speak = useCallback(async (text) => {
-    try {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
+  // ── Load best Apple/system voice on mount ─────────────────────────────────
+  useEffect(() => {
+    function loadVoice() {
+      const voices = window.speechSynthesis.getVoices();
+      if (!voices.length) return;
+
+      // Priority: Samantha (Apple) → Karen → Victoria → any en-US
+      const preferred = [
+        "Samantha",   // macOS/iOS — best Apple voice
+        "Karen",      // Australian Apple voice
+        "Victoria",   // Another Apple voice
+        "Moira",      // Irish Apple voice
+      ];
+
+      let picked = null;
+      for (const name of preferred) {
+        picked = voices.find(v => v.name === name);
+        if (picked) break;
       }
 
-      const apiKey = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY;
-      if (!apiKey) {
-        console.error("NEXT_PUBLIC_ELEVENLABS_API_KEY missing");
-        return;
+      // Fallback to any en-US voice
+      if (!picked) {
+        picked = voices.find(v => v.lang === "en-US" && v.localService) ||
+                 voices.find(v => v.lang.startsWith("en"));
       }
 
-      // Using "Adam" voice - natural, professional male voice
-      const voiceId = "pNInz6obpgDQGcFmaJgB";
-
-      const response = await fetch(
-        `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "xi-api-key": apiKey,
-          },
-          body: JSON.stringify({
-            text,
-            model_id: "eleven_turbo_v2",
-            voice_settings: {
-              stability: 0.5,
-              similarity_boost: 0.75,
-              style: 0.0,
-              use_speaker_boost: true,
-            },
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const err = await response.json();
-        console.error("ElevenLabs TTS error:", err);
-        return;
-      }
-
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      audioRef.current = audio;
-      audio.play();
-      audio.onended = () => {
-        URL.revokeObjectURL(url);
-        audioRef.current = null;
-      };
-    } catch (e) {
-      console.error("speak error:", e);
+      voiceRef.current = picked || null;
     }
+
+    loadVoice();
+    window.speechSynthesis.onvoiceschanged = loadVoice;
+    return () => { window.speechSynthesis.onvoiceschanged = null; };
   }, []);
 
-  // ── Stop speaking ──────────────────────────────────────────────────────────
+  // ── Speak function ────────────────────────────────────────────────────────
+  const speak = useCallback((text) => {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    if (voiceRef.current) utterance.voice = voiceRef.current;
+    utterance.rate  = 0.95;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+    window.speechSynthesis.speak(utterance);
+  }, []);
+
   const stopSpeaking = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-    }
+    window.speechSynthesis.cancel();
   }, []);
 
-  // ── Handle voice commands ──────────────────────────────────────────────────
+  // ── Handle voice commands ─────────────────────────────────────────────────
   const handleCommand = useCallback(async (spokenText) => {
     const res = await fetch("/api/voice-intent", {
       method: "POST",
@@ -100,6 +83,7 @@ export function useVoiceAgent({ news, currentIndex, onNext, onPrev, onPause, onR
     } else if (intent === "question" && query) {
       stopSpeaking();
       onPause();
+      speak("Let me find that for you.");
       const article = news[currentIndex];
       const answerRes = await fetch("/api/voice-intent", {
         method: "POST",
@@ -107,7 +91,7 @@ export function useVoiceAgent({ news, currentIndex, onNext, onPrev, onPause, onR
         body: JSON.stringify({
           type: "question",
           text: query,
-          articleContext: article?.simplified_text ?? article?.description ?? "",
+          articleContext: article?.simplified_article ?? article?.simplified_text ?? article?.description ?? "",
         }),
       });
       const { result } = await answerRes.json();
@@ -115,34 +99,48 @@ export function useVoiceAgent({ news, currentIndex, onNext, onPrev, onPause, onR
       speak(answer);
       onAnswer?.(answer);
     } else {
-      speak("Sorry, I didn't catch that.");
+      speak("Sorry, I didn't catch that. Try saying next, pause, or ask a question.");
     }
   }, [news, currentIndex, onNext, onPrev, onPause, onResume, speak, stopSpeaking, onAnswer]);
 
-  // ── Speech recognition ─────────────────────────────────────────────────────
+  // ── Start listening ───────────────────────────────────────────────────────
   const startListening = useCallback(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) return alert("Browser doesn't support speech recognition. Use Chrome.");
+    if (!SpeechRecognition) {
+      alert("Speech recognition not supported. Please use Chrome.");
+      return;
+    }
+
+    // Greet the user first
+    speak("Hi! How may I help you? You can say next, pause, go back, or ask me anything about the news.");
+
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = false;
     recognition.lang = "en-US";
+
     recognition.onresult = (e) => {
       const text = e.results[e.results.length - 1][0].transcript.trim();
       setTranscript(text);
       handleCommand(text);
     };
-    recognition.onerror = () => setIsListening(false);
+    recognition.onerror = (e) => {
+      console.error("Speech recognition error:", e.error);
+      setIsListening(false);
+    };
     recognition.onend = () => setIsListening(false);
+
     recognitionRef.current = recognition;
     recognition.start();
     setIsListening(true);
-  }, [handleCommand]);
+  }, [handleCommand, speak]);
 
+  // ── Stop listening ────────────────────────────────────────────────────────
   const stopListening = useCallback(() => {
     recognitionRef.current?.stop();
+    stopSpeaking();
     setIsListening(false);
-  }, []);
+  }, [stopSpeaking]);
 
   return { isListening, transcript, startListening, stopListening, speak, stopSpeaking };
 }
