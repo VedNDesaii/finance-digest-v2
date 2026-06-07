@@ -1,5 +1,5 @@
 // hooks/useVoiceAgent.js
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback } from "react";
 
 export function useVoiceAgent({ news, currentIndex, onNext, onPrev, onPause, onResume, onAnswer }) {
   const [isListening, setIsListening] = useState(false);
@@ -7,38 +7,39 @@ export function useVoiceAgent({ news, currentIndex, onNext, onPrev, onPause, onR
   const recognitionRef = useRef(null);
   const audioRef = useRef(null);
 
-  // ── Google TTS speak function ──────────────────────────────────────────────
+  // ── ElevenLabs TTS speak function ─────────────────────────────────────────
   const speak = useCallback(async (text) => {
     try {
-      // Stop any current audio
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
       }
 
-      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_TTS_KEY;
+      const apiKey = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY;
       if (!apiKey) {
-        console.error("NEXT_PUBLIC_GOOGLE_TTS_KEY missing");
+        console.error("NEXT_PUBLIC_ELEVENLABS_API_KEY missing");
         return;
       }
 
+      // Using "Adam" voice - natural, professional male voice
+      const voiceId = "pNInz6obpgDQGcFmaJgB";
+
       const response = await fetch(
-        `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,
+        `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "xi-api-key": apiKey,
+          },
           body: JSON.stringify({
-            input: { text },
-            voice: {
-              languageCode: "en-US",
-              name: "en-US-Neural2-D",
-              ssmlGender: "MALE",
-            },
-            audioConfig: {
-              audioEncoding: "MP3",
-              speakingRate: 1.05,
-              pitch: 0.0,
-              effectsProfileId: ["headphone-class-device"],
+            text,
+            model_id: "eleven_turbo_v2",
+            voice_settings: {
+              stability: 0.5,
+              similarity_boost: 0.75,
+              style: 0.0,
+              use_speaker_boost: true,
             },
           }),
         }
@@ -46,17 +47,12 @@ export function useVoiceAgent({ news, currentIndex, onNext, onPrev, onPause, onR
 
       if (!response.ok) {
         const err = await response.json();
-        console.error("Google TTS error:", err);
+        console.error("ElevenLabs TTS error:", err);
         return;
       }
 
-      const data = await response.json();
-      const binary = atob(data.audioContent);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      const blob = new Blob([bytes], { type: "audio/mp3" });
+      const blob = await response.blob();
       const url = URL.createObjectURL(blob);
-
       const audio = new Audio(url);
       audioRef.current = audio;
       audio.play();
