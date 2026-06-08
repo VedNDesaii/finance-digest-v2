@@ -3,35 +3,35 @@
     "date": "2026-06-08",
     "readyAt": "16:00",
     "indian": {
-      "verdict": "Indian markets fell today; Sensex 73,524 (-0.97%), Nifty 23,123 (-1.04%).",
-      "factors": "Sensex 73,524 (\u25bc 719, -0.97%), Nifty 23,123 (\u25bc 244, -1.04%), FII activity and global cues influenced trade",
+      "verdict": "Indian markets fell today; Sensex at 73,524 (-0.97%), Nifty declined amid broad selling pressure.",
+      "factors": "Sensex 73,524 (\u25bc 719, -0.97%), Nifty fell, FII selling and global weak cues weighed on markets",
       "verdictSentiment": "negative",
       "marketTime": "3:30 PM IST",
-      "updatedAt": "Updated 04:58 PM IST"
+      "updatedAt": "Updated  IST"
     },
     "us": {
-      "verdict": "US markets fell today; S&P 500 at 7,384 (-2.64%), tech stocks led the move.",
-      "factors": "S&P 500 7,384 (\u25bc 201, -2.64%), Nasdaq 25,709 (\u25bc 1,122, -4.18%), Dow 50,867 (\u25bc 695, -1.35%)",
-      "verdictSentiment": "negative",
+      "verdict": "US markets data will update after market close at 1:30 AM IST.",
+      "factors": "S&P 500, Nasdaq, Dow Jones \u2014 market closes at 4:00 PM EST",
+      "verdictSentiment": "neutral",
       "marketTime": "4:00 PM EST",
-      "updatedAt": "Updated 04:58 PM IST"
+      "updatedAt": "Updated  IST"
     }
   },
   "yesterday": {
     "date": "2026-06-08",
     "indian": {
-      "verdict": "Indian markets fell today; Sensex 73,524 (-0.97%), Nifty 23,123 (-1.04%).",
-      "factors": "Sensex 73,524 (\u25bc 719, -0.97%), Nifty 23,123 (\u25bc 244, -1.04%), FII activity and global cues influenced trade",
+      "verdict": "Indian markets fell today; Sensex at 73,524 (-0.97%), Nifty declined amid broad selling pressure.",
+      "factors": "Sensex 73,524 (\u25bc 719, -0.97%), Nifty fell, FII selling and global weak cues weighed on markets",
       "verdictSentiment": "negative",
       "marketTime": "3:30 PM IST",
-      "updatedAt": "Updated 04:58 PM IST"
+      "updatedAt": "Updated  IST"
     },
     "us": {
-      "verdict": "US markets fell today; S&P 500 at 7,384 (-2.64%), tech stocks led the move.",
-      "factors": "S&P 500 7,384 (\u25bc 201, -2.64%), Nasdaq 25,709 (\u25bc 1,122, -4.18%), Dow 50,867 (\u25bc 695, -1.35%)",
-      "verdictSentiment": "negative",
+      "verdict": "US markets data will update after market close at 1:30 AM IST.",
+      "factors": "S&P 500, Nasdaq, Dow Jones \u2014 market closes at 4:00 PM EST",
+      "verdictSentiment": "neutral",
       "marketTime": "4:00 PM EST",
-      "updatedAt": "Updated 04:58 PM IST"
+      "updatedAt": "Updated  IST"
     }
   }
 }
