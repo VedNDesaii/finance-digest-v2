@@ -248,8 +248,7 @@ function MarketSummaryCard({ market, dark, isMobile }) {
           .select('*')
           .order('created_at', { ascending: false })
           .limit(1)
-          .single()
-        if (!error && data) setSummaryData(data)
+        if (!error && data && data.length > 0) setSummaryData(data[0])
       } catch (e) {
         console.error('Market summary fetch failed', e)
       }
