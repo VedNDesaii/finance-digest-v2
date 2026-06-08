@@ -239,16 +239,12 @@ function MarketSummaryCard({ market, dark, isMobile }) {
     : 'linear-gradient(90deg, #3B82F6, #6366F1, #8B5CF6)'
 
   useEffect(() => {
-    async function fetchSummary() {
+   async function fetchSummary() {
       setLoading(true)
       try {
-        const tableName = isIndia ? 'indian_market_summary' : 'us_market_summary'
-        const { data, error } = await supabase
-          .from(tableName)
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(1)
-        if (!error && data && data.length > 0) setSummaryData(data[0])
+        const res = await fetch(`/api/market-summary?market=${isIndia ? 'indian' : 'us'}`)
+        const data = await res.json()
+        if (data && !data.error) setSummaryData(data)
       } catch (e) {
         console.error('Market summary fetch failed', e)
       }
