@@ -1,11 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_KEY
-)
-
 export async function GET(request) {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  )
+
   const { searchParams } = new URL(request.url)
   const market = searchParams.get('market') || 'indian'
   const table = market === 'indian' ? 'indian_market_summary' : 'us_market_summary'
@@ -17,7 +17,7 @@ export async function GET(request) {
     .limit(1)
 
   if (error || !data || data.length === 0) {
-    return Response.json({ error: 'Failed to fetch' }, { status: 500 })
+    return Response.json({ error: error?.message || 'No data' }, { status: 500 })
   }
   return Response.json(data[0])
 }
