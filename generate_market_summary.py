@@ -145,3 +145,21 @@ if __name__ == "__main__":
         print(f"  ❌ US summary failed: {e}")
 
     print("\n✅ Done!")
+def save_to_json():
+    import json, os
+    from supabase import create_client
+    sb = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
+    
+    indian = sb.table("indian_market_summary").select("*").order("created_at", desc=True).limit(1).execute()
+    us     = sb.table("us_market_summary").select("*").order("created_at", desc=True).limit(1).execute()
+    
+    out = {
+        "indian": indian.data[0] if indian.data else {},
+        "us":     us.data[0]     if us.data     else {}
+    }
+    
+    with open("public/market-data.json", "w") as f:
+        json.dump(out, f)
+    print("✅ Saved to public/market-data.json")
+
+save_to_json()

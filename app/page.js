@@ -242,10 +242,10 @@ function MarketSummaryCard({ market, dark, isMobile }) {
    async function fetchSummary() {
       setLoading(true)
       try {
-        const res = await fetch(`/api/mkt?m=${isIndia ? "indian" : "us"}`)
-        const data = await res.json()
-        if (data && data.ok) setSummaryData(data.data)
-      } catch (e) {
+        const res = await fetch('/market-data.json')
+        const json = await res.json()
+        const data = json ? (isIndia ? json.indian : json.us) : null
+        if (data && Object.keys(data).length > 0) setSummaryData(data)
         console.error('Market summary fetch failed', e)
       }
       setLoading(false)
