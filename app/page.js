@@ -241,10 +241,10 @@ function MarketSummaryCard({ market, dark, isMobile }) {
   useEffect(() => {
    async function fetchSummary() {
       setLoading(true)
-      try {
-        const res = await fetch('/market-data.json')
+        const res = await fetch('/market-data.json', { cache: 'no-store' })
         const json = await res.json()
-        const data = json ? (isIndia ? json.indian : json.us) : null
+        const data = isIndia ? json.indian : json.us
+        if (data && Object.keys(data).length > 0) setSummaryData(data)
         if (data && Object.keys(data).length > 0) setSummaryData(data)
         console.error('Market summary fetch failed', e)
       }
