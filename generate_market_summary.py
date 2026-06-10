@@ -56,7 +56,7 @@ def fetch_us_prices():
 def get_recent_articles(categories, limit=5):
     articles = []
     for cat in categories:
-        result = supabase.table("processed_articles").select("title, simplified_article").eq("category", cat).order("created_at", desc=True).limit(limit).execute()
+        result = supabase.table("processed_articles").select("title, simplified_article").eq("category", cat).order("updated_at", desc=True).limit(limit).execute()
         articles += result.data or []
     return articles[:15]
 
@@ -150,8 +150,8 @@ def save_to_json():
     from supabase import create_client
     sb = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
     
-    indian = sb.table("indian_market_summary").select("*").order("created_at", desc=True).limit(1).execute()
-    us     = sb.table("us_market_summary").select("*").order("created_at", desc=True).limit(1).execute()
+    indian = sb.table("indian_market_summary").select("*").order("updated_at", desc=True).limit(1).execute()
+    us     = sb.table("us_market_summary").select("*").order("updated_at", desc=True).limit(1).execute()
     
     out = {
         "indian": indian.data[0] if indian.data else {},
