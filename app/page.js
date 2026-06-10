@@ -7,11 +7,10 @@ import MyPortfolio from '../components/MyPortfolio'
 import { useAuth } from '../hooks/useAuth'
 
 const BOTTOM_TABS = [
-  { id: 'top',     icon: '📰', label: 'Top' },
-  { id: 'markets', icon: '📈', label: 'Markets' },
-  { id: 'sectors', icon: '🏭', label: 'Sectors' },
-  { id: 'finance', icon: '🏦', label: 'Finance' },
-  { id: 'more',    icon: '⋯',  label: 'More' },
+  { id: 'top',       icon: '📰', label: 'Top' },
+  { id: 'markets',   icon: '📈', label: 'Markets' },
+  { id: 'sectors',   icon: '🏭', label: 'Sectors' },
+  { id: 'portfolio', icon: '💰', label: 'Portfolio' },
 ]
 
 const MARKETS_SECTIONS = [
@@ -104,10 +103,9 @@ function isWeekend() {
 function getActiveMobileTab(section) {
   if (section === 'headlines') return 'top'
   if (section === 'quiz') return 'top'
-  if (['indian-markets','us-markets','global-economy'].includes(section)) return 'markets'
+  if (['indian-markets','us-markets','global-economy','macro-policy','banking-finance'].includes(section)) return 'markets'
   if (SECTOR_IDS.includes(section)) return 'sectors'
-  if (['banking-finance','macro-policy'].includes(section)) return 'finance'
-  if (section === 'portfolio') return 'more'
+  if (section === 'portfolio') return 'portfolio'
   return 'top'
 }
 
@@ -689,6 +687,7 @@ export default function Home() {
   const [prediction, setPrediction]     = useState(null)
   const [predCorrect, setPredCorrect]   = useState(null)
   const [showPointPop, setShowPointPop] = useState(null)
+  const [navShrunk, setNavShrunk] = useState(false)
 
   const { user, plan } = useAuth()
   const isPro   = true
@@ -783,6 +782,18 @@ export default function Home() {
   }, [])
 
   useEffect(() => {
+    let lastY = 0
+    const onScroll = () => {
+      const y = window.scrollY
+      if (y > lastY && y > 60) setNavShrunk(true)
+      else if (y < lastY) setNavShrunk(false)
+      lastY = y
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  useEffect(() => {
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
   }, [dark])
 
@@ -849,8 +860,8 @@ export default function Home() {
   }
 
   function handleTabClick(tabId) {
-    if (tabId === 'top')     handleSectionClick('headlines')
-    else if (tabId === 'finance') handleSectionClick('banking-finance')
+    if (tabId === 'top')       handleSectionClick('headlines')
+    else if (tabId === 'portfolio') handleSectionClick('portfolio')
     else setOverlay(overlay === tabId ? null : tabId)
   }
 
@@ -959,7 +970,9 @@ export default function Home() {
         position: 'fixed',
         bottom: isMobile ? '16px' : '24px',
         left: '50%',
-        transform: 'translateX(-50%)',
+        transform: `translateX(-50%) scale(${navShrunk ? 0.82 : 1})`,
+        transformOrigin: 'bottom center',
+        opacity: navShrunk ? 0.7 : 1,
         height: `${NAV_BAR_H}px`,
         display: 'flex', alignItems: 'center',
         background: dark ? 'rgba(26,20,16,0.92)' : 'rgba(255,255,255,0.92)',
@@ -973,6 +986,7 @@ export default function Home() {
         zIndex: 40,
         padding: '0 8px',
         gap: '4px',
+        transition: 'transform 0.3s ease, opacity 0.3s ease',
       }}>
         {BOTTOM_TABS.map(tab => {
           const isActive = activeTab === tab.id || overlay === tab.id
