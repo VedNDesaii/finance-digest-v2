@@ -75,7 +75,7 @@ RSS_FEEDS = [
     {"url": "https://www.business-standard.com/rss/markets-106.rss",                                   "category": "indian-markets"},
     {"url": "https://economictimes.indiatimes.com/markets/stocks/news/rss.cms",                        "category": "indian-markets"},
     {"url": "https://www.moneycontrol.com/rss/marketreports.xml",                                      "category": "indian-markets"},
-
+    {"url": "https://www.livemint.com/rss/markets",                                                    "category": "indian-markets"},
     # ── US Markets ──
     {"url": "https://www.cnbc.com/id/10001147/device/rss/rss.html",                                    "category": "us-markets"},
     {"url": "https://feeds.content.dowjones.io/public/rss/mw_topstories",                              "category": "us-markets"},
@@ -83,13 +83,13 @@ RSS_FEEDS = [
     {"url": "https://www.cnbc.com/id/15839069/device/rss/rss.html",                                    "category": "us-markets"},
     {"url": "https://www.cnbc.com/id/100003114/device/rss/rss.html",                                   "category": "us-markets"},
     {"url": "https://feeds.content.dowjones.io/public/rss/mw_realtimeheadlines",                       "category": "us-markets"},
-
+    {"url": "https://feeds.bbci.co.uk/news/business/rss.xml",                                          "category": "us-markets"},
     # ── Global Economy ──
     {"url": "https://feeds.bbci.co.uk/news/business/rss.xml",                                          "category": "global-economy"},
     {"url": "https://www.cnbc.com/id/100003114/device/rss/rss.html",                                   "category": "global-economy"},
     {"url": "https://feeds.bbci.co.uk/news/world/rss.xml",                                             "category": "global-economy"},
     {"url": "https://www.theguardian.com/business/economics/rss",                                      "category": "global-economy"},
-
+    {"url": "https://economictimes.indiatimes.com/news/international/business/rss.cms",                "category": "global-economy"},
     # ── Banking & Finance ──
     {"url": "https://www.business-standard.com/rss/finance-103.rss",                                   "category": "banking-finance"},
     {"url": "https://www.business-standard.com/rss/banking-105.rss",                                   "category": "banking-finance"},
@@ -97,22 +97,20 @@ RSS_FEEDS = [
     {"url": "https://www.moneycontrol.com/rss/banking.xml",                                            "category": "banking-finance"},
     {"url": "https://www.thehindubusinessline.com/money-and-banking/?service=rss",                     "category": "banking-finance"},
     {"url": "https://www.cnbc.com/id/10000664/device/rss/rss.html",                                    "category": "banking-finance"},
-
+    {"url": "https://www.livemint.com/rss/industry",                                                   "category": "banking-finance"},
     # ── Macro & Policy ──
     {"url": "https://www.business-standard.com/rss/economy-policy-102.rss",                            "category": "macro-policy"},
     {"url": "https://economictimes.indiatimes.com/news/economy/rss.cms",                               "category": "macro-policy"},
     {"url": "https://www.thehindubusinessline.com/economy/?service=rss",                               "category": "macro-policy"},
     {"url": "https://economictimes.indiatimes.com/news/economy/policy/rss.cms",                        "category": "macro-policy"},
     {"url": "https://www.moneycontrol.com/rss/economy.xml",                                            "category": "macro-policy"},
-
     # ── Technology & IT ──
     {"url": "https://economictimes.indiatimes.com/tech/rss.cms",                                       "category": "technology-it"},
     {"url": "https://www.business-standard.com/rss/technology-108.rss",                                "category": "technology-it"},
     {"url": "https://www.thehindubusinessline.com/info-tech/?service=rss",                             "category": "technology-it"},
     {"url": "https://www.moneycontrol.com/rss/technology.xml",                                         "category": "technology-it"},
     {"url": "https://www.cnbc.com/id/19854910/device/rss/rss.html",                                    "category": "technology-it"},
-    {"url": "https://feeds.feedburner.com/ndtvprofit-latest",                                           "category": "technology-it"},
-
+    {"url": "https://www.livemint.com/rss/technology",                                                 "category": "technology-it"},
     # ── Pharma & Health ──
     {"url": "https://economictimes.indiatimes.com/industry/healthcare/biotech/pharmaceuticals/rss.cms","category": "pharma-health"},
     {"url": "https://www.business-standard.com/rss/healthcare-241.rss",                                "category": "pharma-health"},
@@ -121,7 +119,6 @@ RSS_FEEDS = [
     {"url": "https://economictimes.indiatimes.com/industry/healthcare/biotech/rss.cms",                "category": "pharma-health"},
     {"url": "https://www.livemint.com/rss/science",                                                    "category": "pharma-health"},
     {"url": "https://feeds.bbci.co.uk/news/health/rss.xml",                                            "category": "pharma-health"},
-
     # ── Auto & EV ──
     {"url": "https://economictimes.indiatimes.com/industry/auto/rss.cms",                              "category": "auto-ev"},
     {"url": "https://www.business-standard.com/rss/automobile-103.rss",                                "category": "auto-ev"},
@@ -129,21 +126,18 @@ RSS_FEEDS = [
     {"url": "https://www.moneycontrol.com/rss/automobile.xml",                                         "category": "auto-ev"},
     {"url": "https://economictimes.indiatimes.com/industry/auto/two-wheelers/rss.cms",                 "category": "auto-ev"},
     {"url": "https://www.livemint.com/rss/auto",                                                       "category": "auto-ev"},
-
     # ── Energy & Oil ──
     {"url": "https://economictimes.indiatimes.com/industry/energy/rss.cms",                            "category": "energy-oil"},
     {"url": "https://www.business-standard.com/rss/oil-gas-109.rss",                                   "category": "energy-oil"},
     {"url": "https://www.thehindubusinessline.com/economy/energy/?service=rss",                        "category": "energy-oil"},
     {"url": "https://www.cnbc.com/id/10000734/device/rss/rss.html",                                    "category": "energy-oil"},
     {"url": "https://economictimes.indiatimes.com/industry/energy/oil-gas/rss.cms",                    "category": "energy-oil"},
-
     # ── Metals & Mining ──
     {"url": "https://economictimes.indiatimes.com/industry/indl-goods/svs/metals-mining/rss.cms",      "category": "metals-mining"},
     {"url": "https://www.business-standard.com/rss/metals-mining-120.rss",                             "category": "metals-mining"},
     {"url": "https://www.thehindubusinessline.com/markets/commodities/?service=rss",                   "category": "metals-mining"},
     {"url": "https://www.moneycontrol.com/rss/commodities.xml",                                        "category": "metals-mining"},
     {"url": "https://economictimes.indiatimes.com/industry/indl-goods/svs/steel/rss.cms",              "category": "metals-mining"},
-
     # ── Infrastructure ──
     {"url": "https://economictimes.indiatimes.com/industry/indl-goods/svs/construction/rss.cms",       "category": "infrastructure"},
     {"url": "https://www.business-standard.com/rss/infrastructure-217.rss",                            "category": "infrastructure"},
@@ -151,7 +145,6 @@ RSS_FEEDS = [
     {"url": "https://www.thehindubusinessline.com/economy/logistics/?service=rss",                     "category": "infrastructure"},
     {"url": "https://economictimes.indiatimes.com/industry/transportation/railways/rss.cms",            "category": "infrastructure"},
     {"url": "https://economictimes.indiatimes.com/industry/transportation/roadways/rss.cms",            "category": "infrastructure"},
-
     # ── FMCG & Consumer ──
     {"url": "https://economictimes.indiatimes.com/industry/cons-products/fmcg/rss.cms",                "category": "fmcg-consumer"},
     {"url": "https://www.business-standard.com/rss/consumer-104.rss",                                  "category": "fmcg-consumer"},
@@ -160,7 +153,6 @@ RSS_FEEDS = [
     {"url": "https://economictimes.indiatimes.com/industry/cons-products/food/rss.cms",                "category": "fmcg-consumer"},
     {"url": "https://www.thehindubusinessline.com/companies/?service=rss",                             "category": "fmcg-consumer"},
     {"url": "https://www.livemint.com/rss/companies",                                                  "category": "fmcg-consumer"},
-
     # ── Renewables ──
     {"url": "https://economictimes.indiatimes.com/industry/renewables/rss.cms",                        "category": "renewables"},
     {"url": "https://www.business-standard.com/rss/renewable-energy-193.rss",                          "category": "renewables"},
@@ -168,7 +160,6 @@ RSS_FEEDS = [
     {"url": "https://economictimes.indiatimes.com/industry/energy/power/rss.cms",                      "category": "renewables"},
     {"url": "https://www.livemint.com/rss/industry",                                                   "category": "renewables"},
     {"url": "https://economictimes.indiatimes.com/industry/energy/coal/rss.cms",                       "category": "renewables"},
-
     # ── Real Estate ──
     {"url": "https://economictimes.indiatimes.com/wealth/real-estate/rss.cms",                         "category": "real-estate"},
     {"url": "https://www.moneycontrol.com/rss/realestate.xml",                                         "category": "real-estate"},
@@ -176,7 +167,6 @@ RSS_FEEDS = [
     {"url": "https://economictimes.indiatimes.com/industry/services/property-/-cstruction/rss.cms",    "category": "real-estate"},
     {"url": "https://www.thehindubusinessline.com/real-estate/?service=rss",                           "category": "real-estate"},
     {"url": "https://www.business-standard.com/rss/real-estate-175.rss",                               "category": "real-estate"},
-
     # ── Telecom & Media ──
     {"url": "https://economictimes.indiatimes.com/industry/telecom/rss.cms",                           "category": "telecom-media"},
     {"url": "https://www.business-standard.com/rss/telecom-141.rss",                                   "category": "telecom-media"},
@@ -194,6 +184,7 @@ def delete_in_chunks(table, id_list):
 
 
 def cleanup_old_articles():
+    # ✅ Keep only today's articles — delete anything older than 24 hours
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
     print(f"\n🧹 Cleaning up articles older than 24 hours...")
     old_raw = supabase.table("raw_articles").select("id").lt("created_at", cutoff).execute()
@@ -214,15 +205,20 @@ def cleanup_old_articles():
     print(f"  🗑️  Deleted {len(old_raw_ids)} old raw articles")
 
 
-def article_exists(link):
-    response = supabase.table("raw_articles").select("id").eq("link", link).execute()
-    return len(response.data) > 0
+def get_existing_links():
+    """Load all existing article links into a set for fast O(1) duplicate checking"""
+    result = supabase.table("raw_articles").select("link, title").execute()
+    links  = {r["link"] for r in result.data if r.get("link")}
+    titles = {r["title"][:60].lower().strip() for r in result.data if r.get("title")}
+    return links, titles
 
 
-def similar_title_exists(title):
-    title_prefix = title[:60].strip()
-    response = supabase.table("raw_articles").select("id").ilike("title", f"{title_prefix}%").execute()
-    return len(response.data) > 0
+def article_exists(link, existing_links):
+    return link in existing_links
+
+
+def similar_title_exists(title, existing_titles):
+    return title[:60].lower().strip() in existing_titles
 
 
 def save_article(data):
@@ -269,8 +265,27 @@ def get_image_from_entry(entry):
     return None
 
 
+def is_today(entry):
+    """Check if RSS entry was published today or yesterday (within 36 hours)"""
+    published = getattr(entry, 'published_parsed', None) or getattr(entry, 'updated_parsed', None)
+    if not published:
+        return True  # No date = accept it
+    try:
+        pub_dt  = datetime(*published[:6], tzinfo=timezone.utc)
+        cutoff  = datetime.now(timezone.utc) - timedelta(hours=36)
+        return pub_dt >= cutoff
+    except Exception:
+        return True
+
+
 def fetch_articles():
     cleanup_old_articles()
+
+    # ✅ Load ALL existing links/titles once — much faster than per-article DB calls
+    print("\n📋 Loading existing articles for dedup check...")
+    existing_links, existing_titles = get_existing_links()
+    print(f"  Found {len(existing_links)} existing articles in DB")
+
     total_saved = 0
 
     for feed_item in RSS_FEEDS:
@@ -294,9 +309,15 @@ def fetch_articles():
 
                 if not link:
                     continue
-                if article_exists(link):
+
+                # ✅ Skip if not recent (older than 36 hours)
+                if not is_today(entry):
                     continue
-                if similar_title_exists(title):
+
+                # ✅ Fast in-memory duplicate check
+                if article_exists(link, existing_links):
+                    continue
+                if similar_title_exists(title, existing_titles):
                     continue
 
                 content = scrape_content(link)
@@ -326,6 +347,11 @@ def fetch_articles():
                 }
 
                 save_article(article_data)
+
+                # ✅ Add to in-memory sets so subsequent feeds don't re-add same article
+                existing_links.add(link)
+                existing_titles.add(title[:60].lower().strip())
+
                 total_saved     += 1
                 saved_this_feed += 1
 
