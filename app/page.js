@@ -735,6 +735,7 @@ export default function Home() {
   const [predCorrect, setPredCorrect]   = useState(null)
   const [showPointPop, setShowPointPop] = useState(null)
   const [navShrunk, setNavShrunk] = useState(false)
+  const [navHovered, setNavHovered] = useState(false)
 
   const { user, plan } = useAuth()
   const isPro   = true
@@ -1014,11 +1015,15 @@ export default function Home() {
       </header>
 
       {/* ── Floating Bottom Nav ── */}
-      <nav style={{
+      <nav
+        onMouseEnter={() => setNavHovered(true)}
+        onMouseLeave={() => setNavHovered(false)}
+        onClick={() => setNavHovered(true)}
+        style={{
         position: 'fixed',
         bottom: isMobile ? '16px' : '24px',
         left: '50%',
-        transform: `translateX(-50%) scale(${navShrunk ? 0.93 : 1})`,
+        transform: `translateX(-50%) scale(${navShrunk && !navHovered ? 0.93 : 1})`,
         transformOrigin: 'bottom center',
         opacity: 1,
         display: 'flex', alignItems: 'center',
