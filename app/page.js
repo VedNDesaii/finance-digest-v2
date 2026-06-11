@@ -669,7 +669,7 @@ function YesterdayQuiz({ dark, isMobile, addIQ, earnedBadges, awardBadge }) {
 // ── NavTab component ──────────────────────────────────────────────────────────
 function NavTab({ tab, isActive, isMobile, dark, onClick }) {
   const [hovered, setHovered] = useState(false)
-  const expanded = isActive || (!isMobile && hovered)
+  const expanded = isActive || hovered
   return (
     <button
       onClick={onClick}
@@ -680,22 +680,22 @@ function NavTab({ tab, isActive, isMobile, dark, onClick }) {
         gap: expanded ? '7px' : '0px',
         border: 'none', cursor: 'pointer',
         height: '46px',
-        width: expanded ? 'auto' : '46px',
-        minWidth: expanded ? '110px' : '46px',
-        padding: expanded ? '0 18px' : '0',
+        minWidth: expanded ? '110px' : '52px',
+        padding: expanded ? '0 18px' : '0 8px',
         borderRadius: '99px',
         background: isActive
           ? 'linear-gradient(135deg, #C9A84C, #E8C97A)'
-          : hovered && !isMobile
+          : hovered
             ? (dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)')
             : 'transparent',
         transition: 'all 0.35s cubic-bezier(0.34,1.56,0.64,1)',
         overflow: 'hidden',
       }}>
       <span style={{
-        fontSize: expanded ? '18px' : '22px',
+        fontSize: '22px',
         lineHeight: 1, flexShrink: 0,
-        filter: isActive ? 'none' : (dark ? 'grayscale(0.3) opacity(0.6)' : 'grayscale(0.3) opacity(0.5)'),
+        filter: isActive ? 'none' : 'none',
+        opacity: 1,
         transition: 'all 0.3s ease',
       }}>{tab.icon}</span>
       <span style={{
