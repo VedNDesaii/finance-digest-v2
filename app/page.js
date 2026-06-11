@@ -679,22 +679,22 @@ function NavTab({ tab, isActive, isMobile, dark, onClick }) {
         display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
         gap: expanded ? '7px' : '0px',
         border: 'none', cursor: 'pointer',
-        height: '46px',
-        minWidth: expanded ? '110px' : '52px',
-        padding: expanded ? '0 18px' : '0 8px',
+        height: '50px',
+        minWidth: expanded ? '116px' : '56px',
+        padding: expanded ? '0 20px' : '0 8px',
         borderRadius: '99px',
         background: isActive
           ? 'linear-gradient(135deg, #C9A84C, #E8C97A)'
           : hovered
-            ? (dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)')
+            ? (dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)')
             : 'transparent',
         transition: 'all 0.35s cubic-bezier(0.34,1.56,0.64,1)',
         overflow: 'hidden',
       }}>
       <span style={{
-        fontSize: '22px',
-        lineHeight: 1, flexShrink: 0,
-        filter: isActive ? 'none' : 'none',
+        fontSize: '24px',
+        lineHeight: 1,
+        flexShrink: 0,
         opacity: 1,
         transition: 'all 0.3s ease',
       }}>{tab.icon}</span>
@@ -907,6 +907,7 @@ export default function Home() {
   }
 
   function handleTabClick(tabId) {
+    setNavShrunk(false)
     if (tabId === 'top')       handleSectionClick('headlines')
     else if (tabId === 'portfolio') handleSectionClick('portfolio')
     else setOverlay(overlay === tabId ? null : tabId)
@@ -1017,9 +1018,9 @@ export default function Home() {
         position: 'fixed',
         bottom: isMobile ? '16px' : '24px',
         left: '50%',
-        transform: `translateX(-50%) scale(${navShrunk ? 0.82 : 1})`,
+        transform: `translateX(-50%)`,
         transformOrigin: 'bottom center',
-        opacity: navShrunk ? 0.65 : 1,
+        opacity: 1,
         display: 'flex', alignItems: 'center',
         background: dark ? 'rgba(26,20,16,0.95)' : 'rgba(255,255,255,0.95)',
         backdropFilter: 'blur(20px)',
@@ -1032,7 +1033,7 @@ export default function Home() {
         zIndex: 40,
         padding: '6px 8px',
         gap: '2px',
-        transition: 'transform 0.35s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s ease',
+        transition: 'transform 0.35s cubic-bezier(0.34,1.56,0.64,1)',
       }}>
         {BOTTOM_TABS.map(tab => {
           const isActive = activeTab === tab.id || overlay === tab.id
