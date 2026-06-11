@@ -1018,7 +1018,7 @@ export default function Home() {
         position: 'fixed',
         bottom: isMobile ? '16px' : '24px',
         left: '50%',
-        transform: `translateX(-50%)`,
+        transform: `translateX(-50%) scale(${navShrunk ? 0.93 : 1})`,
         transformOrigin: 'bottom center',
         opacity: 1,
         display: 'flex', alignItems: 'center',
