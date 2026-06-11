@@ -56,7 +56,7 @@ def fetch_us_prices():
 def get_recent_articles(categories, limit=5):
     articles = []
     for cat in categories:
-        result = supabase.table("processed_articles").select("title, simplified_article").eq("category", cat).order("updated_at", desc=True).limit(limit).execute()
+        result = supabase.table("processed_articles").select("title, simplified_article").eq("category", cat).order("created_at", desc=True).limit(limit).execute()
         articles += result.data or []
     return articles[:15]
 

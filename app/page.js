@@ -666,6 +666,53 @@ function YesterdayQuiz({ dark, isMobile, addIQ, earnedBadges, awardBadge }) {
   )
 }
 
+// ── NavTab component ──────────────────────────────────────────────────────────
+function NavTab({ tab, isActive, isMobile, dark, onClick }) {
+  const [hovered, setHovered] = useState(false)
+  const expanded = isActive || (!isMobile && hovered)
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+        gap: expanded ? '7px' : '0px',
+        border: 'none', cursor: 'pointer',
+        height: '46px',
+        width: expanded ? 'auto' : '46px',
+        minWidth: expanded ? '110px' : '46px',
+        padding: expanded ? '0 18px' : '0',
+        borderRadius: '99px',
+        background: isActive
+          ? 'linear-gradient(135deg, #C9A84C, #E8C97A)'
+          : hovered && !isMobile
+            ? (dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)')
+            : 'transparent',
+        transition: 'all 0.35s cubic-bezier(0.34,1.56,0.64,1)',
+        overflow: 'hidden',
+      }}>
+      <span style={{
+        fontSize: expanded ? '18px' : '22px',
+        lineHeight: 1, flexShrink: 0,
+        filter: isActive ? 'none' : (dark ? 'grayscale(0.3) opacity(0.6)' : 'grayscale(0.3) opacity(0.5)'),
+        transition: 'all 0.3s ease',
+      }}>{tab.icon}</span>
+      <span style={{
+        fontSize: '13px', fontWeight: '700',
+        color: isActive ? '#1A1410' : (dark ? '#F0EBE3' : '#1A1410'),
+        fontFamily: 'var(--font-ui)',
+        whiteSpace: 'nowrap',
+        maxWidth: expanded ? '80px' : '0px',
+        opacity: expanded ? 1 : 0,
+        overflow: 'hidden',
+        transition: 'all 0.35s cubic-bezier(0.34,1.56,0.64,1)',
+        letterSpacing: '-0.01em',
+      }}>{tab.label}</span>
+    </button>
+  )
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 export default function Home() {
   const [articles, setArticles]           = useState([])
@@ -965,55 +1012,39 @@ export default function Home() {
         )}
       </header>
 
-      {/* ── Floating Bottom Nav (desktop + mobile) ── */}
+      {/* ── Floating Bottom Nav ── */}
       <nav style={{
         position: 'fixed',
         bottom: isMobile ? '16px' : '24px',
         left: '50%',
         transform: `translateX(-50%) scale(${navShrunk ? 0.82 : 1})`,
         transformOrigin: 'bottom center',
-        opacity: navShrunk ? 0.7 : 1,
-        height: `${NAV_BAR_H}px`,
+        opacity: navShrunk ? 0.65 : 1,
         display: 'flex', alignItems: 'center',
-        background: dark ? 'rgba(26,20,16,0.92)' : 'rgba(255,255,255,0.92)',
+        background: dark ? 'rgba(26,20,16,0.95)' : 'rgba(255,255,255,0.95)',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
         borderRadius: '99px',
         border: `1px solid ${dark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)'}`,
         boxShadow: dark
           ? '0 8px 32px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3)'
-          : '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)',
+          : '0 8px 32px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.06)',
         zIndex: 40,
-        padding: '0 8px',
-        gap: '4px',
-        transition: 'transform 0.3s ease, opacity 0.3s ease',
+        padding: '6px 8px',
+        gap: '2px',
+        transition: 'transform 0.35s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s ease',
       }}>
         {BOTTOM_TABS.map(tab => {
           const isActive = activeTab === tab.id || overlay === tab.id
           return (
-            <button key={tab.id} onClick={() => handleTabClick(tab.id)} style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-              gap: '3px', border: 'none', cursor: 'pointer', height: '52px',
-              width: isMobile ? '60px' : '72px',
-              borderRadius: '99px',
-              background: isActive
-                ? (dark ? 'rgba(201,168,76,0.18)' : 'rgba(201,168,76,0.12)')
-                : 'transparent',
-              transition: 'all 0.2s ease',
-            }}>
-              <span style={{
-                fontSize: '22px', lineHeight: 1,
-                filter: isActive ? 'none' : 'grayscale(0.4) opacity(0.7)',
-                transform: isActive ? 'scale(1.15)' : 'scale(1)',
-                transition: 'transform 0.2s ease',
-              }}>{tab.icon}</span>
-              <span style={{
-                fontSize: '10px',
-                fontWeight: isActive ? '700' : '400',
-                color: isActive ? '#C9A84C' : (dark ? '#6B6055' : '#9A8E7E'),
-                fontFamily: 'var(--font-ui)',
-              }}>{tab.label}</span>
-            </button>
+            <NavTab
+              key={tab.id}
+              tab={tab}
+              isActive={isActive}
+              isMobile={isMobile}
+              dark={dark}
+              onClick={() => handleTabClick(tab.id)}
+            />
           )
         })}
       </nav>
