@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import DoubtBox from './DoubtBox'
 
 export default function ArticleCard({ article, dark }) {
   const [showGlossary, setShowGlossary] = useState(false)
@@ -111,6 +112,8 @@ export default function ArticleCard({ article, dark }) {
                   )}
                 </div>
               )}
+
+              <DoubtBox article={article} dark={dark} />
             </div>
           )}
         </div>
@@ -203,7 +206,8 @@ export default function ArticleCard({ article, dark }) {
           </div>
         )}
 
-        <div style={{ marginTop: '12px' }} />
+        <DoubtBox article={article} dark={dark} />
+
       </div>
 
       <style>{`@keyframes fadeIn { from { opacity:0; transform:translateY(-4px) } to { opacity:1; transform:translateY(0) } }`}</style>
