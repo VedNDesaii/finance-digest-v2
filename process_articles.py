@@ -199,7 +199,7 @@ True only if: front-page ET/FT today, affects millions of people's money, landma
 ━━━ STEP 4: WRITE ━━━
 PART 1: 1 sentence, max 25 words. WHO+WHAT+number+impact.
 PART 2: 4 sentences, max 110 words. Before/What/Effect/Watch.
-PART 3 (MANDATORY): 2 sentences, max 40 words. Good/bad for investors+why. One thing to watch.
+PART 3 (MANDATORY): 2 sentences, max 40 words. Explain the likely implication for investors and why, in neutral analytical language (avoid "good/bad" verdicts). One thing to watch.
 GLOSSARY: 2-3 unfamiliar terms, max 20 words each.
 
 Return ONLY valid JSON:
@@ -233,7 +233,7 @@ Category is FIXED as "{target_category}" — do not change it.
 WRITE:
 PART 1: 1 sentence, max 25 words. WHO+WHAT+number+impact.
 PART 2: 4 sentences, max 110 words. Before/What/Effect/Watch.
-PART 3 (MANDATORY): 2 sentences, max 40 words. Good/bad for investors. One thing to watch.
+PART 3 (MANDATORY): 2 sentences, max 40 words. Explain the likely implication for investors and why, in neutral analytical language (avoid "good/bad" verdicts). One thing to watch.
 GLOSSARY: 1-2 terms max.
 
 Return ONLY valid JSON:
