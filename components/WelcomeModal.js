@@ -6,16 +6,17 @@ const STORAGE_KEY = 'fd_welcome_seen'
 
 export default function WelcomeModal({ dark, user }) {
   const [show, setShow] = useState(false)
-  const [mode, setMode] = useState('signup')
+  const [mode, setMode] = useState('signup') // 'signup' | 'login'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   useEffect(() => {
-    if (user) return
+    if (user) return // logged-in users never see this
     const seen = localStorage.getItem(STORAGE_KEY)
     if (!seen) setShow(true)
   }, [user])
@@ -28,12 +29,23 @@ export default function WelcomeModal({ dark, user }) {
   async function handleSignup(e) {
     e.preventDefault()
     setError('')
-    if (password !== confirm) { setError('Passwords do not match'); return }
-    if (password.length < 6) { setError('Password must be at least 6 characters'); return }
+
+    if (password !== confirm) {
+      setError('Passwords do not match')
+      return
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters')
+      return
+    }
+
     setLoading(true)
     const { error } = await supabase.auth.signUp({ email, password })
-    if (error) { setError(error.message); setLoading(false) }
-    else {
+
+    if (error) {
+      setError(error.message)
+      setLoading(false)
+    } else {
       setSuccess(true)
       localStorage.setItem(STORAGE_KEY, 'true')
       setTimeout(() => setShow(false), 1800)
@@ -44,19 +56,26 @@ export default function WelcomeModal({ dark, user }) {
     e.preventDefault()
     setError('')
     setLoading(true)
+
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) { setError(error.message); setLoading(false) }
-    else { localStorage.setItem(STORAGE_KEY, 'true'); setShow(false) }
+
+    if (error) {
+      setError(error.message)
+      setLoading(false)
+    } else {
+      localStorage.setItem(STORAGE_KEY, 'true')
+      setShow(false)
+    }
   }
 
   if (!show) return null
 
-  const cardBg      = dark ? '#1e1a15' : '#fff'
-  const textPri     = dark ? '#F0EBE3' : '#1a1410'
-  const textSec     = dark ? '#9a8e7e' : '#5a4f3e'
-  const textMuted   = dark ? '#6b6055' : '#b0a898'
-  const inputBg     = dark ? 'rgba(255,255,255,0.05)' : '#fafaf8'
-  const inputBorder = dark ? 'rgba(255,255,255,0.1)' : '#e8e0d5'
+  const cardBg     = dark ? '#1e1a15' : '#fff'
+  const textPri    = dark ? '#F0EBE3' : '#1a1410'
+  const textSec    = dark ? '#9a8e7e' : '#5a4f3e'
+  const textMuted  = dark ? '#6b6055' : '#b0a898'
+  const inputBg    = dark ? 'rgba(255,255,255,0.05)' : '#fafaf8'
+  const inputBorder= dark ? 'rgba(255,255,255,0.1)' : '#e8e0d5'
 
   return (
     <div style={{
@@ -73,12 +92,14 @@ export default function WelcomeModal({ dark, user }) {
         border: `1px solid ${inputBorder}`,
         position: 'relative', maxHeight: '90vh', overflowY: 'auto',
       }}>
+        {/* Close / continue as guest */}
         <button onClick={dismiss} style={{
           position: 'absolute', top: '16px', right: '16px',
           background: 'none', border: 'none', cursor: 'pointer',
           color: textMuted, fontSize: '20px', lineHeight: 1, padding: '4px',
         }}>×</button>
 
+        {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
           <h1 style={{ fontSize: '26px', fontWeight: '700', color: textPri, fontFamily: 'Georgia, serif', margin: '0 0 8px' }}>
             Finance <span style={{ color: '#C9A84C' }}>Digest</span>
@@ -89,52 +110,56 @@ export default function WelcomeModal({ dark, user }) {
         </div>
 
         {success && (
-          <div style={{ background: '#d4edda', border: '1px solid #28a745', borderRadius: '10px', padding: '16px', marginBottom: '20px', fontSize: '14px', color: '#155724', textAlign: 'center' }}>
+          <div style={{
+            background: '#d4edda', border: '1px solid #28a745', borderRadius: '10px',
+            padding: '16px', marginBottom: '20px', fontSize: '14px', color: '#155724', textAlign: 'center',
+          }}>
             ✅ Account created!
           </div>
         )}
 
         {error && (
-          <div style={{ background: '#FFF3CD', border: '1px solid #ffc107', borderRadius: '10px', padding: '12px 16px', marginBottom: '20px', fontSize: '13px', color: '#856404' }}>
+          <div style={{
+            background: '#FFF3CD', border: '1px solid #ffc107', borderRadius: '10px',
+            padding: '12px 16px', marginBottom: '20px', fontSize: '13px', color: '#856404',
+          }}>
             {error}
           </div>
         )}
 
         {!success && mode === 'signup' && (
           <form onSubmit={handleSignup}>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: textSec, marginBottom: '6px' }}>Email</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="you@example.com"
-              style={{ width: '100%', padding: '12px 14px', border: `1px solid ${inputBorder}`, borderRadius: '10px', fontSize: '14px', outline: 'none', boxSizing: 'border-box', color: textPri, background: inputBg, marginBottom: '16px' }} />
+            <FieldLabel text="Email" textSec={textSec} />
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
+              placeholder="you@example.com"
+              style={inputStyle(inputBg, inputBorder, textPri)} />
 
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: textSec, marginBottom: '6px' }}>Password</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="Min 6 characters"
-              style={{ width: '100%', padding: '12px 14px', border: `1px solid ${inputBorder}`, borderRadius: '10px', fontSize: '14px', outline: 'none', boxSizing: 'border-box', color: textPri, background: inputBg, marginBottom: '16px' }} />
+            <FieldLabel text="Password" textSec={textSec} />
+            <PasswordField value={password} onChange={setPassword} show={showPassword} setShow={setShowPassword}
+              placeholder="Min 6 characters" inputBg={inputBg} inputBorder={inputBorder} textPri={textPri} textMuted={textMuted} />
 
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: textSec, marginBottom: '6px' }}>Confirm Password</label>
-            <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)} required placeholder="••••••••"
-              style={{ width: '100%', padding: '12px 14px', border: `1px solid ${inputBorder}`, borderRadius: '10px', fontSize: '14px', outline: 'none', boxSizing: 'border-box', color: textPri, background: inputBg, marginBottom: '24px' }} />
+            <FieldLabel text="Confirm Password" textSec={textSec} />
+            <PasswordField value={confirm} onChange={setConfirm} show={showPassword} setShow={setShowPassword}
+              placeholder="••••••••" inputBg={inputBg} inputBorder={inputBorder} textPri={textPri} textMuted={textMuted} marginBottom="24px" />
 
-            <button type="submit" disabled={loading} style={{ width: '100%', padding: '13px', background: loading ? '#d4b870' : '#C9A84C', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: '700', cursor: loading ? 'not-allowed' : 'pointer' }}>
+            <button type="submit" disabled={loading} style={submitStyle(loading)}>
               {loading ? 'Creating account...' : 'Create Free Account'}
             </button>
-
-            <p style={{ textAlign: 'center', fontSize: '12px', color: textMuted, marginTop: '12px' }}>
-              Free account — upgrade anytime from ₹99/month
-            </p>
           </form>
         )}
 
         {!success && mode === 'login' && (
           <form onSubmit={handleLogin}>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: textSec, marginBottom: '6px' }}>Email</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="you@example.com"
-              style={{ width: '100%', padding: '12px 14px', border: `1px solid ${inputBorder}`, borderRadius: '10px', fontSize: '14px', outline: 'none', boxSizing: 'border-box', color: textPri, background: inputBg, marginBottom: '16px' }} />
+            <FieldLabel text="Email" textSec={textSec} />
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
+              placeholder="you@example.com"
+              style={inputStyle(inputBg, inputBorder, textPri)} />
 
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: textSec, marginBottom: '6px' }}>Password</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••"
-              style={{ width: '100%', padding: '12px 14px', border: `1px solid ${inputBorder}`, borderRadius: '10px', fontSize: '14px', outline: 'none', boxSizing: 'border-box', color: textPri, background: inputBg, marginBottom: '24px' }} />
+            <FieldLabel text="Password" textSec={textSec} />
+            <PasswordField value={password} onChange={setPassword} show={showPassword} setShow={setShowPassword}
+              placeholder="••••••••" inputBg={inputBg} inputBorder={inputBorder} textPri={textPri} textMuted={textMuted} marginBottom="24px" />
 
-            <button type="submit" disabled={loading} style={{ width: '100%', padding: '13px', background: loading ? '#d4b870' : '#C9A84C', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: '700', cursor: loading ? 'not-allowed' : 'pointer' }}>
+            <button type="submit" disabled={loading} style={submitStyle(loading)}>
               {loading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
@@ -172,4 +197,61 @@ export default function WelcomeModal({ dark, user }) {
       <style>{`@keyframes fadeInModal { from { opacity: 0 } to { opacity: 1 } }`}</style>
     </div>
   )
+}
+
+function FieldLabel({ text, textSec }) {
+  return (
+    <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: textSec, marginBottom: '6px' }}>
+      {text}
+    </label>
+  )
+}
+
+function PasswordField({ value, onChange, show, setShow, placeholder, inputBg, inputBorder, textPri, textMuted, marginBottom = '16px' }) {
+  return (
+    <div style={{ position: 'relative', marginBottom }}>
+      <input
+        type={show ? 'text' : 'password'}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        required
+        placeholder={placeholder}
+        style={{
+          width: '100%', padding: '12px 44px 12px 14px', border: `1px solid ${inputBorder}`,
+          borderRadius: '10px', fontSize: '14px', outline: 'none',
+          boxSizing: 'border-box', color: textPri, background: inputBg,
+        }}
+      />
+      <button
+        type="button"
+        onClick={() => setShow(s => !s)}
+        style={{
+          position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)',
+          background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px',
+          color: textMuted, padding: '4px', lineHeight: 1,
+        }}
+        tabIndex={-1}
+      >
+        {show ? '🙈' : '👁️'}
+      </button>
+    </div>
+  )
+}
+
+function inputStyle(bg, border, color) {
+  return {
+    width: '100%', padding: '12px 14px', border: `1px solid ${border}`,
+    borderRadius: '10px', fontSize: '14px', outline: 'none',
+    boxSizing: 'border-box', color, background: bg, marginBottom: '16px',
+  }
+}
+
+function submitStyle(loading) {
+  return {
+    width: '100%', padding: '13px',
+    background: loading ? '#d4b870' : '#C9A84C',
+    color: '#fff', border: 'none', borderRadius: '10px',
+    fontSize: '15px', fontWeight: '700',
+    cursor: loading ? 'not-allowed' : 'pointer',
+  }
 }
