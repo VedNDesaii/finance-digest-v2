@@ -14,6 +14,7 @@ export default function WelcomeModal({ dark, user }) {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
 
   useEffect(() => {
     if (user) return // logged-in users never see this
@@ -65,6 +66,24 @@ export default function WelcomeModal({ dark, user }) {
     } else {
       localStorage.setItem(STORAGE_KEY, 'true')
       setShow(false)
+    }
+  }
+
+  async function handleForgotPassword(e) {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    })
+
+    if (error) {
+      setError(error.message)
+      setLoading(false)
+    } else {
+      setResetSent(true)
+      setLoading(false)
     }
   }
 
@@ -157,7 +176,15 @@ export default function WelcomeModal({ dark, user }) {
 
             <FieldLabel text="Password" textSec={textSec} />
             <PasswordField value={password} onChange={setPassword} show={showPassword} setShow={setShowPassword}
-              placeholder="••••••••" inputBg={inputBg} inputBorder={inputBorder} textPri={textPri} textMuted={textMuted} marginBottom="24px" />
+              placeholder="••••••••" inputBg={inputBg} inputBorder={inputBorder} textPri={textPri} textMuted={textMuted} marginBottom="10px" />
+
+            <button type="button" onClick={() => { setMode('forgot'); setError(''); setResetSent(false) }} style={{
+              display: 'block', textAlign: 'right', width: '100%', marginBottom: '14px',
+              fontSize: '12px', color: textMuted, background: 'none', border: 'none', cursor: 'pointer',
+              textDecoration: 'underline', padding: 0,
+            }}>
+              Forgot password?
+            </button>
 
             <button type="submit" disabled={loading} style={submitStyle(loading)}>
               {loading ? 'Signing in...' : 'Sign In'}
@@ -165,7 +192,42 @@ export default function WelcomeModal({ dark, user }) {
           </form>
         )}
 
-        {!success && (
+        {mode === 'forgot' && (
+          <>
+            {resetSent ? (
+              <div style={{
+                background: '#d4edda', border: '1px solid #28a745', borderRadius: '10px',
+                padding: '16px', marginBottom: '20px', fontSize: '14px', color: '#155724', textAlign: 'center',
+              }}>
+                ✅ Check your email for a password reset link.
+              </div>
+            ) : (
+              <form onSubmit={handleForgotPassword}>
+                <p style={{ fontSize: '13px', color: textMuted, margin: '0 0 16px' }}>
+                  Enter your email and we'll send you a link to reset your password.
+                </p>
+                <FieldLabel text="Email" textSec={textSec} />
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
+                  placeholder="you@example.com"
+                  style={{ ...inputStyle(inputBg, inputBorder, textPri), marginBottom: '24px' }} />
+
+                <button type="submit" disabled={loading} style={submitStyle(loading)}>
+                  {loading ? 'Sending...' : 'Send Reset Link'}
+                </button>
+              </form>
+            )}
+
+            <button onClick={() => { setMode('login'); setError(''); setResetSent(false) }} style={{
+              display: 'block', width: '100%', textAlign: 'center', marginTop: '16px',
+              fontSize: '13px', color: textMuted, background: 'none', border: 'none', cursor: 'pointer',
+              textDecoration: 'underline',
+            }}>
+              ← Back to sign in
+            </button>
+          </>
+        )}
+
+        {!success && mode !== 'forgot' && (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '20px 0' }}>
               <div style={{ flex: 1, height: '1px', background: inputBorder }} />

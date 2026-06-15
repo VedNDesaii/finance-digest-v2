@@ -35,7 +35,7 @@ export default function SignupPage() {
       setLoading(false)
     } else {
       setSuccess(true)
-      setTimeout(() => router.push('/pricing'), 2000)
+      setTimeout(() => router.push('/'), 2000)
     }
   }
 
