@@ -5,6 +5,7 @@ import ArticleCard from '../components/ArticleCard'
 import NewsReader from '../components/NewsReader'
 import MyPortfolio from '../components/MyPortfolio'
 import { useAuth } from '../hooks/useAuth'
+import { useVisitorTracking } from '../hooks/useVisitorTracking'
 
 const BOTTOM_TABS = [
   { id: 'top',       icon: '📰', label: 'Top' },
@@ -164,6 +165,20 @@ function ThemeToggle({ dark, onToggle }) {
         {dark ? 'Light' : 'Dark'}
       </span>
     </button>
+  )
+}
+
+function AccountButton({ dark, user }) {
+  return (
+    <a href={user ? '/account' : '/login'} style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      width: '32px', height: '32px', borderRadius: '8px',
+      background: dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)',
+      color: dark ? '#F0EBE3' : '#1A1410', cursor: 'pointer', flexShrink: 0,
+      textDecoration: 'none', fontSize: '14px',
+    }}>
+      {user ? '👤' : '🔑'}
+    </a>
   )
 }
 
@@ -738,6 +753,7 @@ export default function Home() {
   const [navHovered, setNavHovered] = useState(false)
 
   const { user, plan } = useAuth()
+  useVisitorTracking()
   const isPro   = true
   const isBasic = true
   const isFree  = false
@@ -1003,6 +1019,7 @@ export default function Home() {
             <IndexChip label="NIFTY" data={indices.nifty} dark={dark} />
             <IQChip iq={iqScore} dark={dark} />
             <ThemeToggle dark={dark} onToggle={toggleTheme} />
+            <AccountButton dark={dark} user={user} />
           </div>
         </div>
         {hasNewsReader && (
