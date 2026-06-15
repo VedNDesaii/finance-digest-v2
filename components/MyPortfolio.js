@@ -1,64 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 
-const STOCK_LIST = [
-  { ticker: 'RELIANCE',   name: 'Reliance Industries',           exchange: 'NSE' },
-  { ticker: 'TCS',        name: 'Tata Consultancy Services',     exchange: 'NSE' },
-  { ticker: 'HDFCBANK',   name: 'HDFC Bank',                     exchange: 'NSE' },
-  { ticker: 'INFY',       name: 'Infosys',                       exchange: 'NSE' },
-  { ticker: 'ICICIBANK',  name: 'ICICI Bank',                    exchange: 'NSE' },
-  { ticker: 'HINDUNILVR', name: 'Hindustan Unilever',            exchange: 'NSE' },
-  { ticker: 'ITC',        name: 'ITC Limited',                   exchange: 'NSE' },
-  { ticker: 'SBIN',       name: 'State Bank of India',           exchange: 'NSE' },
-  { ticker: 'BHARTIARTL', name: 'Bharti Airtel',                 exchange: 'NSE' },
-  { ticker: 'KOTAKBANK',  name: 'Kotak Mahindra Bank',           exchange: 'NSE' },
-  { ticker: 'LT',         name: 'Larsen & Toubro',               exchange: 'NSE' },
-  { ticker: 'HCLTECH',    name: 'HCL Technologies',              exchange: 'NSE' },
-  { ticker: 'ASIANPAINT', name: 'Asian Paints',                  exchange: 'NSE' },
-  { ticker: 'AXISBANK',   name: 'Axis Bank',                     exchange: 'NSE' },
-  { ticker: 'MARUTI',     name: 'Maruti Suzuki',                 exchange: 'NSE' },
-  { ticker: 'SUNPHARMA',  name: 'Sun Pharmaceutical',            exchange: 'NSE' },
-  { ticker: 'TITAN',      name: 'Titan Company',                 exchange: 'NSE' },
-  { ticker: 'BAJFINANCE', name: 'Bajaj Finance',                 exchange: 'NSE' },
-  { ticker: 'WIPRO',      name: 'Wipro',                         exchange: 'NSE' },
-  { ticker: 'ULTRACEMCO', name: 'UltraTech Cement',              exchange: 'NSE' },
-  { ticker: 'NESTLEIND',  name: 'Nestle India',                  exchange: 'NSE' },
-  { ticker: 'POWERGRID',  name: 'Power Grid Corporation',        exchange: 'NSE' },
-  { ticker: 'NTPC',       name: 'NTPC Limited',                  exchange: 'NSE' },
-  { ticker: 'ONGC',       name: 'Oil & Natural Gas Corp',        exchange: 'NSE' },
-  { ticker: 'TATAMOTORS', name: 'Tata Motors',                   exchange: 'NSE' },
-  { ticker: 'TATASTEEL',  name: 'Tata Steel',                    exchange: 'NSE' },
-  { ticker: 'ADANIENT',   name: 'Adani Enterprises',             exchange: 'NSE' },
-  { ticker: 'ADANIPORTS', name: 'Adani Ports & SEZ',             exchange: 'NSE' },
-  { ticker: 'JSWSTEEL',   name: 'JSW Steel',                     exchange: 'NSE' },
-  { ticker: 'TECHM',      name: 'Tech Mahindra',                 exchange: 'NSE' },
-  { ticker: 'DRREDDY',    name: "Dr. Reddy's Laboratories",      exchange: 'NSE' },
-  { ticker: 'BAJAJFINSV', name: 'Bajaj Finserv',                 exchange: 'NSE' },
-  { ticker: 'DIVISLAB',   name: "Divi's Laboratories",           exchange: 'NSE' },
-  { ticker: 'CIPLA',      name: 'Cipla',                         exchange: 'NSE' },
-  { ticker: 'EICHERMOT',  name: 'Eicher Motors',                 exchange: 'NSE' },
-  { ticker: 'GRASIM',     name: 'Grasim Industries',             exchange: 'NSE' },
-  { ticker: 'BPCL',       name: 'Bharat Petroleum',              exchange: 'NSE' },
-  { ticker: 'COALINDIA',  name: 'Coal India',                    exchange: 'NSE' },
-  { ticker: 'HINDALCO',   name: 'Hindalco Industries',           exchange: 'NSE' },
-  { ticker: 'INDUSINDBK', name: 'IndusInd Bank',                 exchange: 'NSE' },
-  { ticker: 'M&M',        name: 'Mahindra & Mahindra',           exchange: 'NSE' },
-  { ticker: 'ZOMATO',     name: 'Zomato',                        exchange: 'NSE' },
-  { ticker: 'IRCTC',      name: 'Indian Railway Catering',       exchange: 'NSE' },
-  { ticker: 'AAPL',       name: 'Apple Inc.',                    exchange: 'NASDAQ' },
-  { ticker: 'MSFT',       name: 'Microsoft Corporation',         exchange: 'NASDAQ' },
-  { ticker: 'GOOGL',      name: 'Alphabet (Google)',             exchange: 'NASDAQ' },
-  { ticker: 'AMZN',       name: 'Amazon.com',                    exchange: 'NASDAQ' },
-  { ticker: 'NVDA',       name: 'NVIDIA Corporation',            exchange: 'NASDAQ' },
-  { ticker: 'META',       name: 'Meta Platforms',                exchange: 'NASDAQ' },
-  { ticker: 'TSLA',       name: 'Tesla Inc.',                    exchange: 'NASDAQ' },
-  { ticker: 'NFLX',       name: 'Netflix Inc.',                  exchange: 'NASDAQ' },
-  { ticker: 'JPM',        name: 'JPMorgan Chase',                exchange: 'NYSE' },
-  { ticker: 'V',          name: 'Visa Inc.',                     exchange: 'NYSE' },
-  { ticker: 'BAC',        name: 'Bank of America',               exchange: 'NYSE' },
-  { ticker: 'UBER',       name: 'Uber Technologies',             exchange: 'NYSE' },
-]
-
 const NEWS_TYPE_BADGE = {
   earnings:   { label: 'Earnings',   color: '#C9A84C', bg: 'rgba(201,168,76,0.12)'  },
   regulatory: { label: 'Regulatory', color: '#60a5fa', bg: 'rgba(96,165,250,0.12)'  },
@@ -83,17 +25,46 @@ function fmtPct(p) {
 
 // ── StockSearch ───────────────────────────────────────────────────────────────
 function StockSearch({ onSelect, onCancel, existingStocks }) {
-  const [query, setQuery]           = useState('')
+  const [query, setQuery]             = useState('')
+  const [results, setResults]         = useState([])
+  const [loading, setLoading]         = useState(false)
   const [highlighted, setHighlighted] = useState(0)
-  const inputRef = useRef(null)
+  const inputRef  = useRef(null)
+  const debounceRef = useRef(null)
 
   useEffect(() => { inputRef.current?.focus() }, [])
 
-  const results = query.length === 0 ? [] : STOCK_LIST.filter(s =>
-    !existingStocks.includes(s.ticker) &&
-    (s.ticker.toLowerCase().includes(query.toLowerCase()) ||
-      s.name.toLowerCase().includes(query.toLowerCase()))
-  ).slice(0, 8)
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+
+    if (query.trim().length === 0) {
+      setResults([])
+      setLoading(false)
+      return
+    }
+
+    setLoading(true)
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch('/api/stock-search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: query.trim() }),
+        })
+        const data = await res.json()
+        const filtered = (data.results || []).filter(s => !existingStocks.includes(s.ticker))
+        setResults(filtered)
+        setHighlighted(0)
+      } catch (e) {
+        setResults([])
+      } finally {
+        setLoading(false)
+      }
+    }, 300)
+
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query])
 
   function handleKey(e) {
     if (e.key === 'ArrowDown')  { setHighlighted(h => Math.min(h + 1, results.length - 1)); e.preventDefault() }
@@ -107,16 +78,19 @@ function StockSearch({ onSelect, onCancel, existingStocks }) {
       <div style={{
         display: 'flex', alignItems: 'center', gap: '10px',
         background: '#1e1a15', border: '1px solid rgba(201,168,76,0.4)',
-        borderRadius: results.length > 0 ? '12px 12px 0 0' : '12px',
+        borderRadius: (results.length > 0 || loading || query.length > 0) ? '12px 12px 0 0' : '12px',
         padding: '11px 14px',
       }}>
         <span style={{ color: '#6b6055', fontSize: '14px' }}>🔍</span>
         <input ref={inputRef} value={query}
-          onChange={e => { setQuery(e.target.value); setHighlighted(0) }}
+          onChange={e => setQuery(e.target.value)}
           onKeyDown={handleKey}
-          placeholder="Search by name or ticker..."
+          placeholder="Search any NSE, BSE, or global stock..."
           style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: '#fff', fontFamily: 'sans-serif', fontSize: '14px' }}
         />
+        {loading && (
+          <div style={{ width: '14px', height: '14px', border: '2px solid rgba(201,168,76,0.2)', borderTop: '2px solid #C9A84C', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+        )}
         <button onClick={onCancel} style={{ background: 'none', border: 'none', color: '#9a8e7e', fontFamily: 'sans-serif', fontSize: '13px', cursor: 'pointer', padding: 0 }}>Cancel</button>
       </div>
 
@@ -144,7 +118,7 @@ function StockSearch({ onSelect, onCancel, existingStocks }) {
         </div>
       )}
 
-      {query.length > 0 && results.length === 0 && (
+      {!loading && query.length > 0 && results.length === 0 && (
         <div style={{ background: '#1e1a15', border: '1px solid rgba(201,168,76,0.2)', borderTop: 'none', borderRadius: '0 0 12px 12px', padding: '14px', textAlign: 'center', color: '#6b6055', fontFamily: 'sans-serif', fontSize: '13px' }}>
           No results for "{query}"
         </div>
@@ -157,6 +131,8 @@ function StockSearch({ onSelect, onCancel, existingStocks }) {
 function BuyDetailsForm({ stock, onConfirm, onSkip }) {
   const [buyPrice, setBuyPrice]   = useState('')
   const [quantity, setQuantity]   = useState('')
+
+  const currencySymbol = (stock.exchange === 'NSE' || stock.exchange === 'BSE') ? '₹' : '$'
 
   return (
     <div style={{
@@ -172,12 +148,12 @@ function BuyDetailsForm({ stock, onConfirm, onSkip }) {
       <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
         <div style={{ flex: 1 }}>
           <label style={{ fontSize: '10px', fontWeight: '700', color: '#9a8e7e', fontFamily: 'sans-serif', letterSpacing: '0.08em', display: 'block', marginBottom: '6px' }}>
-            BUY PRICE ({stock.exchange === 'NSE' ? '₹' : '$'})
+            BUY PRICE ({currencySymbol})
           </label>
           <input
             type="number" value={buyPrice}
             onChange={e => setBuyPrice(e.target.value)}
-            placeholder={stock.exchange === 'NSE' ? 'e.g. 2450' : 'e.g. 185'}
+            placeholder={currencySymbol === '₹' ? 'e.g. 2450' : 'e.g. 185'}
             style={{
               width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
               borderRadius: '8px', padding: '8px 12px', color: '#fff',
@@ -267,7 +243,7 @@ function NiftyBanner({ stocks, priceData }) {
   const diff     = niftyPct !== null ? portfolioReturn - parseFloat(niftyPct) : null
 
   const isWinning = diff !== null && diff > 0
-  const currency  = trackedStocks[0]?.exchange === 'NSE' ? '₹' : '$'
+  const currency  = (trackedStocks[0]?.exchange === 'NSE' || trackedStocks[0]?.exchange === 'BSE') ? '₹' : '$'
   const pnl       = totalCurrent - totalInvested
 
   return (
@@ -363,7 +339,7 @@ function StockCard({ stock, onRemove, forceRefresh, priceData }) {
   const hasBuy    = stock.buyPrice && stock.quantity
   const pnl       = hasBuy && pd?.price ? (pd.price - stock.buyPrice) * stock.quantity : null
   const pnlPct    = hasBuy && pd?.price ? ((pd.price - stock.buyPrice) / stock.buyPrice) * 100 : null
-  const currency  = stock.exchange === 'NSE' ? '₹' : '$'
+  const currency  = (stock.exchange === 'NSE' || stock.exchange === 'BSE') ? '₹' : '$'
 
   return (
     <div style={{
