@@ -133,7 +133,7 @@ export function useVoiceAgent({ news, currentIndex, onNext, onPrev, onPause, onR
     if (!SpeechRecognition) return alert("Browser doesn't support speech recognition.");
 
     // ✅ Greet the user every time the mic is activated
-    speak("Hi! How can I help you? You can ask me to read the news, skip ahead, go back, pause, or ask a question about the article.");
+    speak("Hi, how may I help you?");
 
     const recognition = createRecognition();
     if (!recognition) return;
