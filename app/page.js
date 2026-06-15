@@ -5,6 +5,7 @@ import ArticleCard from '../components/ArticleCard'
 import NewsReader from '../components/NewsReader'
 import MyPortfolio from '../components/MyPortfolio'
 import { useAuth } from '../hooks/useAuth'
+import WelcomeModal from '../components/WelcomeModal'
 
 const BOTTOM_TABS = [
   { id: 'top',       icon: '📰', label: 'Top' },
@@ -174,9 +175,9 @@ function AccountButton({ dark, user }) {
       width: '32px', height: '32px', borderRadius: '8px',
       background: dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)',
       color: dark ? '#F0EBE3' : '#1A1410', cursor: 'pointer', flexShrink: 0,
-      textDecoration: 'none', fontSize: '14px',
+      textDecoration: 'none', fontSize: '16px',
     }}>
-      {user ? '👤' : '🔑'}
+      👤
     </a>
   )
 }
@@ -972,6 +973,8 @@ export default function Home() {
 
   return (
     <div style={{ background: 'var(--bg-page)', minHeight: '100vh', fontFamily: 'var(--font-ui)' }}>
+
+      <WelcomeModal dark={dark} user={user} />
 
       {showPointPop && (
         <div style={{
