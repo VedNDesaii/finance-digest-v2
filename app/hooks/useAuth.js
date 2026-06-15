@@ -45,3 +45,24 @@ export function useAuth() {
     isFree:  plan === 'free',
   }
 }
+export function useVisitorTracking() {
+  useEffect(() => {
+    let sessionId = sessionStorage.getItem('fd_session_id')
+    if (!sessionId) {
+      sessionId = crypto.randomUUID()
+      sessionStorage.setItem('fd_session_id', sessionId)
+    }
+
+    const sendHeartbeat = () => {
+      fetch('/api/visitors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId }),
+      }).catch(() => {})
+    }
+
+    sendHeartbeat()
+    const interval = setInterval(sendHeartbeat, 30000)
+    return () => clearInterval(interval)
+  }, [])
+}

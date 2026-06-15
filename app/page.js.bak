@@ -5,6 +5,7 @@ import ArticleCard from '../components/ArticleCard'
 import NewsReader from '../components/NewsReader'
 import MyPortfolio from '../components/MyPortfolio'
 import { useAuth } from '../hooks/useAuth'
+import { useVisitorTracking } from '../hooks/useVisitorTracking'
 
 const BOTTOM_TABS = [
   { id: 'top',       icon: '📰', label: 'Top' },
@@ -752,6 +753,7 @@ export default function Home() {
   const [navHovered, setNavHovered] = useState(false)
 
   const { user, plan } = useAuth()
+  useVisitorTracking()
   const isPro   = true
   const isBasic = true
   const isFree  = false
