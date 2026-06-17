@@ -6,17 +6,23 @@ export async function POST(req) {
   }
 
   try {
-    const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=15&newsCount=0`;
+    const url = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=15&newsCount=0&listsCount=0`;
 
     const res = await fetch(url, {
+      redirect: "follow",
       headers: {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Origin": "https://finance.yahoo.com",
+        "Referer": "https://finance.yahoo.com/",
       },
     });
 
-    if (!res.ok) {
-      return Response.json({ results: [], error: `Search failed: ${res.status}` });
+    const contentType = res.headers.get("content-type") || "";
+    if (!res.ok || !contentType.includes("application/json")) {
+      const text = await res.text();
+      return Response.json({ results: [], error: `Unexpected response (status ${res.status}, type ${contentType})`, debug: text.slice(0, 200) });
     }
 
     const data = await res.json();
@@ -42,6 +48,6 @@ export async function POST(req) {
 
     return Response.json({ results });
   } catch (e) {
-    return Response.json({ results: [], error: "Search request failed." });
+    return Response.json({ results: [], error: "Search request failed: " + e.message });
   }
 }
