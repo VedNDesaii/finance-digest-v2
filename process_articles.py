@@ -60,6 +60,12 @@ CATEGORY_MINIMUMS = {
     "telecom-media":   5,
 }
 
+# Categories considered primarily foreign
+FOREIGN_CATEGORIES = {"us-markets", "global-economy"}
+
+# Minimum number of headline slots reserved for Indian-origin stories (out of HEADLINE_MAX)
+HEADLINE_INDIAN_MIN_SHARE = 14
+
 CATEGORIES = list(CATEGORY_LIMITS.keys())
 
 CATEGORY_KEYWORDS = {
@@ -84,6 +90,8 @@ CATEGORY_KEYWORDS = {
 def get_category_counts():
     counts = {cat: 0 for cat in CATEGORIES}
     counts["headlines"] = 0
+    counts["headlines_indian"] = 0
+    counts["headlines_foreign"] = 0
     result = supabase.table("processed_articles").select("category, is_headline").execute()
     for row in result.data:
         cat = row.get("category")
@@ -91,6 +99,10 @@ def get_category_counts():
             counts[cat] += 1
         if row.get("is_headline"):
             counts["headlines"] += 1
+            if cat in FOREIGN_CATEGORIES:
+                counts["headlines_foreign"] += 1
+            else:
+                counts["headlines_indian"] += 1
     return counts
 
 
@@ -162,13 +174,19 @@ def is_valid_output(processed_data):
     return True
 
 
-def process_strict(title, content, feed_category, headline_count):
+def process_strict(title, content, feed_category, headline_count, headline_foreign_count):
     if headline_count < 10:
-        hl = "Be GENEROUS — mark is_headline: true for any page-1 financial story today."
+        hl = "Be GENEROUS — mark is_headline: true for any page-1 financial story today, but follow the India-first rule below."
     elif headline_count < HEADLINE_MAX:
-        hl = f"Need {HEADLINE_MAX - headline_count} more headlines. Mark true for clearly front-page news."
+        hl = f"Need {HEADLINE_MAX - headline_count} more headlines. Mark true for clearly front-page news, but follow the India-first rule below."
     else:
         hl = f"Already have {HEADLINE_MAX} headlines. Set is_headline: false unless breaking news."
+
+    # Once foreign headline quota is used up, force foreign stories to non-headline
+    foreign_quota_used = headline_foreign_count >= (HEADLINE_MAX - HEADLINE_INDIAN_MIN_SHARE)
+    foreign_note = ""
+    if foreign_quota_used:
+        foreign_note = "\nNOTE: The foreign-news headline quota is already full today. If this story has no direct India angle, set is_headline: false regardless of how big the foreign story is, and instead make sure category is 'global-economy' or 'us-markets' so it still appears as a regular article there."
 
     category_hint = f"""
 The RSS feed that supplied this article was tagged as: "{feed_category}".
@@ -178,7 +196,7 @@ Category keyword reference:
 {chr(10).join(f'  • {k}: {v}' for k, v in CATEGORY_KEYWORDS.items())}
 """
 
-    prompt = f"""You are a financial news editor. Your reader is a curious 16-year-old who knows what a stock market is and reads the news, but has never studied finance. Your job: filter weak articles, then write the good ones clearly.
+    prompt = f"""You are a financial news editor for an India-based financial news platform. Your reader is a curious 16-year-old who knows what a stock market is and reads the news, but has never studied finance. Your job: filter weak articles, then write the good ones clearly.
 
 ━━━ STEP 1: FILTER ━━━
 REJECT if: celebrity gossip, sports money, product ads, opinion columns, tiny announcements, tick-by-tick updates, property listings.
@@ -191,10 +209,13 @@ Pick EXACTLY ONE:
   "pharma-health"  | "auto-ev"    | "energy-oil"      | "metals-mining" |
   "infrastructure" | "fmcg-consumer" | "renewables"   | "real-estate"   |
   "telecom-media"  | "banking-finance" | "macro-policy"
+If the story is foreign/global with no Indian company or market involved, prefer "global-economy" (or "us-markets" specifically for US market/Fed/Wall Street news) over forcing it into an Indian-sounding category.
 
 ━━━ STEP 3: HEADLINE ━━━
 {hl}
-True only if: front-page ET/FT today, affects millions of people's money, landmark event.
+This site's audience is India-based, so headlines should mostly be Indian financial news. PRIORITIZE for headlines: Indian market moves (Sensex/Nifty), RBI/government policy, major Indian company earnings or M&A, and Indian-sector news.
+A pure foreign/US/global story (no direct India angle) should only be is_headline: true if it is truly extraordinary and globally significant (e.g. a major central bank decision moving world markets, a global financial crisis, a historic geopolitical/economic event) — not for routine foreign market updates or ordinary US company earnings.
+Routine foreign/global stories should be is_headline: false and will still be shown as regular articles under "global-economy" or "us-markets".{foreign_note}
 
 ━━━ STEP 4: WRITE ━━━
 PART 1: 1 sentence, max 25 words. WHO+WHAT+number+impact.
@@ -322,11 +343,12 @@ def run():
 
             feed_category  = article.get("category", "global-economy")
             headline_count = category_counts.get("headlines", 0)
+            headline_foreign_count = category_counts.get("headlines_foreign", 0)
 
             if category_counts.get(feed_category, 0) >= CATEGORY_LIMITS.get(feed_category, 7):
                 skipped_full += 1; continue
 
-            processed = process_strict(title, content, feed_category, headline_count)
+            processed = process_strict(title, content, feed_category, headline_count, headline_foreign_count)
             running_cost += COST_PER_ARTICLE
 
             if processed is None:
@@ -346,10 +368,20 @@ def run():
                 processed["is_headline"] = False
                 is_headline = False
 
+            # Code-level safety net: enforce foreign headline quota even if the model slips
+            if is_headline and category in FOREIGN_CATEGORIES:
+                if headline_foreign_count >= (HEADLINE_MAX - HEADLINE_INDIAN_MIN_SHARE):
+                    processed["is_headline"] = False
+                    is_headline = False
+
             save_processed_article(article, processed)
             category_counts[category] = category_counts.get(category, 0) + 1
             if is_headline:
                 category_counts["headlines"] = category_counts.get("headlines", 0) + 1
+                if category in FOREIGN_CATEGORIES:
+                    category_counts["headlines_foreign"] = category_counts.get("headlines_foreign", 0) + 1
+                else:
+                    category_counts["headlines_indian"] = category_counts.get("headlines_indian", 0) + 1
             existing_titles.append(title.lower()[:60])
 
             gap    = category_counts[category] - CATEGORY_MINIMUMS.get(category, 5)
@@ -448,6 +480,7 @@ def run():
         print(f"  {status} [{cat}] {count}/{limit} (min {minim})")
         if count < minim: all_met = False
 
+    print(f"\n  Headlines: {final.get('headlines', 0)}/{HEADLINE_MAX} total | Indian: {final.get('headlines_indian', 0)} | Foreign: {final.get('headlines_foreign', 0)}")
     print(f"\n{'✅ ALL MINIMUMS MET' if all_met else '⚠️  SOME STILL BELOW MIN'}")
     print(f"💰 Total cost this run: ${running_cost:.4f} / ${DAILY_BUDGET:.2f} budget")
     print(f"   Remaining: ${DAILY_BUDGET - running_cost:.4f}")

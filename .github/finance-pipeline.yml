@@ -1,0 +1,84 @@
+name: Finance Digest Pipeline
+
+on:
+  schedule:
+    # 8:00 AM IST = 2:30 AM UTC — full pipeline (fetch + process + market summary)
+    - cron: '30 2 * * *'
+    # 4:00 PM IST = 10:30 AM UTC — market summary only
+    - cron: '30 10 * * *'
+  workflow_dispatch: {}  # allows manual trigger from GitHub Actions tab
+
+jobs:
+  morning-full-pipeline:
+    if: github.event.schedule == '30 2 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Fetch news
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python3 fetch_news.py
+
+      - name: Process articles
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python3 process_articles.py
+
+      - name: Generate market summary
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python3 generate_market_summary.py
+
+      - name: Commit and push market data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/market-data.json
+          git diff --staged --quiet || git commit -m "update market data $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git push origin main
+
+  afternoon-market-summary:
+    if: github.event.schedule == '30 10 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate market summary
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python3 generate_market_summary.py
+
+      - name: Commit and push market data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/market-data.json
+          git diff --staged --quiet || git commit -m "update market data $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git push origin main
