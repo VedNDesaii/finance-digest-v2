@@ -76,11 +76,34 @@ export default function ArticleCard({ article, dark }) {
             </p>
           </div>
 
-          {/* Single "Read in detail" toggle — matches desktop */}
+          {/* Read full breakdown — now a clear pill button with animated chevron */}
           {safeReadMore && (
-            <div style={{ marginBottom: '10px' }}>
-              <button onClick={() => setShowDetail(!showDetail)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontFamily: 'var(--font-ui)', fontSize: '12px', fontWeight: '600', padding: '4px 0', display: 'flex', alignItems: 'center', gap: '5px', letterSpacing: '0.04em' }}>
-                {showDetail ? '▲ Hide detail' : '▼ Read in detail'}
+            <div style={{ marginBottom: '12px' }}>
+              <button onClick={() => setShowDetail(!showDetail)} style={{
+                width: '100%',
+                background: showDetail ? 'var(--accent-light)' : 'transparent',
+                border: '1px solid var(--accent)',
+                borderRadius: 'var(--radius-pill)',
+                cursor: 'pointer',
+                color: 'var(--accent)',
+                fontFamily: 'var(--font-ui)',
+                fontSize: '13px',
+                fontWeight: '700',
+                padding: '10px 16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '7px',
+                letterSpacing: '0.02em',
+                transition: 'background 0.2s ease',
+              }}>
+                <span>{showDetail ? 'Hide full breakdown' : 'Read full breakdown'}</span>
+                <span style={{
+                  display: 'inline-block',
+                  transition: 'transform 0.25s ease',
+                  transform: showDetail ? 'rotate(180deg)' : 'rotate(0deg)',
+                  fontSize: '11px',
+                }}>▼</span>
               </button>
               {showDetail && (
                 <div style={{ marginTop: '10px', background: 'var(--bg-detail)', borderRadius: 'var(--radius-sm)', padding: '12px 14px', borderLeft: '3px solid var(--border-main)', animation: 'fadeIn 0.2s ease' }}>
@@ -170,10 +193,34 @@ export default function ArticleCard({ article, dark }) {
           </p>
         </div>
 
+        {/* Read full breakdown — now a clear pill button with animated chevron + hover state */}
         {safeReadMore && (
-          <div style={{ marginBottom: '12px' }}>
-            <button onClick={() => setShowDetail(!showDetail)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontFamily: 'var(--font-ui)', fontSize: '12px', fontWeight: '600', padding: '4px 0', display: 'flex', alignItems: 'center', gap: '5px', letterSpacing: '0.04em' }}>
-              {showDetail ? '▲ Hide detail' : '▼ Read in detail'}
+          <div style={{ marginBottom: '14px' }}>
+            <button onClick={() => setShowDetail(!showDetail)} style={{
+              background: showDetail ? 'var(--accent-light)' : 'transparent',
+              border: '1px solid var(--accent)',
+              borderRadius: 'var(--radius-pill)',
+              cursor: 'pointer',
+              color: 'var(--accent)',
+              fontFamily: 'var(--font-ui)',
+              fontSize: '13px',
+              fontWeight: '700',
+              padding: '10px 20px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              letterSpacing: '0.02em',
+              transition: 'background 0.2s ease, transform 0.15s ease',
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--accent-light)'}
+            onMouseLeave={e => e.currentTarget.style.background = showDetail ? 'var(--accent-light)' : 'transparent'}>
+              <span>{showDetail ? 'Hide full breakdown' : 'Read full breakdown'}</span>
+              <span style={{
+                display: 'inline-block',
+                transition: 'transform 0.25s ease',
+                transform: showDetail ? 'rotate(180deg)' : 'rotate(0deg)',
+                fontSize: '11px',
+              }}>▼</span>
             </button>
             {showDetail && (
               <div style={{ marginTop: '10px', background: 'var(--bg-detail)', borderRadius: 'var(--radius-sm)', padding: '16px 18px', borderLeft: '3px solid var(--border-main)', animation: 'fadeIn 0.2s ease' }}>
