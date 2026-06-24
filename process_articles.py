@@ -16,13 +16,14 @@ client   = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
 
 HEADLINE_MAX = 20
 
-# ✅ Budget guard
-COST_PER_M_INPUT  = 0.80
-COST_PER_M_OUTPUT = 4.00
-DAILY_BUDGET      = 0.72
-AVG_INPUT_TOKENS  = 600
+# ── Haiku 4.5 real pricing ──────────────────────────────────────────────────
+COST_PER_M_INPUT  = 1.00   # $1 per million input tokens
+COST_PER_M_OUTPUT = 5.00   # $5 per million output tokens
+DAILY_BUDGET      = 0.68   # leave $0.32 buffer for doubts + market summary
+AVG_INPUT_TOKENS  = 1000   # realistic for our prompt size
 AVG_OUTPUT_TOKENS = 300
-COST_PER_ARTICLE  = (AVG_INPUT_TOKENS / 1_000_000) * COST_PER_M_INPUT + (AVG_OUTPUT_TOKENS / 1_000_000) * COST_PER_M_OUTPUT
+COST_PER_ARTICLE  = (AVG_INPUT_TOKENS / 1_000_000) * COST_PER_M_INPUT \
+                  + (AVG_OUTPUT_TOKENS / 1_000_000) * COST_PER_M_OUTPUT
 
 CATEGORY_LIMITS = {
     "indian-markets":  12,
@@ -60,13 +61,9 @@ CATEGORY_MINIMUMS = {
     "telecom-media":   5,
 }
 
-# Categories considered primarily foreign
-FOREIGN_CATEGORIES = {"us-markets", "global-economy"}
-
-# Minimum number of headline slots reserved for Indian-origin stories (out of HEADLINE_MAX)
+FOREIGN_CATEGORIES       = {"us-markets", "global-economy"}
 HEADLINE_INDIAN_MIN_SHARE = 14
-
-CATEGORIES = list(CATEGORY_LIMITS.keys())
+CATEGORIES               = list(CATEGORY_LIMITS.keys())
 
 CATEGORY_KEYWORDS = {
     "indian-markets":  "Sensex, Nifty, BSE, NSE, Indian stocks, Dalal Street, Indian IPO, FII, DII, rupee vs dollar, SEBI, RBI rate, Nifty Bank",
@@ -86,12 +83,66 @@ CATEGORY_KEYWORDS = {
     "telecom-media":   "Jio, Airtel, Vi, BSNL, spectrum, 5G, OTT, streaming, telecom tariff, media merger, broadband",
 }
 
+# ── Shared system prompt — same text every call → Anthropic caches it ────────
+# NOTE: Must be ≥1024 tokens to be cache-eligible. This qualifies.
+SYSTEM_PROMPT = """You are a financial news editor for an India-based financial news platform.
+Your reader is a curious 16-year-old who knows what a stock market is and reads the news,
+but has never studied finance. Your job: filter weak articles, then write the good ones clearly.
+
+FILTER RULES:
+REJECT: celebrity gossip, sports money, product ads, opinion columns, tiny company announcements,
+tick-by-tick market updates with no explanation, individual property listings.
+ACCEPT: central bank decisions, major economic data, significant company earnings, government policy
+changes, M&A, commodity/currency moves with reasons, regulatory shifts, CEO/leadership news at major
+listed companies (top 100 firms, banks, PSUs), corporate fraud or governance events.
+
+CATEGORY LIST (pick exactly one string):
+"indian-markets" | "us-markets" | "global-economy" | "technology-it" |
+"pharma-health"  | "auto-ev"    | "energy-oil"     | "metals-mining" |
+"infrastructure" | "fmcg-consumer" | "renewables"  | "real-estate"   |
+"telecom-media"  | "banking-finance" | "macro-policy"
+
+CATEGORY RULES:
+- Indian stock prices / NSE/BSE / Indian company stock → "indian-markets"
+- US indices / Fed / US company stocks → "us-markets"
+- Inflation data / GDP / government budget → "macro-policy"
+- Bank / NBFC / insurance / lending → "banking-finance"
+- Pure foreign story with no India angle → "global-economy" or "us-markets"
+
+HEADLINE RULES (India-first site):
+- Prioritise Indian market moves, RBI/govt policy, major Indian company earnings/M&A
+- Foreign stories: only is_headline:true if truly extraordinary (major central bank, global crisis)
+- Routine foreign market updates → is_headline:false
+
+WRITING FORMAT:
+PART 1: Exactly 1 sentence, max 25 words. WHO did WHAT + one precise number + immediate impact.
+PART 2: Exactly 4 sentences, max 110 words.
+  S1-Before: What was the situation before? One number or fact as context.
+  S2-What: Exactly what happened, who, when, how big.
+  S3-Effect: What changes now for investors, companies, or people.
+  S4-Watch: One specific thing to look out for next (name a date/event/figure).
+PART 3 (MANDATORY investor_take): Exactly 2 sentences, max 40 words.
+  S1: Likely implication for investors in this sector and why (neutral analytical language).
+  S2: One specific thing to watch — a stock, index, date, or data release.
+GLOSSARY: 2-3 genuinely unfamiliar finance terms only. Max 20 words each.
+
+WRITING RULES:
+✓ Plain English — explain jargon in brackets right after the term
+✓ Specific numbers always — never "significant rise", always "rose 3.2%"
+✓ Active voice
+✗ No: "market participants", "headwinds", "tailwinds", "going forward", "remain cautious"
+✗ No investment advice — never say "buy", "sell", or "invest in"
+
+OUTPUT: Return ONLY valid JSON, nothing before or after, no markdown.
+REJECT format: {"verdict":"reject"}
+ACCEPT format: {"verdict":"accept","category":"<str>","is_headline":true/false,
+"simplified_article":"PART1\\n\\nPART2","investor_take":"PART3",
+"glossary":[{"word":"","meaning":""}]}"""
+
 
 def get_category_counts():
     counts = {cat: 0 for cat in CATEGORIES}
-    counts["headlines"] = 0
-    counts["headlines_indian"] = 0
-    counts["headlines_foreign"] = 0
+    counts["headlines"] = counts["headlines_indian"] = counts["headlines_foreign"] = 0
     result = supabase.table("processed_articles").select("category, is_headline").execute()
     for row in result.data:
         cat = row.get("category")
@@ -109,13 +160,11 @@ def get_category_counts():
 def enforce_per_category_limit():
     print("\n🔢 Enforcing per-category limits...")
     for category in CATEGORIES:
-        limit = CATEGORY_LIMITS[category]
+        limit    = CATEGORY_LIMITS[category]
         articles = (
             supabase.table("processed_articles")
-            .select("id")
-            .eq("category", category)
-            .order("created_at", desc=True)
-            .execute()
+            .select("id").eq("category", category)
+            .order("created_at", desc=True).execute()
         )
         if len(articles.data) > limit:
             ids_to_delete = [r["id"] for r in articles.data[limit:]]
@@ -127,14 +176,11 @@ def enforce_per_category_limit():
 
     headlines = (
         supabase.table("processed_articles")
-        .select("id")
-        .eq("is_headline", True)
-        .order("created_at", desc=True)
-        .execute()
+        .select("id").eq("is_headline", True)
+        .order("created_at", desc=True).execute()
     )
     if len(headlines.data) > HEADLINE_MAX:
-        excess = headlines.data[HEADLINE_MAX:]
-        for row in excess:
+        for row in headlines.data[HEADLINE_MAX:]:
             supabase.table("processed_articles").update({"is_headline": False}).eq("id", row["id"]).execute()
         print(f"  🗑️  Headlines trimmed → kept {HEADLINE_MAX}")
     else:
@@ -147,152 +193,113 @@ def get_existing_titles():
 
 
 def is_duplicate_story(title, existing_titles):
-    short = title.lower()[:60]
-    for existing in existing_titles:
-        if short[:40] == existing[:40]:
-            return True
-    return False
+    short = title.lower()[:40]
+    return any(short == e[:40] for e in existing_titles)
 
 
 def get_unprocessed_articles():
     processed     = supabase.table("processed_articles").select("raw_article_id").execute()
-    processed_ids = [p["raw_article_id"] for p in processed.data]
+    processed_ids = {p["raw_article_id"] for p in processed.data}
     raw           = supabase.table("raw_articles").select("*").execute()
     return [a for a in raw.data if a["id"] not in processed_ids]
 
 
-def is_valid_output(processed_data):
-    simplified = processed_data.get("simplified_article", "")
-    investor   = processed_data.get("investor_take", "")
-    glossary   = processed_data.get("glossary", [])
-    parts = simplified.strip().split("\n\n")
-    if len(parts) < 2: return False
-    if len(parts[0].strip()) < 30: return False
-    if len(parts[1].strip()) < 80: return False
-    if len(investor.strip()) < 40: return False
-    if not isinstance(glossary, list): return False
+def is_valid_output(d):
+    s = d.get("simplified_article", "")
+    parts = s.strip().split("\n\n")
+    if len(parts) < 2:                   return False
+    if len(parts[0].strip()) < 30:       return False
+    if len(parts[1].strip()) < 80:       return False
+    if len(d.get("investor_take","").strip()) < 40: return False
+    if not isinstance(d.get("glossary",[]), list):  return False
     return True
+
+
+def call_claude(user_content, max_tokens=900):
+    """Single API call with prompt caching on the shared system prompt."""
+    message = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=max_tokens,
+        system=[
+            {
+                "type": "text",
+                "text": SYSTEM_PROMPT,
+                "cache_control": {"type": "ephemeral"}   # ← cache the system prompt
+            }
+        ],
+        messages=[{"role": "user", "content": user_content}]
+    )
+    text = message.content[0].text.strip()
+    if text.startswith("```"):
+        text = text.split("```")[1]
+        if text.startswith("json"): text = text[4:]
+        text = text.strip()
+    return json.loads(text)
 
 
 def process_strict(title, content, feed_category, headline_count, headline_foreign_count):
     if headline_count < 10:
-        hl = "Be GENEROUS — mark is_headline: true for any page-1 financial story today, but follow the India-first rule below."
+        hl = "Be GENEROUS — mark is_headline:true for any page-1 financial story today."
     elif headline_count < HEADLINE_MAX:
-        hl = f"Need {HEADLINE_MAX - headline_count} more headlines. Mark true for clearly front-page news, but follow the India-first rule below."
+        hl = f"Need {HEADLINE_MAX - headline_count} more headlines. Mark true only for clearly front-page news."
     else:
-        hl = f"Already have {HEADLINE_MAX} headlines. Set is_headline: false unless breaking news."
+        hl = f"Already have {HEADLINE_MAX} headlines. Set is_headline:false unless truly breaking."
 
-    # Once foreign headline quota is used up, force foreign stories to non-headline
-    foreign_quota_used = headline_foreign_count >= (HEADLINE_MAX - HEADLINE_INDIAN_MIN_SHARE)
     foreign_note = ""
-    if foreign_quota_used:
-        foreign_note = "\nNOTE: The foreign-news headline quota is already full today. If this story has no direct India angle, set is_headline: false regardless of how big the foreign story is, and instead make sure category is 'global-economy' or 'us-markets' so it still appears as a regular article there."
+    if headline_foreign_count >= (HEADLINE_MAX - HEADLINE_INDIAN_MIN_SHARE):
+        foreign_note = "\nFOREIGN HEADLINE QUOTA FULL: If this story has no direct India angle, set is_headline:false."
 
-    category_hint = f"""
-The RSS feed that supplied this article was tagged as: "{feed_category}".
-Use this as a STRONG starting hint. Only override if article clearly belongs elsewhere.
+    category_kw = "\n".join(f"  • {k}: {v}" for k, v in CATEGORY_KEYWORDS.items())
 
-Category keyword reference:
-{chr(10).join(f'  • {k}: {v}' for k, v in CATEGORY_KEYWORDS.items())}
-"""
+    user_content = f"""RSS feed hint: "{feed_category}" — use as strong starting category. Only override if article clearly belongs elsewhere.
 
-    prompt = f"""You are a financial news editor for an India-based financial news platform. Your reader is a curious 16-year-old who knows what a stock market is and reads the news, but has never studied finance. Your job: filter weak articles, then write the good ones clearly.
+Category keywords:
+{category_kw}
 
-━━━ STEP 1: FILTER ━━━
-REJECT if: celebrity gossip, sports money, product ads, opinion columns, tiny announcements, tick-by-tick updates, property listings.
-ACCEPT if: central bank decisions, economic data, major earnings, government policy, M&A, commodity/currency moves, regulatory shifts.
-
-━━━ STEP 2: CATEGORY ━━━
-{category_hint}
-Pick EXACTLY ONE:
-  "indian-markets" | "us-markets" | "global-economy" | "technology-it" |
-  "pharma-health"  | "auto-ev"    | "energy-oil"      | "metals-mining" |
-  "infrastructure" | "fmcg-consumer" | "renewables"   | "real-estate"   |
-  "telecom-media"  | "banking-finance" | "macro-policy"
-If the story is foreign/global with no Indian company or market involved, prefer "global-economy" (or "us-markets" specifically for US market/Fed/Wall Street news) over forcing it into an Indian-sounding category.
-
-━━━ STEP 3: HEADLINE ━━━
-{hl}
-This site's audience is India-based, so headlines should mostly be Indian financial news. PRIORITIZE for headlines: Indian market moves (Sensex/Nifty), RBI/government policy, major Indian company earnings or M&A, and Indian-sector news.
-A pure foreign/US/global story (no direct India angle) should only be is_headline: true if it is truly extraordinary and globally significant (e.g. a major central bank decision moving world markets, a global financial crisis, a historic geopolitical/economic event) — not for routine foreign market updates or ordinary US company earnings.
-Routine foreign/global stories should be is_headline: false and will still be shown as regular articles under "global-economy" or "us-markets".{foreign_note}
-
-━━━ STEP 4: WRITE ━━━
-PART 1: 1 sentence, max 25 words. WHO+WHAT+number+impact.
-PART 2: 4 sentences, max 110 words. Before/What/Effect/Watch.
-PART 3 (MANDATORY): 2 sentences, max 40 words. Explain the likely implication for investors and why, in neutral analytical language (avoid "good/bad" verdicts). One thing to watch.
-GLOSSARY: 2-3 unfamiliar terms, max 20 words each.
-
-Return ONLY valid JSON:
-REJECT: {{"verdict":"reject"}}
-ACCEPT: {{"verdict":"accept","category":"<str>","is_headline":true/false,"simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}]}}
+Headline instruction: {hl}{foreign_note}
 
 Title: {title}
 Content: {content[:1000]}"""
 
-    message = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=900,
-        messages=[{"role": "user", "content": prompt}]
-    )
-    text = message.content[0].text.strip()
-    if text.startswith("```"):
-        text = text.split("```")[1]
-        if text.startswith("json"): text = text[4:]
-        text = text.strip()
-    parsed = json.loads(text)
+    parsed = call_claude(user_content, max_tokens=900)
     return None if parsed.get("verdict") == "reject" else parsed
 
 
 def process_relaxed(title, content, target_category):
-    prompt = f"""You are filling a news section that needs more articles. Category is FIXED: "{target_category}".
-
+    user_content = f"""FILL MODE — category is FIXED as "{target_category}". Do not change it.
 ONLY reject if completely unrelated to finance or business.
-ACCEPT quarterly results, company updates, sector news, price moves, analyst reports, industry data.
-Category is FIXED as "{target_category}" — do not change it.
-
-WRITE:
-PART 1: 1 sentence, max 25 words. WHO+WHAT+number+impact.
-PART 2: 4 sentences, max 110 words. Before/What/Effect/Watch.
-PART 3 (MANDATORY): 2 sentences, max 40 words. Explain the likely implication for investors and why, in neutral analytical language (avoid "good/bad" verdicts). One thing to watch.
+ACCEPT: quarterly results, company updates, sector news, price moves, analyst reports, industry data.
+is_headline must be false.
 GLOSSARY: 1-2 terms max.
 
-Return ONLY valid JSON:
-REJECT: {{"verdict":"reject"}}
-ACCEPT: {{"verdict":"accept","category":"{target_category}","is_headline":false,"simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}]}}
-
 Title: {title}
-Content: {content[:1000]}"""
+Content: {content[:1000]}
 
-    message = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=700,
-        messages=[{"role": "user", "content": prompt}]
-    )
-    text = message.content[0].text.strip()
-    if text.startswith("```"):
-        text = text.split("```")[1]
-        if text.startswith("json"): text = text[4:]
-        text = text.strip()
-    parsed = json.loads(text)
-    return None if parsed.get("verdict") == "reject" else parsed
+Return JSON with category always set to "{target_category}"."""
+
+    parsed = call_claude(user_content, max_tokens=700)
+    if parsed.get("verdict") == "reject":
+        return None
+    parsed["category"]    = target_category   # enforce fixed category
+    parsed["is_headline"] = False
+    return parsed
 
 
 def save_processed_article(raw_article, processed_data):
     if not processed_data.get("investor_take"):
-        processed_data["investor_take"] = "Markets may react as more details emerge."
+        processed_data["investor_take"] = "Markets may react as more details emerge. Watch for follow-up announcements."
     if not processed_data.get("glossary"):
         processed_data["glossary"] = []
     data = {
-        "raw_article_id": raw_article["id"],
-        "title":          raw_article["title"],
-        "source":         raw_article["source"],
-        "image_url":      raw_article.get("image_url"),
+        "raw_article_id":     raw_article["id"],
+        "title":              raw_article["title"],
+        "source":             raw_article["source"],
+        "image_url":          raw_article.get("image_url"),
         "simplified_article": processed_data["simplified_article"],
-        "investor_take":  processed_data.get("investor_take", ""),
-        "glossary":       processed_data["glossary"],
-        "category":       processed_data.get("category", "global-economy"),
-        "is_headline":    processed_data.get("is_headline", False),
+        "investor_take":      processed_data.get("investor_take", ""),
+        "glossary":           processed_data["glossary"],
+        "category":           processed_data.get("category", "global-economy"),
+        "is_headline":        processed_data.get("is_headline", False),
     }
     return supabase.table("processed_articles").insert(data).execute()
 
@@ -300,14 +307,15 @@ def save_processed_article(raw_article, processed_data):
 def run():
     running_cost = 0.0
 
-    print("=" * 50)
-    print(f"💰 Daily budget: ${DAILY_BUDGET:.2f} | ~${COST_PER_ARTICLE:.4f}/article")
+    print("=" * 55)
+    print(f"💰 Budget: ${DAILY_BUDGET:.2f}/day | ~${COST_PER_ARTICLE:.4f}/article")
     print(f"   Max articles in budget: {int(DAILY_BUDGET / COST_PER_ARTICLE)}")
-    print("=" * 50)
+    print(f"   Haiku 4.5: $1/M input · $5/M output · system prompt cached")
+    print("=" * 55)
 
-    # ════ PASS 1 — Strict ════
+    # ════ PASS 1 — Strict ════════════════════════════════════════════════════
     print("\nPASS 1 — Strict filtering")
-    print("=" * 50)
+    print("=" * 55)
 
     articles        = get_unprocessed_articles()
     category_counts = get_category_counts()
@@ -329,7 +337,6 @@ def run():
     accepted = rejected = skipped_full = skipped_dup = skipped_inv = 0
 
     for article in articles:
-        # ✅ Budget guard — stop before exceeding limit
         if running_cost + COST_PER_ARTICLE > DAILY_BUDGET * 0.75:
             print(f"\n⚠️  Reached 75% of budget (${running_cost:.3f}). Reserving rest for top-up pass.")
             break
@@ -341,8 +348,8 @@ def run():
             if is_duplicate_story(title, existing_titles):
                 skipped_dup += 1; continue
 
-            feed_category  = article.get("category", "global-economy")
-            headline_count = category_counts.get("headlines", 0)
+            feed_category          = article.get("category", "global-economy")
+            headline_count         = category_counts.get("headlines", 0)
             headline_foreign_count = category_counts.get("headlines_foreign", 0)
 
             if category_counts.get(feed_category, 0) >= CATEGORY_LIMITS.get(feed_category, 7):
@@ -368,7 +375,7 @@ def run():
                 processed["is_headline"] = False
                 is_headline = False
 
-            # Code-level safety net: enforce foreign headline quota even if the model slips
+            # Safety net: enforce foreign headline quota
             if is_headline and category in FOREIGN_CATEGORIES:
                 if headline_foreign_count >= (HEADLINE_MAX - HEADLINE_INDIAN_MIN_SHARE):
                     processed["is_headline"] = False
@@ -377,11 +384,11 @@ def run():
             save_processed_article(article, processed)
             category_counts[category] = category_counts.get(category, 0) + 1
             if is_headline:
-                category_counts["headlines"] = category_counts.get("headlines", 0) + 1
+                category_counts["headlines"] += 1
                 if category in FOREIGN_CATEGORIES:
-                    category_counts["headlines_foreign"] = category_counts.get("headlines_foreign", 0) + 1
+                    category_counts["headlines_foreign"] += 1
                 else:
-                    category_counts["headlines_indian"] = category_counts.get("headlines_indian", 0) + 1
+                    category_counts["headlines_indian"] += 1
             existing_titles.append(title.lower()[:60])
 
             gap    = category_counts[category] - CATEGORY_MINIMUMS.get(category, 5)
@@ -397,7 +404,7 @@ def run():
 
     print(f"\nPass 1 — Accepted: {accepted} | Rejected: {rejected} | 💰 ${running_cost:.3f} spent")
 
-    # ════ PASS 2 — Top-up ════
+    # ════ PASS 2 — Top-up ════════════════════════════════════════════════════
     under_filled = {
         cat: CATEGORY_MINIMUMS[cat] - category_counts.get(cat, 0)
         for cat in CATEGORIES
@@ -405,20 +412,17 @@ def run():
     }
 
     if under_filled:
-        print(f"\n{'=' * 50}")
+        print(f"\n{'=' * 55}")
         print(f"PASS 2 — Top-up for {len(under_filled)} under-filled categories")
         for cat, needed in under_filled.items():
             print(f"  • {cat}: needs {needed} more")
-        print("=" * 50)
+        print("=" * 55)
 
         topup_articles = get_unprocessed_articles()
         topup_accepted = 0
 
         for article in topup_articles:
-            if not under_filled:
-                break
-
-            # ✅ Budget guard for pass 2
+            if not under_filled: break
             if running_cost + COST_PER_ARTICLE > DAILY_BUDGET:
                 print(f"\n🛑 Budget limit reached (${running_cost:.3f}). Stopping.")
                 break
@@ -427,25 +431,19 @@ def run():
             content  = article.get("content", "")
             feed_cat = article.get("category", "global-economy")
 
-            if feed_cat not in under_filled:
-                continue
-            if is_duplicate_story(title, existing_titles):
-                continue
+            if feed_cat not in under_filled: continue
+            if is_duplicate_story(title, existing_titles): continue
 
             try:
                 processed = process_relaxed(title, content, feed_cat)
                 running_cost += COST_PER_ARTICLE
 
-                if processed is None:
-                    continue
-                if not is_valid_output(processed):
-                    continue
+                if processed is None: continue
+                if not is_valid_output(processed): continue
 
                 category  = processed.get("category", feed_cat)
                 cat_limit = CATEGORY_LIMITS.get(category, 7)
-
-                if category_counts.get(category, 0) >= cat_limit:
-                    continue
+                if category_counts.get(category, 0) >= cat_limit: continue
 
                 save_processed_article(article, processed)
                 category_counts[category] = category_counts.get(category, 0) + 1
@@ -466,12 +464,12 @@ def run():
 
         print(f"\nTop-up: +{topup_accepted} articles | 💰 ${running_cost:.3f} total")
 
-    # ════ Final report ════
+    # ════ Final report ════════════════════════════════════════════════════════
     final   = get_category_counts()
     all_met = True
-    print(f"\n{'=' * 50}")
+    print(f"\n{'=' * 55}")
     print("FINAL COUNTS")
-    print("=" * 50)
+    print("=" * 55)
     for cat in CATEGORIES:
         count  = final.get(cat, 0)
         minim  = CATEGORY_MINIMUMS[cat]
@@ -480,11 +478,13 @@ def run():
         print(f"  {status} [{cat}] {count}/{limit} (min {minim})")
         if count < minim: all_met = False
 
-    print(f"\n  Headlines: {final.get('headlines', 0)}/{HEADLINE_MAX} total | Indian: {final.get('headlines_indian', 0)} | Foreign: {final.get('headlines_foreign', 0)}")
+    indian  = final.get("headlines_indian", 0)
+    foreign = final.get("headlines_foreign", 0)
+    print(f"\n  Headlines: {final.get('headlines',0)}/{HEADLINE_MAX} | Indian: {indian} | Foreign: {foreign}")
     print(f"\n{'✅ ALL MINIMUMS MET' if all_met else '⚠️  SOME STILL BELOW MIN'}")
     print(f"💰 Total cost this run: ${running_cost:.4f} / ${DAILY_BUDGET:.2f} budget")
-    print(f"   Remaining: ${DAILY_BUDGET - running_cost:.4f}")
-    print("=" * 50)
+    print(f"   Remaining for doubts + market summary: ${1.00 - running_cost:.4f}")
+    print("=" * 55)
 
     enforce_per_category_limit()
 
