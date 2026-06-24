@@ -1,5 +1,6 @@
 import anthropic
 import json
+import re
 from supabase import create_client
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
@@ -16,14 +17,18 @@ client   = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
 
 HEADLINE_MAX = 20
 
-# ── Haiku 4.5 real pricing ──────────────────────────────────────────────────
-COST_PER_M_INPUT  = 1.00   # $1 per million input tokens
-COST_PER_M_OUTPUT = 5.00   # $5 per million output tokens
-DAILY_BUDGET      = 0.68   # leave $0.32 buffer for doubts + market summary
-AVG_INPUT_TOKENS  = 1000   # realistic for our prompt size
+# ── Haiku 4.5 pricing ────────────────────────────────────────────────────────
+COST_PER_M_INPUT  = 1.00
+COST_PER_M_OUTPUT = 5.00
+COST_PER_M_CACHE  = 0.10
+DAILY_BUDGET      = 0.68   # leaves $0.32 for doubts + market summary
+AVG_INPUT_TOKENS  = 1000
 AVG_OUTPUT_TOKENS = 300
-COST_PER_ARTICLE  = (AVG_INPUT_TOKENS / 1_000_000) * COST_PER_M_INPUT \
-                  + (AVG_OUTPUT_TOKENS / 1_000_000) * COST_PER_M_OUTPUT
+SYSTEM_TOKENS     = 1100   # cached after first call
+# With caching: system prompt costs 0.10/M instead of 1.00/M
+COST_PER_ARTICLE  = (SYSTEM_TOKENS / 1e6) * COST_PER_M_CACHE \
+                  + (AVG_INPUT_TOKENS / 1e6) * COST_PER_M_INPUT \
+                  + (AVG_OUTPUT_TOKENS / 1e6) * COST_PER_M_OUTPUT
 
 CATEGORY_LIMITS = {
     "indian-markets":  12,
@@ -61,9 +66,26 @@ CATEGORY_MINIMUMS = {
     "telecom-media":   5,
 }
 
-FOREIGN_CATEGORIES       = {"us-markets", "global-economy"}
+# Hard floor — NEVER show fewer than this many articles in any section
+# Even if Claude rejects everything, Pass 3 will scrape the barrel to hit this
+CATEGORY_FLOOR = {cat: 3 for cat in CATEGORY_LIMITS}
+
+FOREIGN_CATEGORIES        = {"us-markets", "global-economy"}
 HEADLINE_INDIAN_MIN_SHARE = 14
-CATEGORIES               = list(CATEGORY_LIMITS.keys())
+CATEGORIES                = list(CATEGORY_LIMITS.keys())
+
+# Which categories are "related" — used in Pass 3 to find articles
+# that might belong to an underfilled category from adjacent raw feeds
+RELATED_CATEGORIES = {
+    "renewables":      ["energy-oil", "infrastructure", "technology-it"],
+    "real-estate":     ["banking-finance", "fmcg-consumer", "infrastructure"],
+    "infrastructure":  ["macro-policy", "energy-oil", "metals-mining"],
+    "metals-mining":   ["energy-oil", "infrastructure", "indian-markets"],
+    "fmcg-consumer":   ["indian-markets", "pharma-health", "auto-ev"],
+    "telecom-media":   ["technology-it", "indian-markets", "banking-finance"],
+    "auto-ev":         ["energy-oil", "renewables", "indian-markets"],
+    "pharma-health":   ["technology-it", "global-economy", "indian-markets"],
+}
 
 CATEGORY_KEYWORDS = {
     "indian-markets":  "Sensex, Nifty, BSE, NSE, Indian stocks, Dalal Street, Indian IPO, FII, DII, rupee vs dollar, SEBI, RBI rate, Nifty Bank",
@@ -83,8 +105,6 @@ CATEGORY_KEYWORDS = {
     "telecom-media":   "Jio, Airtel, Vi, BSNL, spectrum, 5G, OTT, streaming, telecom tariff, media merger, broadband",
 }
 
-# ── Shared system prompt — same text every call → Anthropic caches it ────────
-# NOTE: Must be ≥1024 tokens to be cache-eligible. This qualifies.
 SYSTEM_PROMPT = """You are a financial news editor for an India-based financial news platform.
 Your reader is a curious 16-year-old who knows what a stock market is and reads the news,
 but has never studied finance. Your job: filter weak articles, then write the good ones clearly.
@@ -139,6 +159,77 @@ ACCEPT format: {"verdict":"accept","category":"<str>","is_headline":true/false,
 "simplified_article":"PART1\\n\\nPART2","investor_take":"PART3",
 "glossary":[{"word":"","meaning":""}]}"""
 
+# ── Same system prompt used in Pass 3 (lenient mode) ─────────────────────────
+# The only difference is the filter rules are relaxed for underfilled sectors
+SYSTEM_PROMPT_LENIENT = """You are a financial news editor filling gaps in a news platform's sector coverage.
+Your reader is a curious 16-year-old. Write clearly and simply.
+
+FILTER RULES (LENIENT MODE — sector is underfilled, be generous):
+ACCEPT almost anything business or finance related:
+  - Company updates, quarterly results, sector trends, analyst opinions
+  - Price movements with any explanation at all
+  - Industry data, policy impacts, market commentary
+  - Executive appointments, company expansions, new products with market impact
+REJECT ONLY: pure celebrity gossip, sports scores, recipes, travel guides,
+  completely unrelated non-business content.
+
+The category is FIXED — do not change it.
+is_headline must always be false in lenient mode.
+
+WRITING FORMAT:
+PART 1: 1 sentence, max 25 words. WHO + WHAT + impact.
+PART 2: 3-4 sentences, max 100 words. Context / What happened / Effect / Watch.
+PART 3 (MANDATORY investor_take): 2 sentences, max 40 words. Sector implication + what to watch.
+GLOSSARY: 1-2 terms max.
+
+OUTPUT: Return ONLY valid JSON, no markdown.
+REJECT format: {"verdict":"reject"}
+ACCEPT format: {"verdict":"accept","category":"<FIXED_CATEGORY>","is_headline":false,
+"simplified_article":"PART1\\n\\nPART2","investor_take":"PART3",
+"glossary":[{"word":"","meaning":""}]}"""
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SMART DEDUP
+# ─────────────────────────────────────────────────────────────────────────────
+
+def get_title_fingerprint(title):
+    numbers     = {n for n in re.findall(r'\d+(?:\.\d+)?', title) if float(n) > 5}
+    caps        = set(re.findall(r'\b[A-Z][a-z]{2,}\b', title))
+    fin_entities = set(re.findall(
+        r'\b(rbi|sebi|nse|bse|nifty|sensex|fed|mpc|ipo|fii|dii|npa|gdp|cpi|wpi|repo|usfda|opec|imf)\b',
+        title.lower()
+    ))
+    return numbers, caps, fin_entities
+
+
+def is_same_story(title_new, existing_titles_data):
+    n1, c1, e1 = get_title_fingerprint(title_new)
+
+    def kw(t):
+        t = t.lower()
+        t = re.sub(r'\b(the|a|an|in|on|at|to|of|for|by|as|its|with|after|amid|says|'
+                   r'report|reports|per|cent|yoy|qoq|quarter|results|earnings|beats|misses)\b', ' ', t)
+        return set(w for w in re.findall(r'\b[a-z]{4,}\b', t))
+
+    kw1 = kw(title_new)
+
+    for existing_title, (n2, c2, e2) in existing_titles_data:
+        if (c1 & c2) and (n1 & n2):       return True
+        if (e1 & e2) and (n1 & n2):       return True
+        kw2 = kw(existing_title)
+        if kw1 and kw2 and len(kw1 & kw2) / len(kw1 | kw2) >= 0.60:
+            return True
+    return False
+
+
+def build_existing_titles_data(titles_list):
+    return [(t, get_title_fingerprint(t)) for t in titles_list]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DB HELPERS
+# ─────────────────────────────────────────────────────────────────────────────
 
 def get_category_counts():
     counts = {cat: 0 for cat in CATEGORIES}
@@ -157,6 +248,33 @@ def get_category_counts():
     return counts
 
 
+def get_existing_titles():
+    result = supabase.table("processed_articles").select("title").execute()
+    return [r["title"] for r in result.data if r.get("title")]
+
+
+def get_unprocessed_articles(extra_categories=None):
+    """Get unprocessed raw articles. If extra_categories given, filter to those."""
+    processed     = supabase.table("processed_articles").select("raw_article_id").execute()
+    processed_ids = {p["raw_article_id"] for p in processed.data}
+    raw           = supabase.table("raw_articles").select("*").execute()
+    articles      = [a for a in raw.data if a["id"] not in processed_ids]
+    if extra_categories:
+        articles = [a for a in articles if a.get("category") in extra_categories]
+    return articles
+
+
+def is_valid_output(d):
+    s     = d.get("simplified_article", "")
+    parts = s.strip().split("\n\n")
+    if len(parts) < 2:                               return False
+    if len(parts[0].strip()) < 30:                   return False
+    if len(parts[1].strip()) < 60:                   return False  # slightly relaxed for pass 3
+    if len(d.get("investor_take","").strip()) < 30:  return False  # slightly relaxed
+    if not isinstance(d.get("glossary",[]), list):   return False
+    return True
+
+
 def enforce_per_category_limit():
     print("\n🔢 Enforcing per-category limits...")
     for category in CATEGORIES:
@@ -167,9 +285,8 @@ def enforce_per_category_limit():
             .order("created_at", desc=True).execute()
         )
         if len(articles.data) > limit:
-            ids_to_delete = [r["id"] for r in articles.data[limit:]]
-            for aid in ids_to_delete:
-                supabase.table("processed_articles").delete().eq("id", aid).execute()
+            for r in articles.data[limit:]:
+                supabase.table("processed_articles").delete().eq("id", r["id"]).execute()
             print(f"  🗑️  [{category}] Trimmed → kept {limit}")
         else:
             print(f"  ✅ [{category}] {len(articles.data)}/{limit} — OK")
@@ -187,46 +304,20 @@ def enforce_per_category_limit():
         print(f"  ✅ Headlines: {len(headlines.data)}/{HEADLINE_MAX} — OK")
 
 
-def get_existing_titles():
-    result = supabase.table("processed_articles").select("title").execute()
-    return [r["title"].lower()[:60] for r in result.data]
+# ─────────────────────────────────────────────────────────────────────────────
+# CLAUDE CALLS
+# ─────────────────────────────────────────────────────────────────────────────
 
-
-def is_duplicate_story(title, existing_titles):
-    short = title.lower()[:40]
-    return any(short == e[:40] for e in existing_titles)
-
-
-def get_unprocessed_articles():
-    processed     = supabase.table("processed_articles").select("raw_article_id").execute()
-    processed_ids = {p["raw_article_id"] for p in processed.data}
-    raw           = supabase.table("raw_articles").select("*").execute()
-    return [a for a in raw.data if a["id"] not in processed_ids]
-
-
-def is_valid_output(d):
-    s = d.get("simplified_article", "")
-    parts = s.strip().split("\n\n")
-    if len(parts) < 2:                   return False
-    if len(parts[0].strip()) < 30:       return False
-    if len(parts[1].strip()) < 80:       return False
-    if len(d.get("investor_take","").strip()) < 40: return False
-    if not isinstance(d.get("glossary",[]), list):  return False
-    return True
-
-
-def call_claude(user_content, max_tokens=900):
-    """Single API call with prompt caching on the shared system prompt."""
+def call_claude(user_content, max_tokens=900, lenient=False):
+    prompt = SYSTEM_PROMPT_LENIENT if lenient else SYSTEM_PROMPT
     message = client.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=max_tokens,
-        system=[
-            {
-                "type": "text",
-                "text": SYSTEM_PROMPT,
-                "cache_control": {"type": "ephemeral"}   # ← cache the system prompt
-            }
-        ],
+        system=[{
+            "type": "text",
+            "text": prompt,
+            "cache_control": {"type": "ephemeral"}
+        }],
         messages=[{"role": "user", "content": user_content}]
     )
     text = message.content[0].text.strip()
@@ -247,7 +338,7 @@ def process_strict(title, content, feed_category, headline_count, headline_forei
 
     foreign_note = ""
     if headline_foreign_count >= (HEADLINE_MAX - HEADLINE_INDIAN_MIN_SHARE):
-        foreign_note = "\nFOREIGN HEADLINE QUOTA FULL: If this story has no direct India angle, set is_headline:false."
+        foreign_note = "\nFOREIGN HEADLINE QUOTA FULL: If no direct India angle, set is_headline:false."
 
     category_kw = "\n".join(f"  • {k}: {v}" for k, v in CATEGORY_KEYWORDS.items())
 
@@ -265,22 +356,21 @@ Content: {content[:1000]}"""
     return None if parsed.get("verdict") == "reject" else parsed
 
 
-def process_relaxed(title, content, target_category):
-    user_content = f"""FILL MODE — category is FIXED as "{target_category}". Do not change it.
-ONLY reject if completely unrelated to finance or business.
-ACCEPT: quarterly results, company updates, sector news, price moves, analyst reports, industry data.
-is_headline must be false.
-GLOSSARY: 1-2 terms max.
+def process_lenient(title, content, target_category):
+    """
+    Lenient mode for underfilled sectors.
+    Category is FIXED — Claude cannot change it.
+    Rejection bar is much lower — accept anything business-related.
+    """
+    user_content = f"""CATEGORY (FIXED, do not change): "{target_category}"
 
 Title: {title}
-Content: {content[:1000]}
+Content: {content[:1000]}"""
 
-Return JSON with category always set to "{target_category}"."""
-
-    parsed = call_claude(user_content, max_tokens=700)
+    parsed = call_claude(user_content, max_tokens=700, lenient=True)
     if parsed.get("verdict") == "reject":
         return None
-    parsed["category"]    = target_category   # enforce fixed category
+    parsed["category"]    = target_category   # enforce — Claude cannot override
     parsed["is_headline"] = False
     return parsed
 
@@ -304,84 +394,98 @@ def save_processed_article(raw_article, processed_data):
     return supabase.table("processed_articles").insert(data).execute()
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# MAIN
+# ─────────────────────────────────────────────────────────────────────────────
+
 def run():
     running_cost = 0.0
 
-    print("=" * 55)
-    print(f"💰 Budget: ${DAILY_BUDGET:.2f}/day | ~${COST_PER_ARTICLE:.4f}/article")
-    print(f"   Max articles in budget: {int(DAILY_BUDGET / COST_PER_ARTICLE)}")
-    print(f"   Haiku 4.5: $1/M input · $5/M output · system prompt cached")
-    print("=" * 55)
-
-    # ════ PASS 1 — Strict ════════════════════════════════════════════════════
-    print("\nPASS 1 — Strict filtering")
-    print("=" * 55)
+    print("=" * 60)
+    print(f"💰 Budget: ${DAILY_BUDGET:.2f}/day | ~${COST_PER_ARTICLE:.5f}/article (cached)")
+    print(f"   Max articles: {int(DAILY_BUDGET / COST_PER_ARTICLE)}")
+    print(f"   Haiku 4.5: $1/M input · $5/M output · $0.10/M cache")
+    print("=" * 60)
 
     articles        = get_unprocessed_articles()
     category_counts = get_category_counts()
-    existing_titles = get_existing_titles()
+    existing_titles_data = build_existing_titles_data(get_existing_titles())
 
-    print(f"Found {len(articles)} unprocessed articles")
+    print(f"\nUnprocessed articles: {len(articles)}")
+    print(f"Dedup index: {len(existing_titles_data)} existing titles")
+    print(f"Current counts: { {k:v for k,v in category_counts.items() if k in CATEGORIES} }")
+
+    # ════ PASS 1 — Strict, all categories, NO 75% budget guard ══════════════
+    # FIX: Removed the 75% guard. With caching at $0.0026/article we can
+    # process 260 articles within $0.68 budget. Let budget be the only guard.
+    print(f"\n{'='*60}")
+    print("PASS 1 — Strict (all categories, full budget available)")
+    print("="*60)
 
     def sort_priority(article):
         cat   = article.get("category", "global-economy")
         count = category_counts.get(cat, 0)
         minim = CATEGORY_MINIMUMS.get(cat, 5)
         limit = CATEGORY_LIMITS.get(cat, 7)
-        if count < minim:  return 0
-        if count < limit:  return 1
-        return 2
+        if count < minim:  return 0   # underfilled — highest priority
+        if count < limit:  return 1   # between min and limit
+        return 2                       # already at limit — lowest priority
 
     articles.sort(key=sort_priority)
 
-    accepted = rejected = skipped_full = skipped_dup = skipped_inv = 0
+    accepted = rejected = skipped_full = skipped_dup = 0
 
     for article in articles:
-        if running_cost + COST_PER_ARTICLE > DAILY_BUDGET * 0.75:
-            print(f"\n⚠️  Reached 75% of budget (${running_cost:.3f}). Reserving rest for top-up pass.")
+        # Only hard stop is the actual budget limit
+        if running_cost + COST_PER_ARTICLE > DAILY_BUDGET:
+            print(f"\n🛑 Budget limit reached (${running_cost:.3f}). Stopping Pass 1.")
             break
 
         title   = article["title"]
         content = article.get("content", "")
 
         try:
-            if is_duplicate_story(title, existing_titles):
-                skipped_dup += 1; continue
+            if is_same_story(title, existing_titles_data):
+                skipped_dup += 1
+                continue
 
             feed_category          = article.get("category", "global-economy")
             headline_count         = category_counts.get("headlines", 0)
             headline_foreign_count = category_counts.get("headlines_foreign", 0)
 
             if category_counts.get(feed_category, 0) >= CATEGORY_LIMITS.get(feed_category, 7):
-                skipped_full += 1; continue
+                skipped_full += 1
+                continue
 
             processed = process_strict(title, content, feed_category, headline_count, headline_foreign_count)
             running_cost += COST_PER_ARTICLE
 
             if processed is None:
-                rejected += 1; continue
+                rejected += 1
+                continue
 
             if not is_valid_output(processed):
-                skipped_inv += 1; continue
+                continue
 
             category    = processed.get("category", feed_category)
             is_headline = processed.get("is_headline", False)
-            cat_limit   = CATEGORY_LIMITS.get(category, 7)
 
-            if category_counts.get(category, 0) >= cat_limit:
-                skipped_full += 1; continue
+            if category_counts.get(category, 0) >= CATEGORY_LIMITS.get(category, 7):
+                skipped_full += 1
+                continue
 
             if is_headline and headline_count >= HEADLINE_MAX:
                 processed["is_headline"] = False
                 is_headline = False
 
-            # Safety net: enforce foreign headline quota
             if is_headline and category in FOREIGN_CATEGORIES:
                 if headline_foreign_count >= (HEADLINE_MAX - HEADLINE_INDIAN_MIN_SHARE):
                     processed["is_headline"] = False
                     is_headline = False
 
             save_processed_article(article, processed)
+            existing_titles_data.append((title, get_title_fingerprint(title)))
+
             category_counts[category] = category_counts.get(category, 0) + 1
             if is_headline:
                 category_counts["headlines"] += 1
@@ -389,102 +493,182 @@ def run():
                     category_counts["headlines_foreign"] += 1
                 else:
                     category_counts["headlines_indian"] += 1
-            existing_titles.append(title.lower()[:60])
 
             gap    = category_counts[category] - CATEGORY_MINIMUMS.get(category, 5)
             status = "✅" if gap >= 0 else f"⚠️  {abs(gap)} below min"
-            print(f"  ✓ [{category}] {category_counts[category]}/{CATEGORY_LIMITS[category]} {status} | 💰 ${running_cost:.3f}")
+            hl_tag = " 🔥" if is_headline else ""
+            print(f"  ✓{hl_tag} [{category}] {category_counts[category]}/{CATEGORY_LIMITS[category]} {status} | ${running_cost:.3f} | {title[:40]}")
             accepted += 1
 
         except json.JSONDecodeError as e:
             running_cost += COST_PER_ARTICLE
-            print(f"  ❌ JSON error: {e}")
+            print(f"  ❌ JSON: {e}")
         except Exception as e:
-            print(f"  ❌ Error: {e}")
+            print(f"  ❌ {e}")
 
-    print(f"\nPass 1 — Accepted: {accepted} | Rejected: {rejected} | 💰 ${running_cost:.3f} spent")
+    print(f"\nPass 1 — Accepted: {accepted} | Rejected: {rejected} | Dupes: {skipped_dup} | ${running_cost:.3f}")
 
-    # ════ PASS 2 — Top-up ════════════════════════════════════════════════════
-    under_filled = {
+    # ════ PASS 2 — Lenient top-up for underfilled categories ═════════════════
+    # FIX: Uses LENIENT mode — much lower rejection bar for small sectors
+    # Also searches RELATED categories' raw articles if own category is empty
+    under_min = {
         cat: CATEGORY_MINIMUMS[cat] - category_counts.get(cat, 0)
         for cat in CATEGORIES
         if category_counts.get(cat, 0) < CATEGORY_MINIMUMS[cat]
     }
 
-    if under_filled:
-        print(f"\n{'=' * 55}")
-        print(f"PASS 2 — Top-up for {len(under_filled)} under-filled categories")
-        for cat, needed in under_filled.items():
-            print(f"  • {cat}: needs {needed} more")
-        print("=" * 55)
+    if under_min:
+        print(f"\n{'='*60}")
+        print(f"PASS 2 — Lenient top-up ({len(under_min)} sectors below minimum)")
+        for cat, needed in sorted(under_min.items(), key=lambda x: -x[1]):
+            print(f"  ⚠️  {cat}: needs {needed} more")
+        print("="*60)
 
-        topup_articles = get_unprocessed_articles()
-        topup_accepted = 0
+        # For each underfilled category, gather raw articles from:
+        # 1. Its own feed category
+        # 2. Related categories (in case Claude miscategorised them)
+        p2_accepted = 0
 
-        for article in topup_articles:
-            if not under_filled: break
+        for target_cat, needed in sorted(under_min.items(), key=lambda x: -x[1]):
             if running_cost + COST_PER_ARTICLE > DAILY_BUDGET:
-                print(f"\n🛑 Budget limit reached (${running_cost:.3f}). Stopping.")
+                print(f"\n🛑 Budget exhausted. Stopping Pass 2.")
                 break
 
-            title    = article["title"]
-            content  = article.get("content", "")
-            feed_cat = article.get("category", "global-economy")
+            # Sources to search: own category + related
+            search_cats = {target_cat} | set(RELATED_CATEGORIES.get(target_cat, []))
+            candidates  = get_unprocessed_articles(extra_categories=search_cats)
 
-            if feed_cat not in under_filled: continue
-            if is_duplicate_story(title, existing_titles): continue
+            # Also include ALL unprocessed if still very short
+            if len(candidates) < 5:
+                candidates = get_unprocessed_articles()
 
-            try:
-                processed = process_relaxed(title, content, feed_cat)
-                running_cost += COST_PER_ARTICLE
+            filled = 0
+            for article in candidates:
+                if filled >= needed:
+                    break
+                if running_cost + COST_PER_ARTICLE > DAILY_BUDGET:
+                    break
 
-                if processed is None: continue
-                if not is_valid_output(processed): continue
+                title   = article["title"]
+                content = article.get("content", "")
 
-                category  = processed.get("category", feed_cat)
-                cat_limit = CATEGORY_LIMITS.get(category, 7)
-                if category_counts.get(category, 0) >= cat_limit: continue
+                if is_same_story(title, existing_titles_data):
+                    continue
 
-                save_processed_article(article, processed)
-                category_counts[category] = category_counts.get(category, 0) + 1
-                existing_titles.append(title.lower()[:60])
-                topup_accepted += 1
+                try:
+                    processed = process_lenient(title, content, target_cat)
+                    running_cost += COST_PER_ARTICLE
 
-                if category in under_filled:
-                    under_filled[category] -= 1
-                    if under_filled[category] <= 0:
-                        del under_filled[category]
-                        print(f"  ✅ [{category}] minimum reached!")
+                    if processed is None:
+                        continue
+                    if not is_valid_output(processed):
+                        continue
 
-                print(f"  ↑ [{category}] {category_counts[category]}/{CATEGORY_LIMITS[category]} | 💰 ${running_cost:.3f}")
+                    category = processed.get("category", target_cat)
+                    if category_counts.get(category, 0) >= CATEGORY_LIMITS.get(category, 7):
+                        continue
 
-            except Exception as e:
-                running_cost += COST_PER_ARTICLE
-                print(f"  ❌ {e}")
+                    save_processed_article(article, processed)
+                    existing_titles_data.append((title, get_title_fingerprint(title)))
+                    category_counts[category] = category_counts.get(category, 0) + 1
+                    filled     += 1
+                    p2_accepted += 1
 
-        print(f"\nTop-up: +{topup_accepted} articles | 💰 ${running_cost:.3f} total")
+                    print(f"  ↑ [{category}] {category_counts[category]}/{CATEGORY_LIMITS[category]} | ${running_cost:.3f} | {title[:45]}")
+
+                except Exception as e:
+                    running_cost += COST_PER_ARTICLE
+                    print(f"  ❌ {e}")
+
+            if filled > 0:
+                print(f"  ✅ [{target_cat}] filled +{filled}")
+
+        print(f"\nPass 2 — +{p2_accepted} articles | ${running_cost:.3f} total")
+
+    # ════ PASS 3 — Floor guarantee (never show fewer than 3 articles) ════════
+    # FIX: Hard floor — if any section still has < 3 articles,
+    # force-process raw articles with ultra-lenient mode
+    under_floor = {
+        cat: CATEGORY_FLOOR[cat] - category_counts.get(cat, 0)
+        for cat in CATEGORIES
+        if category_counts.get(cat, 0) < CATEGORY_FLOOR[cat]
+    }
+
+    if under_floor:
+        print(f"\n{'='*60}")
+        print(f"PASS 3 — FLOOR GUARANTEE (never show < 3 articles per section)")
+        for cat, needed in under_floor.items():
+            print(f"  🚨 {cat}: only {CATEGORY_FLOOR[cat]-needed} articles — needs {needed} more")
+        print("="*60)
+
+        all_unprocessed = get_unprocessed_articles()
+        p3_accepted = 0
+
+        for target_cat, needed in under_floor.items():
+            filled = 0
+            for article in all_unprocessed:
+                if filled >= needed:
+                    break
+                if running_cost + COST_PER_ARTICLE > DAILY_BUDGET:
+                    break
+
+                title   = article["title"]
+                content = article.get("content", "")
+
+                if is_same_story(title, existing_titles_data):
+                    continue
+
+                try:
+                    processed = process_lenient(title, content, target_cat)
+                    running_cost += COST_PER_ARTICLE
+
+                    if processed is None:
+                        continue
+                    if not is_valid_output(processed):
+                        continue
+
+                    save_processed_article(article, processed)
+                    existing_titles_data.append((title, get_title_fingerprint(title)))
+                    category_counts[target_cat] = category_counts.get(target_cat, 0) + 1
+                    filled     += 1
+                    p3_accepted += 1
+
+                    print(f"  🆙 [{target_cat}] {category_counts[target_cat]} articles now | {title[:50]}")
+
+                except Exception as e:
+                    running_cost += COST_PER_ARTICLE
+                    print(f"  ❌ {e}")
+
+        print(f"\nPass 3 — +{p3_accepted} articles forced in")
 
     # ════ Final report ════════════════════════════════════════════════════════
     final   = get_category_counts()
     all_met = True
-    print(f"\n{'=' * 55}")
+    print(f"\n{'='*60}")
     print("FINAL COUNTS")
-    print("=" * 55)
+    print("="*60)
     for cat in CATEGORIES:
         count  = final.get(cat, 0)
+        floor  = CATEGORY_FLOOR[cat]
         minim  = CATEGORY_MINIMUMS[cat]
         limit  = CATEGORY_LIMITS[cat]
-        status = "✅" if count >= minim else "❌ BELOW MIN"
-        print(f"  {status} [{cat}] {count}/{limit} (min {minim})")
-        if count < minim: all_met = False
+        if count < floor:
+            status = f"🚨 CRITICAL ({count} < floor {floor})"
+            all_met = False
+        elif count < minim:
+            status = f"⚠️  BELOW MIN ({count} < {minim})"
+            all_met = False
+        else:
+            status = f"✅ {count}/{limit}"
+        print(f"  {status:<35} {cat}")
 
     indian  = final.get("headlines_indian", 0)
     foreign = final.get("headlines_foreign", 0)
     print(f"\n  Headlines: {final.get('headlines',0)}/{HEADLINE_MAX} | Indian: {indian} | Foreign: {foreign}")
-    print(f"\n{'✅ ALL MINIMUMS MET' if all_met else '⚠️  SOME STILL BELOW MIN'}")
-    print(f"💰 Total cost this run: ${running_cost:.4f} / ${DAILY_BUDGET:.2f} budget")
+    print(f"\n{'✅ ALL GOOD' if all_met else '⚠️  SOME SECTORS LOW — check fetch_news feeds'}")
+    print(f"💰 Total: ${running_cost:.4f} / ${DAILY_BUDGET:.2f} budget")
     print(f"   Remaining for doubts + market summary: ${1.00 - running_cost:.4f}")
-    print("=" * 55)
+    print("="*60)
 
     enforce_per_category_limit()
 

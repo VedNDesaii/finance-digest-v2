@@ -107,6 +107,30 @@ RSS_FEEDS = [
     {"url": "https://news.google.com/rss/search?q=india+bank+CEO+RBI+NBFC+fraud+NPA+banking&hl=en-IN&gl=IN&ceid=IN:en", "category": "banking-finance"},
     {"url": "https://news.google.com/rss/search?q=SBI+HDFC+ICICI+Kotak+bank+india+results+news&hl=en-IN&gl=IN&ceid=IN:en","category": "banking-finance"},
 
+
+    # ── Breaking corporate news: ED/CBI/SFIO arrests, fraud cases ─────────
+    # THIS is what catches "Ex Reliance Finance CEO arrested" type stories
+    {"url": "https://news.google.com/rss/search?q=india+corporate+arrested+ED+CBI+SFIO+fraud+scam&hl=en-IN&gl=IN&ceid=IN:en",            "category": "banking-finance"},
+    {"url": "https://news.google.com/rss/search?q=india+CEO+MD+chairman+arrested+fraud+enforcement+directorate&hl=en-IN&gl=IN&ceid=IN:en", "category": "banking-finance"},
+    # ── Reliance group (Capital, Finance, Retail — not just oil) ──────────
+    {"url": "https://news.google.com/rss/search?q=Reliance+Capital+Finance+Retail+corporate+news+india&hl=en-IN&gl=IN&ceid=IN:en",        "category": "banking-finance"},
+    # ── SEBI enforcement: penalties, bans, insider trading ────────────────
+    {"url": "https://news.google.com/rss/search?q=SEBI+penalty+ban+show+cause+insider+trading+india&hl=en-IN&gl=IN&ceid=IN:en",           "category": "indian-markets"},
+    # ── RBI enforcement: penalties on banks/NBFCs ─────────────────────────
+    {"url": "https://news.google.com/rss/search?q=RBI+penalty+fine+action+bank+NBFC+india+licence&hl=en-IN&gl=IN&ceid=IN:en",             "category": "banking-finance"},
+    # ── NCLT / Insolvency / IBC proceedings ───────────────────────────────
+    {"url": "https://news.google.com/rss/search?q=NCLT+insolvency+IBC+liquidation+india+corporate&hl=en-IN&gl=IN&ceid=IN:en",             "category": "banking-finance"},
+    # ── PSU divestment / privatisation ────────────────────────────────────
+    {"url": "https://news.google.com/rss/search?q=india+divestment+privatisation+PSU+LIC+BPCL+stake+sale&hl=en-IN&gl=IN&ceid=IN:en",     "category": "macro-policy"},
+    # ── Big market events: crashes, circuit breakers, FII selloff ─────────
+    {"url": "https://news.google.com/rss/search?q=india+stock+market+crash+selloff+circuit+breaker+FII&hl=en-IN&gl=IN&ceid=IN:en",        "category": "indian-markets"},
+    # ── Adani group (all divisions) ───────────────────────────────────────
+    {"url": "https://news.google.com/rss/search?q=Adani+group+india+news+ports+airports+power+controversy&hl=en-IN&gl=IN&ceid=IN:en",     "category": "indian-markets"},
+    # ── Top Indian conglomerates ──────────────────────────────────────────
+    {"url": "https://news.google.com/rss/search?q=Tata+Mahindra+Bajaj+Birla+group+india+corporate+news&hl=en-IN&gl=IN&ceid=IN:en",        "category": "indian-markets"},
+    # ── India bond market / sovereign / G-Sec ────────────────────────────
+    {"url": "https://news.google.com/rss/search?q=india+bond+yield+G-sec+sovereign+rating+RBI+OMO&hl=en-IN&gl=IN&ceid=IN:en",            "category": "macro-policy"},
+
     # ══════════════════════════════════════════════════════════════
     # MACRO & POLICY
     # ══════════════════════════════════════════════════════════════
