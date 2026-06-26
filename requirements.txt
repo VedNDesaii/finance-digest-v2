@@ -1,0 +1,10 @@
+supabase
+anthropic
+feedparser
+python-dotenv
+beautifulsoup4
+requests
+yfinance
+newspaper3k
+lxml
+lxml[html_clean]
