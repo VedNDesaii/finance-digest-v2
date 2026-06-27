@@ -8,7 +8,7 @@ import { useAuth } from '../hooks/useAuth'
 import WelcomeModal from '../components/WelcomeModal'
 
 const BOTTOM_TABS = [
-  { id: 'top',       icon: '📰', label: 'Top' },
+  { id: 'top',       icon: '📰', label: 'Briefing' },
   { id: 'markets',   icon: '📈', label: 'Markets' },
   { id: 'sectors',   icon: '🏭', label: 'Sectors' },
   { id: 'portfolio', icon: '💰', label: 'Portfolio' },
@@ -34,7 +34,7 @@ const SECTORS_SECTIONS = [
 ]
 
 const ALL_SECTIONS = [
-  { id: 'headlines',       label: 'Major Headlines'   },
+  { id: 'headlines',       label: 'Daily Briefing'   },
   { id: 'quiz',            label: 'Daily Quiz'        },
   { id: 'indian-markets',  label: 'Indian Markets'    },
   { id: 'us-markets',      label: 'US Markets'        },
