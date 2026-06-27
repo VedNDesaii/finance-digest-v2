@@ -875,12 +875,13 @@ export default function Home() {
         const { data } = await supabase.from('processed_articles').select('category, is_headline')
         if (!data) return
         const counts = {}
-        let headlineCount = 0
         data.forEach(row => {
-          if (row.category) counts[row.category] = (counts[row.category] || 0) + 1
-          if (row.is_headline) headlineCount++
-        })
-        counts['headlines'] = headlineCount
+  if (row.category) {
+    counts[row.category] = (counts[row.category] || 0) + 1
+  }
+})
+
+counts['headlines'] = Math.min(data.length, 25)
         setSectionCounts(counts)
       } catch (e) { console.error('Count fetch failed', e) }
     }
@@ -903,19 +904,81 @@ export default function Home() {
   }, [])
 
   async function fetchArticles(section) {
-    setLoading(true); setCurrentIndex(0); setFetchError(null)
-    try {
-      let query = supabase.from('processed_articles').select('*')
+  setLoading(true)
+  setCurrentIndex(0)
+  setFetchError(null)
+
+  try {
+    if (section === 'headlines') {
+      const { data, error } = await supabase
+        .from('processed_articles')
+        .select('*')
         .order('created_at', { ascending: false })
-        .limit(section === 'headlines' ? 20 : 12)
-      if (section === 'headlines') query = query.eq('is_headline', true)
-      else query = query.eq('category', section)
-      const { data, error } = await query
-      if (error) { setFetchError(error.message); setArticles([]) }
-      else setArticles(data || [])
-    } catch (e) { setFetchError(e.message); setArticles([]) }
-    finally { setLoading(false) }
+        .limit(300)
+
+      if (error) throw error
+
+      const categoryLimits = {
+        'indian-markets': 3,
+        'us-markets': 2,
+        'global-economy': 2,
+        'macro-policy': 2,
+        'banking-finance': 2,
+        'technology-it': 2,
+        'pharma-health': 2,
+        'auto-ev': 2,
+        'energy-oil': 2,
+        'metals-mining': 1,
+        'renewables': 1,
+        'real-estate': 1,
+        'infrastructure': 1,
+        'fmcg-consumer': 1,
+        'telecom-media': 1,
+      }
+
+      const grouped = {}
+      ;(data || []).forEach(article => {
+        if (!article.category) return
+        if (!grouped[article.category]) grouped[article.category] = []
+        grouped[article.category].push(article)
+      })
+
+      let briefing = []
+      Object.entries(categoryLimits).forEach(([category, limit]) => {
+        if (grouped[category]) briefing.push(...grouped[category].slice(0, limit))
+      })
+
+      if (briefing.length < 25) {
+        const usedIds = new Set(briefing.map(a => a.id))
+        const remaining = (data || []).filter(article => !usedIds.has(article.id))
+        briefing.push(...remaining.slice(0, 25 - briefing.length))
+      }
+
+      briefing = briefing
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        .slice(0, 25)
+
+      setArticles(briefing)
+
+    } else {
+      const { data, error } = await supabase
+        .from('processed_articles')
+        .select('*')
+        .eq('category', section)
+        .order('created_at', { ascending: false })
+        .limit(12)
+
+      if (error) throw error
+      setArticles(data || [])
+    }
+
+  } catch (e) {
+    setFetchError(e.message)
+    setArticles([])
+  } finally {
+    setLoading(false)
   }
+}
 
   function handleSectionClick(id) {
     setActiveSection(id)
