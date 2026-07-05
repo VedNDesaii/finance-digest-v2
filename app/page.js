@@ -182,6 +182,53 @@ function AccountButton({ dark, user }) {
   )
 }
 
+function NotificationButton({ dark, unread = 3 }) {
+  return (
+    <button
+      style={{
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '36px',
+        height: '36px',
+        borderRadius: '12px',
+        border: 'none',
+        background: dark
+          ? 'rgba(255,255,255,0.07)'
+          : 'rgba(0,0,0,0.05)',
+        cursor: 'pointer',
+        transition: 'all .2s ease'
+      }}
+    >
+      <span style={{ fontSize: '18px' }}>🔔</span>
+
+      {unread > 0 && (
+        <span
+          style={{
+            position: 'absolute',
+            top: '-4px',
+            right: '-4px',
+            minWidth: '18px',
+            height: '18px',
+            borderRadius: '999px',
+            background: '#EF4444',
+            color: '#fff',
+            fontSize: '10px',
+            fontWeight: '700',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            border: '2px solid white'
+          }}
+        >
+          {unread > 9 ? '9+' : unread}
+        </span>
+      )}
+    </button>
+  )
+}
+
 function Badge({ count, active, dark }) {
   if (!count && count !== 0) return null
   return (
