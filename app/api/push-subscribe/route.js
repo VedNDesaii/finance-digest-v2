@@ -1,21 +1,25 @@
-// app/api/push/subscribe/route.js
-
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
-);
-
 export async function POST(req) {
-  const subscription = await req.json();
+  // Create client inside function so it runs at request time, not build time
+  const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_KEY
+  );
 
-  await supabase.from("push_subscriptions").upsert({
-    endpoint:    subscription.endpoint,
-    p256dh:      subscription.keys.p256dh,
-    auth:        subscription.keys.auth,
-    created_at:  new Date().toISOString(),
-  });
+  try {
+    const subscription = await req.json();
 
-  return Response.json({ success: true });
+    await supabase.from("push_subscriptions").upsert({
+      endpoint:   subscription.endpoint,
+      p256dh:     subscription.keys.p256dh,
+      auth:       subscription.keys.auth,
+      created_at: new Date().toISOString(),
+    });
+
+    return Response.json({ success: true });
+  } catch (e) {
+    console.error("Push subscribe error:", e);
+    return Response.json({ success: false, error: e.message }, { status: 500 });
+  }
 }
