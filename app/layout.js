@@ -5,18 +5,34 @@ import { Analytics } from '@vercel/analytics/next';
 export const metadata = {
   title: "Finance Digest",
   description: "Simple explanations for complex news",
+  manifest: "/manifest.json",
+  themeColor: "#0a0a0a",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Finance Digest",
+  },
 };
 
-// Must be read at build time for client-side use
 const VAPID_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
+      <head>
+        {/* PWA meta tags for iPhone */}
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="Finance Digest" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="theme-color" content="#0a0a0a" />
+        <link rel="manifest" href="/manifest.json" />
+        <link rel="apple-touch-icon" href="/icon-192.png" />
+      </head>
       <body style={{ margin: 0, padding: 0 }}>
         {children}
 
-        {/* Step 1: Register service worker immediately on load */}
+        {/* Step 1: Register service worker */}
         <Script
           id="register-sw"
           strategy="afterInteractive"
@@ -52,7 +68,7 @@ export default function RootLayout({ children }) {
                 return outputArray;
               }
 
-              setTimeout(async function() {
+              async function setupPush() {
                 try {
                   if (!('Notification' in window)) {
                     console.log('Notifications not supported');
@@ -63,17 +79,17 @@ export default function RootLayout({ children }) {
                     return;
                   }
                   if (!('PushManager' in window)) {
-                    console.log('Push not supported');
+                    console.log('Push not supported on this browser');
                     return;
                   }
 
-                  // Don't ask again if already decided
                   if (Notification.permission === 'denied') {
                     console.log('Notifications blocked by user');
                     return;
                   }
+
+                  // If already granted, just ensure subscription exists
                   if (Notification.permission === 'granted') {
-                    // Already granted — just make sure subscription is saved
                     var reg = await navigator.serviceWorker.ready;
                     var existing = await reg.pushManager.getSubscription();
                     if (existing) {
@@ -87,20 +103,18 @@ export default function RootLayout({ children }) {
                   console.log('Permission result:', permission);
                   if (permission !== 'granted') return;
 
-                  // Wait for service worker to be ready
+                  // Wait for SW to be ready
                   var registration = await navigator.serviceWorker.ready;
 
-                  // Check for existing subscription
                   var existingSub = await registration.pushManager.getSubscription();
                   if (existingSub) {
                     console.log('Already subscribed');
                     return;
                   }
 
-                  // Convert VAPID key and subscribe
                   var vapidKey = '${VAPID_KEY}';
                   if (!vapidKey) {
-                    console.log('VAPID key missing');
+                    console.log('VAPID key missing — check NEXT_PUBLIC_VAPID_PUBLIC_KEY');
                     return;
                   }
 
@@ -109,7 +123,6 @@ export default function RootLayout({ children }) {
                     applicationServerKey: urlBase64ToUint8Array(vapidKey)
                   });
 
-                  // Save subscription to backend
                   var response = await fetch('/api/push-subscribe', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -125,7 +138,23 @@ export default function RootLayout({ children }) {
                 } catch (e) {
                   console.log('Push setup error:', e.message);
                 }
-              }, 12000); // 12 seconds — gives SW time to be ready
+              }
+
+              // On mobile: wait for user interaction before asking
+              // On desktop: ask after 12 seconds automatically
+              var isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+              if (isMobile) {
+                // On mobile, only ask after user taps something
+                // This avoids browsers silently blocking auto-prompts
+                document.addEventListener('click', function onFirstClick() {
+                  document.removeEventListener('click', onFirstClick);
+                  setTimeout(setupPush, 3000); // 3 sec after first tap
+                }, { once: true });
+              } else {
+                // Desktop: auto-ask after 12 seconds
+                setTimeout(setupPush, 12000);
+              }
             `
           }}
         />

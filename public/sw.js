@@ -1,4 +1,26 @@
-// public/sw.js
+
+const CACHE_NAME = 'finance-digest-v1';
+
+self.addEventListener('install', function(event) {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', function(event) {
+  event.waitUntil(clients.claim());
+});
+
+self.addEventListener('fetch', function(event) {
+  // Let requests pass through normally
+  event.respondWith(fetch(event.request).catch(function() {
+    return new Response('Offline');
+  }));
+});
+
+self.addEventListener("push", function(event) {
+});
+
+self.addEventListener("notificationclick", function(event) {
+});
 
 self.addEventListener("push", function (event) {
   const data = event.data.json();
