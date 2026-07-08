@@ -243,40 +243,85 @@ function NotificationBell({ dark }) {
 }
 
 
-function SafariInstallBanner({ dark }) {
+function InstallBanner({ dark }) {
   const [show, setShow] = useState(false)
+  const [minimized, setMinimized] = useState(false)
+  const [info, setInfo] = useState({ icon: '📲', title: '', steps: '' })
 
   useEffect(() => {
-    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
-    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
-    const isStandalone = window.navigator.standalone === true
-    const dismissed = localStorage.getItem('fd-install-banner-dismissed')
-    if (isSafari && isIOS && !isStandalone && !dismissed) setShow(true)
+    const ua = navigator.userAgent
+    const isIOS        = /iphone|ipad|ipod/i.test(ua)
+    const isAndroid    = /android/i.test(ua)
+    const isChrome     = /chrome|crios/i.test(ua) && !/edg/i.test(ua)
+    const isSafari     = /^((?!chrome|android).)*safari/i.test(ua)
+    const isFirefox    = /firefox|fxios/i.test(ua)
+    const isStandalone = window.navigator.standalone === true ||
+                         window.matchMedia('(display-mode: standalone)').matches
+    const notifGranted = 'Notification' in window && Notification.permission === 'granted'
+
+    // Hide if already installed or notifications already granted
+    if (isStandalone || notifGranted) return
+
+    if (isIOS && isSafari) {
+      setInfo({ icon: '🍎', title: 'Get Notifications', steps: 'Tap Share □↑ → Add to Home Screen → open app → tap 🔔' })
+      setShow(true)
+    } else if (isIOS && isChrome) {
+      setInfo({ icon: '🍎', title: 'Get Notifications', steps: 'Open in Safari → Share □↑ → Add to Home Screen → open app → tap 🔔' })
+      setShow(true)
+    } else if (isAndroid && isChrome) {
+      setInfo({ icon: '🤖', title: 'Get Notifications', steps: 'Tap ⋮ → Add to Home Screen → Install → open app → tap 🔔' })
+      setShow(true)
+    } else if (isAndroid && isFirefox) {
+      setInfo({ icon: '🤖', title: 'Get Notifications', steps: 'Tap ⋮ → Install → open from Home Screen → tap 🔔' })
+      setShow(true)
+    } else if (isAndroid) {
+      setInfo({ icon: '🤖', title: 'Get Notifications', steps: 'Open in Chrome → tap ⋮ → Add to Home Screen → open app → tap 🔔' })
+      setShow(true)
+    }
   }, [])
 
   if (!show) return null
+
+  // Minimized pill — tapping expands it again
+  if (minimized) return (
+    <button
+      onClick={() => setMinimized(false)}
+      style={{
+        position: 'fixed', bottom: '90px', right: '16px',
+        background: '#C9A84C', border: 'none', borderRadius: '99px',
+        padding: '10px 16px', zIndex: 50, cursor: 'pointer',
+        display: 'flex', alignItems: 'center', gap: '6px',
+        boxShadow: '0 4px 20px rgba(201,168,76,0.4)',
+      }}>
+      <span style={{ fontSize: '16px' }}>{info.icon}</span>
+      <span style={{ fontSize: '12px', fontWeight: '700', color: '#1A1410', fontFamily: 'var(--font-ui)' }}>
+        Get Notifications
+      </span>
+    </button>
+  )
 
   return (
     <div style={{
       position: 'fixed', bottom: '90px', left: '16px', right: '16px',
       background: dark ? '#1e1a14' : '#fff',
-      border: `1px solid #C9A84C`,
+      border: '1px solid #C9A84C',
       borderRadius: '16px', padding: '14px 16px',
       zIndex: 50, boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
       display: 'flex', alignItems: 'flex-start', gap: '12px',
     }}>
-      <span style={{ fontSize: '24px', flexShrink: 0 }}>📲</span>
+      <span style={{ fontSize: '22px', flexShrink: 0 }}>{info.icon}</span>
       <div style={{ flex: 1 }}>
-        <p style={{ margin: '0 0 4px', fontSize: '14px', fontWeight: '700',
+        <p style={{ margin: '0 0 4px', fontSize: '13px', fontWeight: '700',
           color: dark ? '#F0EBE3' : '#1A1410', fontFamily: 'var(--font-ui)' }}>
-          Get Notifications
+          {info.title}
         </p>
         <p style={{ margin: 0, fontSize: '12px', color: dark ? '#9A8E7E' : '#6B5E4E',
-          fontFamily: 'var(--font-ui)', lineHeight: 1.5 }}>
-          Tap <strong>Share □↑</strong> → <strong>Add to Home Screen</strong> → open the app to enable notifications
+          fontFamily: 'var(--font-ui)', lineHeight: 1.6 }}>
+          {info.steps}
         </p>
       </div>
-      <button onClick={() => { localStorage.setItem('fd-install-banner-dismissed', 'true'); setShow(false) }}
+      <button
+        onClick={() => setMinimized(true)}
         style={{ background: 'none', border: 'none', cursor: 'pointer',
           fontSize: '18px', color: dark ? '#6B6055' : '#B8AFA3', flexShrink: 0, padding: '0' }}>
         ×
@@ -1154,7 +1199,7 @@ export default function Home() {
     <div style={{ background: 'var(--bg-page)', minHeight: '100vh', fontFamily: 'var(--font-ui)' }}>
 
       <WelcomeModal dark={dark} user={user} />
-      <SafariInstallBanner dark={dark} />
+      <InstallBanner dark={dark} />
 
       {showPointPop && (
         <div style={{
