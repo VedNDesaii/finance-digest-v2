@@ -246,7 +246,7 @@ function NotificationBell({ dark }) {
 function InstallBanner({ dark }) {
   const [show, setShow] = useState(false)
   const [minimized, setMinimized] = useState(false)
-  const [info, setInfo] = useState({ icon: '📲', title: '', steps: '' })
+  const [info, setInfo] = useState({ icon: '📲', title: '', steps: [], device: '' })
 
   useEffect(() => {
     const ua = navigator.userAgent
@@ -259,74 +259,148 @@ function InstallBanner({ dark }) {
                          window.matchMedia('(display-mode: standalone)').matches
     const notifGranted = 'Notification' in window && Notification.permission === 'granted'
 
-    // Hide if already installed or notifications already granted
     if (isStandalone || notifGranted) return
 
     if (isIOS && isSafari) {
-      setInfo({ icon: '🍎', title: 'Get Notifications', steps: 'Tap Share □↑ → Add to Home Screen → open app → tap 🔔' })
+      setInfo({ icon: '📲', device: 'iPhone', title: 'Add to Home Screen to get notifications', steps: [
+        { num: '1', text: 'Tap the Share button', sub: '□↑ at the bottom of Safari' },
+        { num: '2', text: 'Tap "Add to Home Screen"', sub: 'Scroll down if you do not see it' },
+        { num: '3', text: 'Open Finance Digest from your Home Screen', sub: 'Then tap 🔔 to enable notifications' },
+      ]})
       setShow(true)
     } else if (isIOS && isChrome) {
-      setInfo({ icon: '🍎', title: 'Get Notifications', steps: 'Open in Safari → Share □↑ → Add to Home Screen → open app → tap 🔔' })
+      setInfo({ icon: '📲', device: 'iPhone', title: 'Open in Safari to install', steps: [
+        { num: '1', text: 'Open Safari', sub: 'This feature requires Safari on iPhone' },
+        { num: '2', text: 'Go to financedigest.xyz', sub: 'Then tap Share □↑ → Add to Home Screen' },
+        { num: '3', text: 'Open from Home Screen & tap 🔔', sub: 'To enable notifications' },
+      ]})
       setShow(true)
     } else if (isAndroid && isChrome) {
-      setInfo({ icon: '🤖', title: 'Get Notifications', steps: 'Tap ⋮ → Add to Home Screen → Install → open app → tap 🔔' })
+      setInfo({ icon: '📲', device: 'Android', title: 'Add to Home Screen to get notifications', steps: [
+        { num: '1', text: 'Tap the ⋮ menu', sub: 'Top right corner of Chrome' },
+        { num: '2', text: 'Tap "Add to Home Screen" or "Install app"', sub: 'Then tap Install to confirm' },
+        { num: '3', text: 'Open Finance Digest from your Home Screen', sub: 'Then tap 🔔 to enable notifications' },
+      ]})
       setShow(true)
     } else if (isAndroid && isFirefox) {
-      setInfo({ icon: '🤖', title: 'Get Notifications', steps: 'Tap ⋮ → Install → open from Home Screen → tap 🔔' })
+      setInfo({ icon: '📲', device: 'Android', title: 'Install the app to get notifications', steps: [
+        { num: '1', text: 'Tap the ⋮ menu', sub: 'Top right corner of Firefox' },
+        { num: '2', text: 'Tap "Install"', sub: 'Then confirm installation' },
+        { num: '3', text: 'Open Finance Digest from your Home Screen', sub: 'Then tap 🔔 to enable notifications' },
+      ]})
       setShow(true)
     } else if (isAndroid) {
-      setInfo({ icon: '🤖', title: 'Get Notifications', steps: 'Open in Chrome → tap ⋮ → Add to Home Screen → open app → tap 🔔' })
+      setInfo({ icon: '📲', device: 'Android', title: 'Use Chrome to install the app', steps: [
+        { num: '1', text: 'Open Chrome browser', sub: 'This works best in Chrome' },
+        { num: '2', text: 'Go to financedigest.xyz', sub: 'Then tap ⋮ → Add to Home Screen' },
+        { num: '3', text: 'Open from Home Screen & tap 🔔', sub: 'To enable notifications' },
+      ]})
       setShow(true)
     }
   }, [])
 
   if (!show) return null
 
-  // Minimized pill — tapping expands it again
+  const textPri   = dark ? '#F0EBE3' : '#1A1410'
+  const textSec   = dark ? '#9A8E7E' : '#6B5E4E'
+  const textMuted = dark ? '#6B6055' : '#B8AFA3'
+  const borderCol = dark ? '#2C2822' : '#EDE8E0'
+  const sheetBg   = dark ? '#1A1410' : '#FFFFFF'
+
+  // Minimized pill
   if (minimized) return (
-    <button
-      onClick={() => setMinimized(false)}
-      style={{
-        position: 'fixed', bottom: '90px', right: '16px',
-        background: '#C9A84C', border: 'none', borderRadius: '99px',
-        padding: '10px 16px', zIndex: 50, cursor: 'pointer',
-        display: 'flex', alignItems: 'center', gap: '6px',
-        boxShadow: '0 4px 20px rgba(201,168,76,0.4)',
-      }}>
-      <span style={{ fontSize: '16px' }}>{info.icon}</span>
-      <span style={{ fontSize: '12px', fontWeight: '700', color: '#1A1410', fontFamily: 'var(--font-ui)' }}>
-        Get Notifications
+    <button onClick={() => setMinimized(false)} style={{
+      position: 'fixed', bottom: '90px', right: '16px', zIndex: 50,
+      background: 'linear-gradient(135deg, #C9A84C, #E8C97A)',
+      border: 'none', borderRadius: '99px', padding: '10px 18px',
+      cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
+      boxShadow: '0 4px 20px rgba(201,168,76,0.5)',
+      animation: 'pillPulse 2s ease-in-out infinite',
+    }}>
+      <span style={{ fontSize: '16px' }}>🔔</span>
+      <span style={{ fontSize: '13px', fontWeight: '700', color: '#1A1410', fontFamily: 'var(--font-ui)' }}>
+        Enable Notifications
       </span>
+      <style>{`@keyframes pillPulse { 0%,100% { box-shadow: 0 4px 20px rgba(201,168,76,0.5); } 50% { box-shadow: 0 4px 32px rgba(201,168,76,0.8); } }`}</style>
     </button>
   )
 
+  // Full bottom sheet
   return (
-    <div style={{
-      position: 'fixed', bottom: '90px', left: '16px', right: '16px',
-      background: dark ? '#1e1a14' : '#fff',
-      border: '1px solid #C9A84C',
-      borderRadius: '16px', padding: '14px 16px',
-      zIndex: 50, boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
-      display: 'flex', alignItems: 'flex-start', gap: '12px',
-    }}>
-      <span style={{ fontSize: '22px', flexShrink: 0 }}>{info.icon}</span>
-      <div style={{ flex: 1 }}>
-        <p style={{ margin: '0 0 4px', fontSize: '13px', fontWeight: '700',
-          color: dark ? '#F0EBE3' : '#1A1410', fontFamily: 'var(--font-ui)' }}>
-          {info.title}
-        </p>
-        <p style={{ margin: 0, fontSize: '12px', color: dark ? '#9A8E7E' : '#6B5E4E',
-          fontFamily: 'var(--font-ui)', lineHeight: 1.6 }}>
-          {info.steps}
-        </p>
+    <>
+      {/* Dim backdrop */}
+      <div onClick={() => setMinimized(true)} style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+        backdropFilter: 'blur(2px)', zIndex: 48,
+      }} />
+
+      {/* Bottom sheet */}
+      <div style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0,
+        background: sheetBg, borderRadius: '24px 24px 0 0',
+        zIndex: 49, padding: '0 0 40px',
+        boxShadow: '0 -8px 40px rgba(0,0,0,0.3)',
+        animation: 'sheetUp 0.35s cubic-bezier(0.34,1.56,0.64,1)',
+      }}>
+        {/* Drag handle */}
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 8px' }}>
+          <div style={{ width: '40px', height: '4px', borderRadius: '2px', background: borderCol }} />
+        </div>
+
+        {/* Gold accent bar */}
+        <div style={{ height: '2px', background: 'linear-gradient(90deg, #C9A84C, #E8C97A, #C9A84C)', margin: '0 24px 20px', borderRadius: '1px' }} />
+
+        {/* Header */}
+        <div style={{ padding: '0 24px 20px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+              <span style={{ fontSize: '28px' }}>🔔</span>
+              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: textPri, fontFamily: 'var(--font-display)' }}>
+                {info.title}
+              </h2>
+            </div>
+            <p style={{ margin: 0, fontSize: '13px', color: textMuted, fontFamily: 'var(--font-ui)' }}>
+              Get breaking market news the moment it drops
+            </p>
+          </div>
+          <button onClick={() => setMinimized(true)} style={{
+            background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
+            border: 'none', borderRadius: '8px', width: '32px', height: '32px',
+            cursor: 'pointer', fontSize: '16px', color: textMuted,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}>×</button>
+        </div>
+
+        {/* Steps */}
+        <div style={{ padding: '0 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {info.steps.map((step, i) => (
+            <div key={i} style={{
+              display: 'flex', gap: '14px', alignItems: 'flex-start',
+              padding: '12px 14px', borderRadius: '12px',
+              background: dark ? 'rgba(255,255,255,0.04)' : '#F7F4EF',
+              border: `1px solid ${borderCol}`,
+            }}>
+              <div style={{
+                width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0,
+                background: 'linear-gradient(135deg, #C9A84C, #E8C97A)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '13px', fontWeight: '800', color: '#1A1410', fontFamily: 'var(--font-ui)',
+              }}>{step.num}</div>
+              <div>
+                <p style={{ margin: '0 0 2px', fontSize: '14px', fontWeight: '600', color: textPri, fontFamily: 'var(--font-ui)' }}>
+                  {step.text}
+                </p>
+                <p style={{ margin: 0, fontSize: '12px', color: textMuted, fontFamily: 'var(--font-ui)' }}>
+                  {step.sub}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <style>{`@keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }`}</style>
       </div>
-      <button
-        onClick={() => setMinimized(true)}
-        style={{ background: 'none', border: 'none', cursor: 'pointer',
-          fontSize: '18px', color: dark ? '#6B6055' : '#B8AFA3', flexShrink: 0, padding: '0' }}>
-        ×
-      </button>
-    </div>
+    </>
   )
 }
 
