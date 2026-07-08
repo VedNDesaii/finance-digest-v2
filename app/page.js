@@ -242,6 +242,49 @@ function NotificationBell({ dark }) {
   )
 }
 
+
+function SafariInstallBanner({ dark }) {
+  const [show, setShow] = useState(false)
+
+  useEffect(() => {
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
+    const isStandalone = window.navigator.standalone === true
+    const dismissed = localStorage.getItem('fd-install-banner-dismissed')
+    if (isSafari && isIOS && !isStandalone && !dismissed) setShow(true)
+  }, [])
+
+  if (!show) return null
+
+  return (
+    <div style={{
+      position: 'fixed', bottom: '90px', left: '16px', right: '16px',
+      background: dark ? '#1e1a14' : '#fff',
+      border: `1px solid #C9A84C`,
+      borderRadius: '16px', padding: '14px 16px',
+      zIndex: 50, boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+      display: 'flex', alignItems: 'flex-start', gap: '12px',
+    }}>
+      <span style={{ fontSize: '24px', flexShrink: 0 }}>📲</span>
+      <div style={{ flex: 1 }}>
+        <p style={{ margin: '0 0 4px', fontSize: '14px', fontWeight: '700',
+          color: dark ? '#F0EBE3' : '#1A1410', fontFamily: 'var(--font-ui)' }}>
+          Get Notifications
+        </p>
+        <p style={{ margin: 0, fontSize: '12px', color: dark ? '#9A8E7E' : '#6B5E4E',
+          fontFamily: 'var(--font-ui)', lineHeight: 1.5 }}>
+          Tap <strong>Share □↑</strong> → <strong>Add to Home Screen</strong> → open the app to enable notifications
+        </p>
+      </div>
+      <button onClick={() => { localStorage.setItem('fd-install-banner-dismissed', 'true'); setShow(false) }}
+        style={{ background: 'none', border: 'none', cursor: 'pointer',
+          fontSize: '18px', color: dark ? '#6B6055' : '#B8AFA3', flexShrink: 0, padding: '0' }}>
+        ×
+      </button>
+    </div>
+  )
+}
+
 function Badge({ count, active, dark }) {
   if (!count && count !== 0) return null
   return (
@@ -1096,6 +1139,7 @@ export default function Home() {
     <div style={{ background: 'var(--bg-page)', minHeight: '100vh', fontFamily: 'var(--font-ui)' }}>
 
       <WelcomeModal dark={dark} user={user} />
+      <SafariInstallBanner dark={dark} />
 
       {showPointPop && (
         <div style={{
