@@ -182,49 +182,62 @@ function AccountButton({ dark, user }) {
   )
 }
 
-function NotificationButton({ dark, unread = 3 }) {
+function NotificationBell({ dark }) {
+  const [status, setStatus] = useState('default') // 'default' | 'subscribed' | 'denied'
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return
+    if (Notification.permission === 'granted') setStatus('subscribed')
+    if (Notification.permission === 'denied')  setStatus('denied')
+  }, [])
+
+  async function handleClick() {
+    if (status === 'denied') return
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      alert('Push notifications are not supported in this browser.')
+      return
+    }
+    try {
+      const permission = await Notification.requestPermission()
+      if (permission !== 'granted') { setStatus('denied'); return }
+
+      const reg      = await navigator.serviceWorker.ready
+      const existing = await reg.pushManager.getSubscription()
+      if (existing) { setStatus('subscribed'); return }
+
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+      })
+
+      await fetch('/api/push-subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sub),
+      })
+
+      setStatus('subscribed')
+    } catch (e) {
+      console.error('Push subscription failed:', e)
+    }
+  }
+
   return (
     <button
+      onClick={handleClick}
+      title={status === 'subscribed' ? 'Notifications on' : status === 'denied' ? 'Notifications blocked' : 'Enable notifications'}
       style={{
-        position: 'relative',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: '36px',
-        height: '36px',
-        borderRadius: '12px',
-        border: 'none',
-        background: dark
-          ? 'rgba(255,255,255,0.07)'
-          : 'rgba(0,0,0,0.05)',
-        cursor: 'pointer',
-        transition: 'all .2s ease'
-      }}
-    >
-      <span style={{ fontSize: '18px' }}>🔔</span>
-
-      {unread > 0 && (
-        <span
-          style={{
-            position: 'absolute',
-            top: '-4px',
-            right: '-4px',
-            minWidth: '18px',
-            height: '18px',
-            borderRadius: '999px',
-            background: '#EF4444',
-            color: '#fff',
-            fontSize: '10px',
-            fontWeight: '700',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            border: '2px solid white'
-          }}
-        >
-          {unread > 9 ? '9+' : unread}
-        </span>
-      )}
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        width: '32px', height: '32px', borderRadius: '8px', border: 'none',
+        background: status === 'subscribed'
+          ? (dark ? 'rgba(201,168,76,0.2)' : 'rgba(201,168,76,0.15)')
+          : (dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)'),
+        cursor: status === 'denied' ? 'not-allowed' : 'pointer',
+        fontSize: '15px', flexShrink: 0,
+        opacity: status === 'denied' ? 0.4 : 1,
+        transition: 'all 0.2s ease',
+      }}>
+      {status === 'subscribed' ? '🔔' : status === 'denied' ? '🔕' : '🔔'}
     </button>
   )
 }
@@ -923,12 +936,11 @@ export default function Home() {
         if (!data) return
         const counts = {}
         data.forEach(row => {
-  if (row.category) {
-    counts[row.category] = (counts[row.category] || 0) + 1
-  }
-})
-
-counts['headlines'] = Math.min(data.length, 25)
+          if (row.category) {
+            counts[row.category] = (counts[row.category] || 0) + 1
+          }
+        })
+        counts['headlines'] = Math.min(data.length, 25)
         setSectionCounts(counts)
       } catch (e) { console.error('Count fetch failed', e) }
     }
@@ -951,81 +963,81 @@ counts['headlines'] = Math.min(data.length, 25)
   }, [])
 
   async function fetchArticles(section) {
-  setLoading(true)
-  setCurrentIndex(0)
-  setFetchError(null)
+    setLoading(true)
+    setCurrentIndex(0)
+    setFetchError(null)
 
-  try {
-    if (section === 'headlines') {
-      const { data, error } = await supabase
-        .from('processed_articles')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(300)
+    try {
+      if (section === 'headlines') {
+        const { data, error } = await supabase
+          .from('processed_articles')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(300)
 
-      if (error) throw error
+        if (error) throw error
 
-      const categoryLimits = {
-        'indian-markets': 3,
-        'us-markets': 2,
-        'global-economy': 2,
-        'macro-policy': 2,
-        'banking-finance': 2,
-        'technology-it': 2,
-        'pharma-health': 2,
-        'auto-ev': 2,
-        'energy-oil': 2,
-        'metals-mining': 1,
-        'renewables': 1,
-        'real-estate': 1,
-        'infrastructure': 1,
-        'fmcg-consumer': 1,
-        'telecom-media': 1,
+        const categoryLimits = {
+          'indian-markets': 3,
+          'us-markets': 2,
+          'global-economy': 2,
+          'macro-policy': 2,
+          'banking-finance': 2,
+          'technology-it': 2,
+          'pharma-health': 2,
+          'auto-ev': 2,
+          'energy-oil': 2,
+          'metals-mining': 1,
+          'renewables': 1,
+          'real-estate': 1,
+          'infrastructure': 1,
+          'fmcg-consumer': 1,
+          'telecom-media': 1,
+        }
+
+        const grouped = {}
+        ;(data || []).forEach(article => {
+          if (!article.category) return
+          if (!grouped[article.category]) grouped[article.category] = []
+          grouped[article.category].push(article)
+        })
+
+        let briefing = []
+        Object.entries(categoryLimits).forEach(([category, limit]) => {
+          if (grouped[category]) briefing.push(...grouped[category].slice(0, limit))
+        })
+
+        if (briefing.length < 25) {
+          const usedIds = new Set(briefing.map(a => a.id))
+          const remaining = (data || []).filter(article => !usedIds.has(article.id))
+          briefing.push(...remaining.slice(0, 25 - briefing.length))
+        }
+
+        briefing = briefing
+          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+          .slice(0, 25)
+
+        setArticles(briefing)
+
+      } else {
+        const { data, error } = await supabase
+          .from('processed_articles')
+          .select('*')
+          .eq('category', section)
+          .order('created_at', { ascending: false })
+          .limit(12)
+
+        if (error) throw error
+        setArticles(data || [])
       }
 
-      const grouped = {}
-      ;(data || []).forEach(article => {
-        if (!article.category) return
-        if (!grouped[article.category]) grouped[article.category] = []
-        grouped[article.category].push(article)
-      })
-
-      let briefing = []
-      Object.entries(categoryLimits).forEach(([category, limit]) => {
-        if (grouped[category]) briefing.push(...grouped[category].slice(0, limit))
-      })
-
-      if (briefing.length < 25) {
-        const usedIds = new Set(briefing.map(a => a.id))
-        const remaining = (data || []).filter(article => !usedIds.has(article.id))
-        briefing.push(...remaining.slice(0, 25 - briefing.length))
-      }
-
-      briefing = briefing
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-        .slice(0, 25)
-
-      setArticles(briefing)
-
-    } else {
-      const { data, error } = await supabase
-        .from('processed_articles')
-        .select('*')
-        .eq('category', section)
-        .order('created_at', { ascending: false })
-        .limit(12)
-
-      if (error) throw error
-      setArticles(data || [])
+    } catch (e) {
+      setFetchError(e.message)
+      setArticles([])
+    } finally {
+      setLoading(false)
     }
-
-  } catch (e) {
-    setFetchError(e.message)
-    setArticles([])
-  } finally {
-    setLoading(false)
   }
-}
 
   function handleSectionClick(id) {
     setActiveSection(id)
@@ -1034,7 +1046,7 @@ counts['headlines'] = Math.min(data.length, 25)
 
   function handleTabClick(tabId) {
     setNavShrunk(false)
-    if (tabId === 'top')       handleSectionClick('headlines')
+    if (tabId === 'top')            handleSectionClick('headlines')
     else if (tabId === 'portfolio') handleSectionClick('portfolio')
     else setOverlay(overlay === tabId ? null : tabId)
   }
@@ -1078,7 +1090,6 @@ counts['headlines'] = Math.min(data.length, 25)
     </div>
   )
 
-  // Floating nav bar — same for desktop and mobile
   const NAV_BAR_H = 62
 
   return (
@@ -1099,7 +1110,6 @@ counts['headlines'] = Math.min(data.length, 25)
         </div>
       )}
 
-      {/* Overlay backdrop */}
       {overlay && (
         <div onClick={() => setOverlay(null)} style={{
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
@@ -1129,6 +1139,7 @@ counts['headlines'] = Math.min(data.length, 25)
             <IndexChip label="SENSEX" data={indices.sensex} dark={dark} />
             <IndexChip label="NIFTY" data={indices.nifty} dark={dark} />
             <IQChip iq={iqScore} dark={dark} />
+            <NotificationBell dark={dark} />
             <ThemeToggle dark={dark} onToggle={toggleTheme} />
             <AccountButton dark={dark} user={user} />
           </div>
@@ -1148,26 +1159,26 @@ counts['headlines'] = Math.min(data.length, 25)
         onMouseLeave={() => setNavHovered(false)}
         onClick={() => setNavHovered(true)}
         style={{
-        position: 'fixed',
-        bottom: isMobile ? '16px' : '24px',
-        left: '50%',
-        transform: `translateX(-50%) scale(${navShrunk && !navHovered ? 0.93 : 1})`,
-        transformOrigin: 'bottom center',
-        opacity: 1,
-        display: 'flex', alignItems: 'center',
-        background: dark ? 'rgba(26,20,16,0.95)' : 'rgba(255,255,255,0.95)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-        borderRadius: '99px',
-        border: `1px solid ${dark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)'}`,
-        boxShadow: dark
-          ? '0 8px 32px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3)'
-          : '0 8px 32px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.06)',
-        zIndex: 40,
-        padding: '6px 8px',
-        gap: '2px',
-        transition: 'transform 0.35s cubic-bezier(0.34,1.56,0.64,1)',
-      }}>
+          position: 'fixed',
+          bottom: isMobile ? '16px' : '24px',
+          left: '50%',
+          transform: `translateX(-50%) scale(${navShrunk && !navHovered ? 0.93 : 1})`,
+          transformOrigin: 'bottom center',
+          opacity: 1,
+          display: 'flex', alignItems: 'center',
+          background: dark ? 'rgba(26,20,16,0.95)' : 'rgba(255,255,255,0.95)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          borderRadius: '99px',
+          border: `1px solid ${dark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)'}`,
+          boxShadow: dark
+            ? '0 8px 32px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3)'
+            : '0 8px 32px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.06)',
+          zIndex: 40,
+          padding: '6px 8px',
+          gap: '2px',
+          transition: 'transform 0.35s cubic-bezier(0.34,1.56,0.64,1)',
+        }}>
         {BOTTOM_TABS.map(tab => {
           const isActive = activeTab === tab.id || overlay === tab.id
           return (
