@@ -887,6 +887,21 @@ export default function Home() {
     if (savedPred) setPrediction(savedPred)
     const ist = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
     if (ist.getHours() < 9) awardBadge('earlybird', savedBadges)
+
+    // Ping last_seen for re-engagement tracking
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then(reg => {
+        reg.pushManager?.getSubscription().then(sub => {
+          if (sub) {
+            fetch('/api/push-subscribe', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ endpoint: sub.endpoint })
+            }).catch(() => {})
+          }
+        })
+      }).catch(() => {})
+    }
   }, [])
 
   useEffect(() => {
