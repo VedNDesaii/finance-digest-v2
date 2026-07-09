@@ -3,62 +3,47 @@ import os
 from pywebpush import webpush, WebPushException
 from supabase import create_client
 from dotenv import load_dotenv
-import anthropic
 import random
 from datetime import datetime, timedelta, timezone
 
 load_dotenv()
 
 supabase          = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
-client            = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY")
+VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY").strip()
 VAPID_EMAIL       = "mailto:ved.desai636@gmail.com"
 
+SPICY_NOTIFICATIONS = [
+    {"title": "Markets are having a moment 👀", "body": "Something big just happened and your portfolio might care. Open up."},
+    {"title": "RBI just made a move 🏦",        "body": "Interest rates, your EMIs, your savings — all affected. 2 min read."},
+    {"title": "Big news just dropped 📰",       "body": "The kind that moves stocks. Read before markets react."},
+    {"title": "Your morning briefing is ready ☀️", "body": "Markets, economy, sectors — all simplified. Takes 2 min."},
+    {"title": "Today's top story is spicy 🌶️", "body": "Open Finance Digest and see what everyone's talking about."},
+    {"title": "Markets moved today 📈",         "body": "Find out what happened and what it means for you."},
+    {"title": "Fresh news just in 🗞️",          "body": "Stay ahead — today's financial stories are ready for you."},
+    {"title": "Don't miss this one 🔥",         "body": "Today's top financial story explained simply. Open up."},
+]
+
 SPICY_REENGAGEMENT = [
-    {"title": "You're missing out 👀", "body": "Markets moved. News dropped. Everyone else already knows. Do you?"},
-    {"title": "Your money called 📞",  "body": "It wants you to check what happened in the markets today."},
-    {"title": "Bro where are you 😭",  "body": "Big things happened in the market. Finance Digest has the tea."},
-    {"title": "RBI, FIIs, results 🔥", "body": "A lot happened while you were gone. 2 min to catch up."},
-    {"title": "Still sleeping on this? 😴", "body": "Today's briefing is ready. Markets don't wait, but we did."},
-    {"title": "Quick question 🤔",     "body": "Do you know what moved your portfolio today? Open up."},
-    {"title": "Your friends know 👥",  "body": "Everyone's talking about what just happened in the market. You?"},
-    {"title": "Finance update loading… ⏳", "body": "Just kidding, it's ready. Open Finance Digest."},
+    {"title": "You're missing out 👀",           "body": "Markets moved. News dropped. Everyone else already knows. Do you?"},
+    {"title": "Your money called 📞",            "body": "It wants you to check what happened in the markets today."},
+    {"title": "Bro where are you 😭",            "body": "Big things happened in the market. Finance Digest has the tea."},
+    {"title": "RBI, FIIs, results 🔥",           "body": "A lot happened while you were gone. 2 min to catch up."},
+    {"title": "Still sleeping on this? 😴",      "body": "Today's briefing is ready. Markets don't wait, but we did."},
+    {"title": "Quick question 🤔",               "body": "Do you know what moved your portfolio today? Open up."},
+    {"title": "Your friends know 👥",            "body": "Everyone's talking about what just happened in the market. You?"},
+    {"title": "Finance update loading… ⏳",      "body": "Just kidding, it's ready. Open Finance Digest."},
+]
+
+MARKET_SUMMARY_NOTIFICATIONS = [
+    {"title": "📊 Market Summary is live",      "body": "Sensex, Nifty, sector performance — today's close explained simply."},
+    {"title": "Markets just closed 🔔",         "body": "Here's what moved today and what to watch tomorrow."},
+    {"title": "4 PM update is ready 📈",        "body": "Today's market close summary — 2 min read on Finance Digest."},
+    {"title": "End of day market wrap 🗞️",      "body": "Winners, losers, FII activity — all simplified for you."},
+    {"title": "Your market report is in 📉📈",  "body": "See how Sensex and Nifty closed today. Open Finance Digest."},
 ]
 
 
-def generate_spicy_notification(top_headline):
-    """Ask Haiku to write a fun, spicy push notification."""
-    prompt = f"""You write push notifications for Finance Digest — 
-a financial news app for young Indians.
-Write a short, punchy, fun notification to get someone to open the app.
-Style: spicy, cheeky, a little dramatic. Like a friend texting you breaking news.
-Use 1-2 emojis max. No corporate language.
-Today's top story: {top_headline}
-Return ONLY JSON:
-{{"title": "short title under 50 chars", "body": "body under 100 chars"}}
-Examples of the tone we want:
-- Title: "Markets are having a moment 👀"
-- Body: "Something big just happened and your portfolio might care. Open up."
-- Title: "RBI just made a move 🏦"
-- Body: "Interest rates, your EMIs, your savings — all affected. 2 min read."
-- Title: "This CEO just walked out 😳"
-- Body: "Major bank drama. The kind that moves stocks. Read before markets open."
-"""
-    message = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=150,
-        messages=[{"role": "user", "content": prompt}]
-    )
-    text = message.content[0].text.strip()
-    if text.startswith("```"):
-        text = text.split("```")[1]
-        if text.startswith("json"): text = text[4:]
-        text = text.strip()
-    return json.loads(text)
-
-
 def get_top_headline():
-    """Get today's most important article title."""
     result = (
         supabase.table("processed_articles")
         .select("title, category")
@@ -75,7 +60,6 @@ def get_top_headline():
 
 
 def _send_push(sub, title, body):
-    """Send a single push notification. Returns True on success."""
     webpush(
         subscription_info={
             "endpoint": sub["endpoint"],
@@ -92,19 +76,12 @@ def _send_push(sub, title, body):
     return True
 
 
-def send_notifications():
-    """Send AI-generated spicy notification to ALL subscribers."""
-    headline = get_top_headline()
-    if not headline:
-        print("No headline found, skipping notifications")
-        return
-
-    notif = generate_spicy_notification(headline)
-    print(f"📲 Sending: {notif['title']} — {notif['body']}")
-
+def _broadcast(notif, label=""):
     subscriptions = supabase.table("push_subscriptions").select("*").execute()
+    if not subscriptions.data:
+        print(f"No subscribers found {label}")
+        return
     sent = failed = 0
-
     for sub in subscriptions.data:
         try:
             _send_push(sub, notif["title"], notif["body"])
@@ -113,14 +90,36 @@ def send_notifications():
             if "410" in str(e) or "404" in str(e):
                 supabase.table("push_subscriptions").delete().eq("endpoint", sub["endpoint"]).execute()
             failed += 1
+    print(f"✅ {label} Sent: {sent} | Failed/cleaned: {failed}")
 
-    print(f"✅ Sent: {sent} | Failed/cleaned: {failed}")
+
+def send_notifications():
+    """Morning briefing — send to all subscribers."""
+    hour = datetime.now().hour
+    if hour < 12:
+        notif = {"title": "☀️ Morning Briefing is ready", "body": "Today's top market stories simplified. 2 min read."}
+    elif hour < 16:
+        notif = {"title": "📊 Market update is live", "body": "See what's moving the markets right now."}
+    else:
+        notif = random.choice(MARKET_SUMMARY_NOTIFICATIONS)
+
+    if random.random() > 0.5:
+        notif = random.choice(SPICY_NOTIFICATIONS)
+
+    print(f"📲 Sending: {notif['title']} — {notif['body']}")
+    _broadcast(notif, label="[morning]")
+
+
+def send_market_summary_notification():
+    """4 PM market close notification — send to all subscribers."""
+    notif = random.choice(MARKET_SUMMARY_NOTIFICATIONS)
+    print(f"📊 Market summary push: {notif['title']} — {notif['body']}")
+    _broadcast(notif, label="[market-summary]")
 
 
 def send_reengagement_notifications():
-    """Send spicy nudge to users who haven't opened the app in 24+ hours."""
+    """Nudge users who haven't opened in 24+ hours."""
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
-
     subs = supabase.table("push_subscriptions")\
         .select("*")\
         .lt("last_seen", cutoff)\
@@ -131,7 +130,6 @@ def send_reengagement_notifications():
         return
 
     print(f"Found {len(subs.data)} inactive users — sending re-engagement push")
-
     sent = failed = 0
     for sub in subs.data:
         notif = random.choice(SPICY_REENGAGEMENT)
@@ -142,10 +140,20 @@ def send_reengagement_notifications():
             if "410" in str(e) or "404" in str(e):
                 supabase.table("push_subscriptions").delete().eq("endpoint", sub["endpoint"]).execute()
             failed += 1
-
     print(f"✅ Re-engagement sent: {sent} | Failed/cleaned: {failed}")
 
 
 if __name__ == "__main__":
-    send_notifications()
-    send_reengagement_notifications()
+    import sys
+    mode = sys.argv[1] if len(sys.argv) > 1 else "all"
+
+    if mode == "morning":
+        send_notifications()
+    elif mode == "market":
+        send_market_summary_notification()
+    elif mode == "reengagement":
+        send_reengagement_notifications()
+    else:
+        # Default: run all
+        send_notifications()
+        send_reengagement_notifications()
