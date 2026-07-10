@@ -192,36 +192,32 @@ function NotificationBell({ dark }) {
   }, [])
 
   async function handleClick() {
-    if (status === 'denied') return
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      alert('Push notifications are not supported in this browser.')
-      return
-    }
-    try {
-      const permission = await Notification.requestPermission()
-      if (permission !== 'granted') { setStatus('denied'); return }
-
-      const reg      = await navigator.serviceWorker.ready
-      const existing = await reg.pushManager.getSubscription()
-      if (existing) { setStatus('subscribed'); return }
-
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
-      })
-
-      await fetch('/api/push-subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sub),
-      })
-
+  if (status === 'denied') return
+  try {
+    const permission = await Notification.requestPermission()
+    if (permission === 'granted') {
       setStatus('subscribed')
-    } catch (e) {
-      console.error('Push subscription failed:', e)
+      // Try to subscribe to push
+      if ('serviceWorker' in navigator && 'PushManager' in window) {
+        const reg = await navigator.serviceWorker.ready
+        const existing = await reg.pushManager.getSubscription()
+        const sub = existing || await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: 'BNYS8ipi5vzb91I0HEa01MLxc3iT5uFzHsupFo6qWTFmTOKQNeRplg4ol7e0yMTfz2m-Wm5yoYPjoY8pG29sLOk',
+        })
+        await fetch('/api/push-subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(sub),
+        })
+      }
+    } else {
+      setStatus('denied')
     }
+  } catch (e) {
+    console.error('Bell error:', e)
   }
-
+}
   return (
     <button
       onClick={handleClick}
@@ -264,7 +260,7 @@ function InstallBanner({ dark }) {
     if (isIOS && isSafari) {
       setInfo({ icon: '📲', device: 'iPhone', title: 'Add to Home Screen to get notifications', steps: [
         { num: '1', text: 'Tap the Share button', sub: '□↑ at the bottom of Safari' },
-        { num: '2', text: 'Tap "Add to Home Screen"', sub: 'Scroll down if you do not see it' },
+        { num: '2', text: 'Tap "Add to Home Screen"', sub: 'Scroll down if you don't see it'},
         { num: '3', text: 'Open Finance Digest from your Home Screen', sub: 'Then tap 🔔 to enable notifications' },
       ]})
       setShow(true)
