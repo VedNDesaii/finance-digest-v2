@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 export async function POST(req) {
   const supabase = createClient(
     process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_KEY
+    process.env.SUPABASE_KEY
   );
   try {
     const subscription = await req.json();
@@ -25,7 +25,7 @@ export async function PUT(req) {
   // Called on every app open to update last_seen
   const supabase = createClient(
     process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_KEY
+    process.env.SUPABASE_KEY
   );
   try {
     const { endpoint } = await req.json();
