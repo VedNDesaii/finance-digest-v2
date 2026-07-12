@@ -183,57 +183,48 @@ function AccountButton({ dark, user }) {
 }
 
 function NotificationBell({ dark }) {
-  const [status, setStatus] = useState('default') // 'default' | 'subscribed' | 'denied'
+  const [status, setStatus] = useState('default')
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !('Notification' in window)) return
-    if (Notification.permission === 'granted') setStatus('subscribed')
-    if (Notification.permission === 'denied')  setStatus('denied')
+    if (typeof window === 'undefined') return
+    // Check OneSignal subscription status
+    window.OneSignalDeferred = window.OneSignalDeferred || []
+    window.OneSignalDeferred.push(async function(OneSignal) {
+      try {
+        const isSubscribed = await OneSignal.User.PushSubscription.optedIn
+        if (isSubscribed) setStatus('subscribed')
+      } catch (e) {}
+    })
   }, [])
 
   async function handleClick() {
-  if (status === 'denied') return
-  try {
-    const permission = await Notification.requestPermission()
-    if (permission === 'granted') {
-      setStatus('subscribed')
-      // Try to subscribe to push
-      if ('serviceWorker' in navigator && 'PushManager' in window) {
-        const reg = await navigator.serviceWorker.ready
-        const existing = await reg.pushManager.getSubscription()
-        const sub = existing || await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: 'BNYS8ipi5vzb91I0HEa01MLxc3iT5uFzHsupFo6qWTFmTOKQNeRplg4ol7e0yMTfz2m-Wm5yoYPjoY8pG29sLOk',
-        })
-        await fetch('/api/push-subscribe', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(sub),
-        })
-      }
-    } else {
-      setStatus('denied')
+    if (status === 'denied') return
+    try {
+      window.OneSignalDeferred = window.OneSignalDeferred || []
+      window.OneSignalDeferred.push(async function(OneSignal) {
+        await OneSignal.Slidedown.promptPush()
+        const isSubscribed = await OneSignal.User.PushSubscription.optedIn
+        if (isSubscribed) setStatus('subscribed')
+      })
+    } catch (e) {
+      console.error('OneSignal error:', e)
     }
-  } catch (e) {
-    console.error('Bell error:', e)
   }
-}
+
   return (
     <button
       onClick={handleClick}
-      title={status === 'subscribed' ? 'Notifications on' : status === 'denied' ? 'Notifications blocked' : 'Enable notifications'}
+      title={status === 'subscribed' ? 'Notifications on' : 'Enable notifications'}
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         width: '32px', height: '32px', borderRadius: '8px', border: 'none',
         background: status === 'subscribed'
           ? (dark ? 'rgba(201,168,76,0.2)' : 'rgba(201,168,76,0.15)')
           : (dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)'),
-        cursor: status === 'denied' ? 'not-allowed' : 'pointer',
-        fontSize: '15px', flexShrink: 0,
-        opacity: status === 'denied' ? 0.4 : 1,
+        cursor: 'pointer', fontSize: '15px', flexShrink: 0,
         transition: 'all 0.2s ease',
       }}>
-      {status === 'subscribed' ? '🔔' : status === 'denied' ? '🔕' : '🔔'}
+      {status === 'subscribed' ? '🔔' : '🔔'}
     </button>
   )
 }
