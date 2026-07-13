@@ -1,18 +1,4 @@
-const CACHE_NAME = 'finance-digest-v1';
-
-self.addEventListener('install', function(event) {
-  self.skipWaiting();
-});
-
-self.addEventListener('activate', function(event) {
-  event.waitUntil(clients.claim());
-});
-
-self.addEventListener('fetch', function(event) {
-  event.respondWith(fetch(event.request).catch(function() {
-    return new Response('Offline');
-  }));
-});
+importScripts("https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js");
 
 self.addEventListener('push', function(event) {
   const data = event.data ? event.data.json() : {}
