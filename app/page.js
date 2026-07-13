@@ -198,16 +198,17 @@ function NotificationBell({ dark }) {
   }, [])
 
   async function handleClick() {
-    if (status === 'denied') return
     try {
-      window.OneSignalDeferred = window.OneSignalDeferred || []
-      window.OneSignalDeferred.push(async function(OneSignal) {
-        await OneSignal.Slidedown.promptPush()
-        const isSubscribed = await OneSignal.User.PushSubscription.optedIn
-        if (isSubscribed) setStatus('subscribed')
-      })
+      const OneSignal = (await import('react-onesignal')).default
+      await OneSignal.Slidedown.promptPush({ force: true })
+      const opted = OneSignal.User.PushSubscription.optedIn
+      if (opted) setStatus('subscribed')
     } catch (e) {
-      console.error('OneSignal error:', e)
+      console.error('Bell error:', e)
+      if ('Notification' in window) {
+        const p = await Notification.requestPermission()
+        if (p === 'granted') setStatus('subscribed')
+      }
     }
   }
 
