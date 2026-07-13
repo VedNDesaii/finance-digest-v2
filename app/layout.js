@@ -1,6 +1,7 @@
 import "./globals.css";
 import Script from "next/script";
 import { Analytics } from '@vercel/analytics/next';
+import OneSignalInit from './components/OneSignalInit'
 
 export const metadata = {
   title: "Finance Digest",
@@ -29,39 +30,7 @@ export default function RootLayout({ children }) {
       <body style={{ margin: 0, padding: 0 }}>
         {children}
 
-        {/* OneSignal Web Push */}
-        <Script
-          src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js"
-          strategy="afterInteractive"
-        />
-        <Script
-          id="onesignal-init"
-          strategy="afterInteractive"
-          dangerouslySetInnerHTML={{
-            __html: `
-              window.OneSignalDeferred = window.OneSignalDeferred || [];
-              OneSignalDeferred.push(async function(OneSignal) {
-                await OneSignal.init({
-                  appId: "69ae6789-9fde-4774-9065-a924da6a792b",
-                  notifyButton: { enable: false },
-                  promptOptions: {
-                    slidedown: {
-                      prompts: [{
-                        type: "push",
-                        autoPrompt: true,
-                        text: {
-                          actionMessage: "Get daily market updates & breaking financial news from Finance Digest",
-                          acceptButton: "Allow",
-                          cancelButton: "No thanks"
-                        }
-                      }]
-                    }
-                  }
-                });
-              });
-            `
-          }}
-        />
+        <OneSignalInit />
 
         {/* Register service worker */}
         <Script
