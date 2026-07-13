@@ -48,7 +48,7 @@ export default function RootLayout({ children }) {
                     slidedown: {
                       prompts: [{
                         type: "push",
-                        autoPrompt: false,
+                        autoPrompt: true,
                         text: {
                           actionMessage: "Get daily market updates & breaking financial news from Finance Digest",
                           acceptButton: "Allow",
