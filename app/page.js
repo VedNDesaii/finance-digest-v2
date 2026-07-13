@@ -199,16 +199,21 @@ function NotificationBell({ dark }) {
 
   async function handleClick() {
     try {
-      const OneSignal = (await import('react-onesignal')).default
-      await OneSignal.Slidedown.promptPush({ force: true })
-      const opted = OneSignal.User.PushSubscription.optedIn
-      if (opted) setStatus('subscribed')
-    } catch (e) {
-      console.error('Bell error:', e)
       if ('Notification' in window) {
         const p = await Notification.requestPermission()
-        if (p === 'granted') setStatus('subscribed')
+        if (p === 'granted') {
+          setStatus('subscribed')
+          // Try OneSignal registration
+          try {
+            const OneSignal = (await import('react-onesignal')).default
+            await OneSignal.User.PushSubscription.optIn()
+          } catch (e2) {}
+        } else if (p === 'denied') {
+          setStatus('denied')
+        }
       }
+    } catch (e) {
+      console.error('Bell error:', e)
     }
   }
 
