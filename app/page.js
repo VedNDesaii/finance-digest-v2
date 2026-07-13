@@ -251,7 +251,7 @@ function InstallBanner({ dark }) {
     if (isIOS && isSafari) {
       setInfo({ icon: '📲', device: 'iPhone', title: 'Add to Home Screen to get notifications', steps: [
         { num: '1', text: 'Tap the Share button', sub: '□↑ at the bottom of Safari' },
-        { num: '2', text: 'Tap "Add to Home Screen"', sub: 'Scroll down if you don't see it'},
+        { num: '2', text: 'Tap "Add to Home Screen"', sub: 'Scroll down if you do not see it'},
         { num: '3', text: 'Open Finance Digest from your Home Screen', sub: 'Then tap 🔔 to enable notifications' },
       ]})
       setShow(true)
