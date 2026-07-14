@@ -1,7 +1,6 @@
 import "./globals.css";
 import Script from "next/script";
 import { Analytics } from '@vercel/analytics/next';
-import OneSignalInit from './components/OneSignalInit'
 
 export const metadata = {
   title: "Finance Digest",
@@ -29,9 +28,22 @@ export default function RootLayout({ children }) {
       </head>
       <body style={{ margin: 0, padding: 0 }}>
         {children}
-
-        <OneSignalInit />
-<Analytics />
+        <Script
+          id="register-sw"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js')
+                    .then(function(reg) { console.log('SW registered', reg.scope); })
+                    .catch(function(err) { console.log('SW failed:', err); });
+                });
+              }
+            `
+          }}
+        />
+        <Analytics />
       </body>
     </html>
   );

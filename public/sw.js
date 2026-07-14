@@ -1,5 +1,9 @@
-importScripts("https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js");
-
+self.addEventListener('install', function(event) {
+  self.skipWaiting();
+});
+self.addEventListener('activate', function(event) {
+  event.waitUntil(clients.claim());
+});
 self.addEventListener('push', function(event) {
   const data = event.data ? event.data.json() : {}
   const options = {
@@ -17,7 +21,6 @@ self.addEventListener('push', function(event) {
     self.registration.showNotification(data.title || '📰 Finance Digest', options)
   )
 })
-
 self.addEventListener('notificationclick', function(event) {
   event.notification.close()
   if (event.action === 'read' || !event.action) {
