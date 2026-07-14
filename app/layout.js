@@ -31,25 +31,7 @@ export default function RootLayout({ children }) {
         {children}
 
         <OneSignalInit />
-
-        {/* Register service worker */}
-        <Script
-          id="register-sw"
-          strategy="afterInteractive"
-          dangerouslySetInnerHTML={{
-            __html: `
-              if ('serviceWorker' in navigator) {
-                window.addEventListener('load', function() {
-                  navigator.serviceWorker.register('/sw.js')
-                    .then(function(reg) { console.log('SW registered', reg.scope); })
-                    .catch(function(err) { console.log('SW failed:', err); });
-                });
-              }
-            `
-          }}
-        />
-
-        <Analytics />
+<Analytics />
       </body>
     </html>
   );
