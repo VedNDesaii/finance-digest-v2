@@ -9,7 +9,7 @@ export default function OneSignalInit() {
         await OneSignal.init({
           appId: '69ae6789-9fde-4774-9065-a924da6a792b',
           allowLocalhostAsSecureOrigin: true,
-          notifyButton: { enable: false },
+          notifyButton: { enable: true },
           promptOptions: {
             slidedown: {
               prompts: [{
