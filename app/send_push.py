@@ -14,6 +14,14 @@ VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY", "").strip()
 VAPID_EMAIL       = "mailto:ved.desai636@gmail.com"
 resend.api_key    = os.getenv("RESEND_API_KEY")
 
+# When true, nothing is sent: recipients and copy are printed instead.
+DRY_RUN = False
+
+
+def _mask(email):
+    name, _, domain = email.partition("@")
+    return (name[:2] + "***@" + domain) if len(name) > 2 else "***@" + domain
+
 SPICY_NOTIFICATIONS = [
     {"title": "Markets are having a moment 👀", "body": "Something big just happened and your portfolio might care. Open up."},
     {"title": "RBI just made a move 🏦",        "body": "Interest rates, your EMIs, your savings — all affected. 2 min read."},
@@ -79,6 +87,13 @@ def _broadcast_push(notif, label=""):
     if not subscriptions.data:
         print(f"No push subscribers {label}")
         return
+    if DRY_RUN:
+        print(f"[DRY RUN] Would push {label} to {len(subscriptions.data)} subscriber(s):")
+        print(f"          title: {notif['title']}")
+        print(f"          body:  {notif['body']}")
+        for sub in subscriptions.data:
+            print(f"          - {sub['endpoint'].split('/')[2]}")
+        return
     sent = failed = 0
     for sub in subscriptions.data:
         try:
@@ -99,6 +114,15 @@ def send_email_notifications(title, body):
         return
 
     emails = [u["email"] for u in users.data if u.get("email")]
+
+    if DRY_RUN:
+        print(f"[DRY RUN] Would email {len(emails)} user(s):")
+        print(f"          subject: {title}")
+        print(f"          body:    {body}")
+        for email in emails:
+            print(f"          - {_mask(email)}")
+        return
+
     print(f"📧 Sending email to {len(emails)} users...")
 
     sent = failed = 0
@@ -179,6 +203,13 @@ def send_reengagement_notifications():
         return
 
     print(f"Found {len(subs.data)} inactive users")
+
+    if DRY_RUN:
+        print(f"[DRY RUN] Would nudge {len(subs.data)} inactive subscriber(s), copy picked at random per user:")
+        for sub in subs.data:
+            print(f"          - {sub['endpoint'].split('/')[2]} (last_seen {sub.get('last_seen')})")
+        return
+
     sent = failed = 0
     for sub in subs.data:
         notif = random.choice(SPICY_REENGAGEMENT)
@@ -194,7 +225,12 @@ def send_reengagement_notifications():
 
 if __name__ == "__main__":
     import sys
-    mode = sys.argv[1] if len(sys.argv) > 1 else "all"
+    args = [a for a in sys.argv[1:] if a != "--dry-run"]
+    DRY_RUN = "--dry-run" in sys.argv
+    mode = args[0] if args else "all"
+
+    if DRY_RUN:
+        print(f"=== DRY RUN — mode '{mode}', nothing will be sent ===\n")
 
     if mode == "morning":
         send_notifications()
