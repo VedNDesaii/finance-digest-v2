@@ -7,4 +7,6 @@ requests
 yfinance
 newspaper3k
 lxml
-lxml[html_clean]pywebpush
+lxml[html_clean]
+pywebpush
+resend
