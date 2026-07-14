@@ -6,6 +6,7 @@ import NewsReader from '../components/NewsReader'
 import MyPortfolio from '../components/MyPortfolio'
 import { useAuth } from '../hooks/useAuth'
 import WelcomeModal from '../components/WelcomeModal'
+import { registerPushNotification, touchLastSeen } from '../lib/pushNotifications'
 
 const BOTTOM_TABS = [
   { id: 'top',       icon: '📰', label: 'Briefing' },
@@ -187,30 +188,28 @@ function NotificationBell({ dark }) {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    // Check OneSignal subscription status
-    window.OneSignalDeferred = window.OneSignalDeferred || []
-    window.OneSignalDeferred.push(async function(OneSignal) {
-      try {
-        const isSubscribed = await OneSignal.User.PushSubscription.optedIn
-        if (isSubscribed) setStatus('subscribed')
-      } catch (e) {}
-    })
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
+    // Reflect the real push subscription, not just the permission grant.
+    navigator.serviceWorker.ready
+      .then((reg) => reg.pushManager.getSubscription())
+      .then((sub) => {
+        if (sub) {
+          setStatus('subscribed')
+          touchLastSeen().catch(() => {})
+        } else if (Notification.permission === 'denied') {
+          setStatus('denied')
+        }
+      })
+      .catch(() => {})
   }, [])
 
   async function handleClick() {
     try {
-      if ('Notification' in window) {
-        const p = await Notification.requestPermission()
-        if (p === 'granted') {
-          setStatus('subscribed')
-          // Try OneSignal registration
-          try {
-            const OneSignal = (await import('react-onesignal')).default
-            await OneSignal.User.PushSubscription.optIn()
-          } catch (e2) {}
-        } else if (p === 'denied') {
-          setStatus('denied')
-        }
+      const ok = await registerPushNotification()
+      if (ok) {
+        setStatus('subscribed')
+      } else if (Notification.permission === 'denied') {
+        setStatus('denied')
       }
     } catch (e) {
       console.error('Bell error:', e)
