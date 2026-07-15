@@ -8,6 +8,24 @@ import { useAuth } from '../hooks/useAuth'
 import WelcomeModal from '../components/WelcomeModal'
 import { registerPushNotification, touchLastSeen } from '../lib/pushNotifications'
 
+// Safe storage — in-app browsers (Instagram, etc.) can block localStorage and
+// throw on access. An unguarded throw in a mount effect collapses the page,
+// which is why the site failed to load in Instagram's Android browser.
+const safeLS = {
+  getItem(key) {
+    try { return typeof localStorage !== 'undefined' ? safeLS.getItem(key) : null }
+    catch { return null }
+  },
+  setItem(key, val) {
+    try { if (typeof localStorage !== 'undefined') safeLS.setItem(key, val) }
+    catch { /* storage blocked — ignore */ }
+  },
+}
+
+function safeParse(str, fallback) {
+  try { return JSON.parse(str) } catch { return fallback }
+}
+
 const BOTTOM_TABS = [
   { id: 'top',       icon: '📰', label: 'Briefing' },
   { id: 'markets',   icon: '📈', label: 'Markets' },
@@ -742,8 +760,8 @@ function YesterdayQuiz({ dark, isMobile, addIQ, earnedBadges, awardBadge }) {
 
   useEffect(() => {
     const todayStr = new Date().toDateString()
-    const saved = localStorage.getItem(`fd-yquiz-${todayStr}`)
-    if (saved) setAnswers(JSON.parse(saved))
+    const saved = safeLS.getItem(`fd-yquiz-${todayStr}`)
+    if (saved) { const parsed = safeParse(saved, null); if (parsed) setAnswers(parsed) }
     fetchYesterdayQuiz()
   }, [])
 
@@ -797,11 +815,11 @@ function YesterdayQuiz({ dark, isMobile, addIQ, earnedBadges, awardBadge }) {
     const todayStr = new Date().toDateString()
     const updated  = { ...answers, [qIdx]: optIdx }
     setAnswers(updated)
-    localStorage.setItem(`fd-yquiz-${todayStr}`, JSON.stringify(updated))
+    safeLS.setItem(`fd-yquiz-${todayStr}`, JSON.stringify(updated))
     const correct = optIdx === quiz[qIdx]?.answer
     addIQ(correct ? 20 : 0, correct ? '+20 IQ! Correct! 🎉' : null)
-    const totalQuizzes = parseInt(localStorage.getItem('fd-total-quizzes') || '0') + 1
-    localStorage.setItem('fd-total-quizzes', totalQuizzes)
+    const totalQuizzes = parseInt(safeLS.getItem('fd-total-quizzes') || '0') + 1
+    safeLS.setItem('fd-total-quizzes', totalQuizzes)
     if (totalQuizzes >= 10) awardBadge('quiz10', earnedBadges)
   }
 
@@ -978,21 +996,21 @@ export default function Home() {
 
   useEffect(() => {
     const todayStr   = new Date().toDateString()
-    const lastVisit  = localStorage.getItem('fd-last-visit')
-    const currStreak = parseInt(localStorage.getItem('fd-streak') || '0')
+    const lastVisit  = safeLS.getItem('fd-last-visit')
+    const currStreak = parseInt(safeLS.getItem('fd-streak') || '0')
     if (lastVisit === todayStr) {
       setStreak(currStreak)
     } else {
       const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1)
       const isConsec  = lastVisit === yesterday.toDateString()
       const newStreak = isConsec ? currStreak + 1 : 1
-      localStorage.setItem('fd-streak', newStreak)
-      localStorage.setItem('fd-last-visit', todayStr)
+      safeLS.setItem('fd-streak', newStreak)
+      safeLS.setItem('fd-last-visit', todayStr)
       setStreak(newStreak)
     }
-    const savedIQ     = parseInt(localStorage.getItem('fd-iq') || '0')
-    const savedBadges = JSON.parse(localStorage.getItem('fd-badges') || '[]')
-    const savedPred   = localStorage.getItem(`fd-pred-${todayStr}`)
+    const savedIQ     = parseInt(safeLS.getItem('fd-iq') || '0')
+    const savedBadges = safeParse(safeLS.getItem('fd-badges') || '[]', [])
+    const savedPred   = safeLS.getItem(`fd-pred-${todayStr}`)
     setIqScore(savedIQ)
     setEarnedBadges(savedBadges)
     if (savedPred) setPrediction(savedPred)
@@ -1022,11 +1040,11 @@ export default function Home() {
     setPredCorrect(correct)
     if (correct) {
       addIQ(30, '+30 IQ! Correct prediction 🎯')
-      const predStreak = parseInt(localStorage.getItem('fd-pred-streak') || '0') + 1
-      localStorage.setItem('fd-pred-streak', predStreak)
+      const predStreak = parseInt(safeLS.getItem('fd-pred-streak') || '0') + 1
+      safeLS.setItem('fd-pred-streak', predStreak)
       if (predStreak >= 3) awardBadge('predict3', earnedBadges)
     } else {
-      localStorage.setItem('fd-pred-streak', '0')
+      safeLS.setItem('fd-pred-streak', '0')
     }
   }, [indices, afterClose, prediction])
 
@@ -1038,7 +1056,7 @@ export default function Home() {
   function addIQ(points, msg) {
     setIqScore(prev => {
       const newScore = prev + points
-      localStorage.setItem('fd-iq', newScore)
+      safeLS.setItem('fd-iq', newScore)
       if (newScore >= 500 && prev < 500) awardBadge('iq500', earnedBadges)
       return newScore
     })
@@ -1049,19 +1067,19 @@ export default function Home() {
     if (existing.includes(id)) return
     const updated = [...existing, id]
     setEarnedBadges(updated)
-    localStorage.setItem('fd-badges', JSON.stringify(updated))
+    safeLS.setItem('fd-badges', JSON.stringify(updated))
   }
 
   function handlePrediction(dir) {
     if (prediction || afterClose || weekend) return
     const todayStr = new Date().toDateString()
     setPrediction(dir)
-    localStorage.setItem(`fd-pred-${todayStr}`, dir)
+    safeLS.setItem(`fd-pred-${todayStr}`, dir)
   }
 
   function trackArticleRead() {
-    const total = parseInt(localStorage.getItem('fd-articles-read') || '0') + 1
-    localStorage.setItem('fd-articles-read', total)
+    const total = parseInt(safeLS.getItem('fd-articles-read') || '0') + 1
+    safeLS.setItem('fd-articles-read', total)
     addIQ(5, null)
     if (total >= 50) awardBadge('articles50', earnedBadges)
   }
@@ -1090,12 +1108,12 @@ export default function Home() {
   }, [dark])
 
   useEffect(() => {
-    const saved = localStorage.getItem('fd-theme')
+    const saved = safeLS.getItem('fd-theme')
     if (saved === 'dark') setDark(true)
   }, [])
 
   const toggleTheme = () => {
-    setDark(d => { localStorage.setItem('fd-theme', !d ? 'dark' : 'light'); return !d })
+    setDark(d => { safeLS.setItem('fd-theme', !d ? 'dark' : 'light'); return !d })
   }
 
   useEffect(() => {
