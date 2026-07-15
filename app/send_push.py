@@ -12,6 +12,7 @@ load_dotenv()
 supabase          = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY", "").strip()
 VAPID_EMAIL       = "mailto:ved.desai636@gmail.com"
+UNSUBSCRIBE_EMAIL = "ved.desai636@gmail.com"
 resend.api_key    = os.getenv("RESEND_API_KEY")
 
 # When true, nothing is sent: recipients and copy are printed instead.
@@ -125,13 +126,26 @@ def send_email_notifications(title, body):
 
     print(f"📧 Sending email to {len(emails)} users...")
 
+    unsub = f"mailto:{UNSUBSCRIBE_EMAIL}?subject=unsubscribe"
+    plain = (
+        f"{title}\n\n{body}\n\n"
+        f"Read today's briefing: https://financedigest.xyz\n\n"
+        f"— Finance Digest · Daily financial news simplified\n"
+        f"Unsubscribe: {unsub}"
+    )
+
     sent = failed = 0
     for email in emails:
         try:
             resend.Emails.send({
                 "from": "Finance Digest <news@financedigest.xyz>",
                 "to": email,
+                "reply_to": UNSUBSCRIBE_EMAIL,
                 "subject": title,
+                "text": plain,
+                "headers": {
+                    "List-Unsubscribe": f"<{unsub}>",
+                },
                 "html": f"""
                 <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 32px 20px; background: #F7F4EF;">
                     <div style="background: #1A1410; padding: 20px; border-radius: 12px 12px 0 0; text-align: center;">
@@ -146,7 +160,8 @@ def send_email_notifications(title, body):
                         </a>
                         <p style="color: #B8AFA3; font-size: 11px; margin-top: 24px; border-top: 1px solid #EDE8E0; padding-top: 16px;">
                             Finance Digest · Daily financial news simplified for everyone<br>
-                            <a href="https://financedigest.xyz" style="color: #C9A84C;">financedigest.xyz</a>
+                            <a href="https://financedigest.xyz" style="color: #C9A84C;">financedigest.xyz</a> ·
+                            <a href="{unsub}" style="color: #B8AFA3;">Unsubscribe</a>
                         </p>
                     </div>
                 </div>
