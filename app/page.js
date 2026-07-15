@@ -1,12 +1,20 @@
 'use client'
 import { useEffect, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { supabase } from '../lib/supabase'
 import ArticleCard from '../components/ArticleCard'
 import NewsReader from '../components/NewsReader'
-import MyPortfolio from '../components/MyPortfolio'
 import { useAuth } from '../hooks/useAuth'
 import WelcomeModal from '../components/WelcomeModal'
 import { registerPushNotification, touchLastSeen } from '../lib/pushNotifications'
+
+// Portfolio only renders on its own tab — load it on demand so the homepage
+// doesn't ship its weight to every visitor (matters for memory-limited
+// in-app browsers like Instagram's).
+const MyPortfolio = dynamic(() => import('../components/MyPortfolio'), {
+  ssr: false,
+  loading: () => null,
+})
 
 // Safe storage — in-app browsers (Instagram, etc.) can block localStorage and
 // throw on access. An unguarded throw in a mount effect collapses the page,

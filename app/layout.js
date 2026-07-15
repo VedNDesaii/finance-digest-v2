@@ -33,7 +33,13 @@ export default function RootLayout({ children }) {
           strategy="afterInteractive"
           dangerouslySetInnerHTML={{
             __html: `
-              if ('serviceWorker' in navigator) {
+              // In-app browsers (Instagram, Facebook, etc.) are memory-limited
+              // and can't do web push anyway. Registering a service worker there
+              // adds background work that can crash the page a few seconds in, so
+              // skip it — full browsers still get it.
+              var ua = navigator.userAgent || '';
+              var inApp = /Instagram|FBAN|FBAV|FB_IAB|Line\\/|Twitter|Snapchat|Pinterest/i.test(ua);
+              if ('serviceWorker' in navigator && !inApp) {
                 window.addEventListener('load', function() {
                   navigator.serviceWorker.register('/sw.js')
                     .then(function(reg) { console.log('SW registered', reg.scope); })
