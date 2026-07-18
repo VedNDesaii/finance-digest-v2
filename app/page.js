@@ -992,7 +992,7 @@ export default function Home() {
   const [navShrunk, setNavShrunk] = useState(false)
   const [navHovered, setNavHovered] = useState(false)
 
-  const { user, plan } = useAuth()
+  const { user, plan, loading: authLoading } = useAuth()
   const isPro   = true
   const isBasic = true
   const isFree  = false
@@ -1290,7 +1290,7 @@ export default function Home() {
   return (
     <div style={{ background: 'var(--bg-page)', minHeight: '100vh', fontFamily: 'var(--font-ui)' }}>
 
-      <WelcomeModal dark={dark} user={user} />
+      <WelcomeModal dark={dark} user={user} authLoading={authLoading} />
       <InstallBanner dark={dark} />
 
       {showPointPop && (

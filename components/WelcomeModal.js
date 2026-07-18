@@ -4,7 +4,17 @@ import { supabase } from '../lib/supabase'
 
 const STORAGE_KEY = 'fd_welcome_seen'
 
-export default function WelcomeModal({ dark, user }) {
+// Storage can be blocked (in-app browsers, private modes) and throw on access.
+function safeGet(key) {
+  try { return typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null }
+  catch { return null }
+}
+function safeSet(key, val) {
+  try { if (typeof localStorage !== 'undefined') localStorage.setItem(key, val) }
+  catch { /* storage blocked — ignore */ }
+}
+
+export default function WelcomeModal({ dark, user, authLoading }) {
   const [show, setShow] = useState(false)
   const [isStandalone, setIsStandalone] = useState(false)
   const [mode, setMode] = useState('signup') // 'signup' | 'login' | 'forgot'
@@ -18,22 +28,27 @@ export default function WelcomeModal({ dark, user }) {
   const [resetSent, setResetSent] = useState(false)
 
   useEffect(() => {
-    if (user) return // logged-in users never see this
+    // Wait until the session has actually been restored. Deciding while auth is
+    // still loading showed the login modal to already-signed-in users.
+    if (authLoading) return
+
+    // Signed in — never show, and close it if the pre-auth pass opened it.
+    if (user) { setShow(false); return }
 
     const standalone = window.navigator.standalone === true ||
                        window.matchMedia('(display-mode: standalone)').matches
     setIsStandalone(standalone)
 
-    const seen = localStorage.getItem(STORAGE_KEY)
+    const seen = safeGet(STORAGE_KEY)
     // In standalone mode — always show until logged in (compulsory)
     // In browser mode — show once, dismissable
     if (standalone || !seen) setShow(true)
-  }, [user])
+  }, [user, authLoading])
 
   function dismiss() {
     // Compulsory in standalone mode — cannot dismiss without logging in
     if (isStandalone) return
-    localStorage.setItem(STORAGE_KEY, 'true')
+    safeSet(STORAGE_KEY, 'true')
     setShow(false)
   }
 
@@ -47,7 +62,7 @@ export default function WelcomeModal({ dark, user }) {
     if (error) { setError(error.message); setLoading(false) }
     else {
       setSuccess(true)
-      localStorage.setItem(STORAGE_KEY, 'true')
+      safeSet(STORAGE_KEY, 'true')
       setTimeout(() => setShow(false), 1800)
     }
   }
@@ -58,7 +73,7 @@ export default function WelcomeModal({ dark, user }) {
     setLoading(true)
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) { setError(error.message); setLoading(false) }
-    else { localStorage.setItem(STORAGE_KEY, 'true'); setShow(false) }
+    else { safeSet(STORAGE_KEY, 'true'); setShow(false) }
   }
 
   async function handleForgotPassword(e) {
