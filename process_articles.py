@@ -36,6 +36,7 @@ RSS_FEEDS = [
     "https://www.thehindubusinessline.com/feeder/default.rss",
     "https://www.ft.com/rss/home/india",
     "https://news.crunchbase.com/feed/",
+    "https://inc42.com/feed/",
 ]
 
 
