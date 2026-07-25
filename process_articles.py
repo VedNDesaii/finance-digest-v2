@@ -35,15 +35,20 @@ RSS_FEEDS = [
     "https://www.livemint.com/rss/markets",
     "https://www.thehindubusinessline.com/feeder/default.rss",
     "https://www.ft.com/rss/home/india",
+    "https://news.crunchbase.com/feed/",
 ]
 
 
 def fetch_rss_headlines():
     """Layer 1: Fetch latest headlines from top financial RSS feeds."""
     headlines = []
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; FinanceDigestBot/1.0)"}
     for url in RSS_FEEDS:
         try:
-            feed = feedparser.parse(url)
+            # Fetch via httpx (proper certs + UA) then parse — some feeds
+            # (e.g. Crunchbase) block feedparser's default fetch.
+            resp = httpx.get(url, headers=headers, follow_redirects=True, timeout=15)
+            feed = feedparser.parse(resp.text)
             for entry in feed.entries[:15]:
                 headlines.append({
                     "title":   entry.get("title", ""),
@@ -76,6 +81,8 @@ DAILY_MANDATORY = [
     "India nuclear energy policy today",
     "India LPG energy security today",
     "India IT sector earnings warning today",
+    "VCCircle latest India private equity, venture capital, M&A deal news today",
+    "Invest India latest FDI, investment and industrial policy announcement today",
 ]
 
 
