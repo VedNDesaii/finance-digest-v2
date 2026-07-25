@@ -89,7 +89,7 @@ def run_mandatory_searches(client):
             message = client.messages.create(
                 model="claude-haiku-4-5-20251001",
                 max_tokens=300,
-                tools=[{"type": "web_search_20250305", "name": "web_search"}],
+                tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 1}],
                 messages=[{
                     "role": "user",
                     "content": (
@@ -267,7 +267,7 @@ def run_dynamic_watchlist(client, supabase,
                 model="claude-haiku-4-5-20251001",
                 max_tokens=400,
                 tools=[{"type": "web_search_20250305",
-                        "name": "web_search"}],
+                        "name": "web_search", "max_uses": 1}],
                 messages=[{
                     "role": "user",
                     "content": (
