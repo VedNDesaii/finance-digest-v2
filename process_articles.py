@@ -522,7 +522,7 @@ CATEGORY_MINIMUMS = {
 CATEGORIES = list(CATEGORY_LIMITS.keys())
 
 CATEGORY_KEYWORDS = {
-    "indian-markets":  "Sensex, Nifty, BSE, NSE, Indian stocks, Dalal Street, Indian IPO, FII, DII, rupee vs dollar, SEBI, RBI rate, Nifty Bank",
+    "indian-markets":  "Sensex, Nifty, BSE, NSE, Indian stock market, Dalal Street, market rally, market crash, record high, market correction, FII, DII, institutional fund flows, rupee vs dollar, SEBI market regulation, Nifty Bank, sectoral indices, market sentiment",
     "us-markets":      "S&P 500, Dow Jones, NASDAQ, NYSE, Fed rate, US stocks, Wall Street, US IPO, dollar index, US Treasury, US earnings",
     "global-economy":  "IMF, World Bank, global GDP, trade war, sanctions, WTO, G7, G20, emerging markets, global inflation, geopolitics impact on economy",
     "banking-finance": "bank earnings, NPA, credit growth, NBFC, RBI policy, lending rate, insurance, fintech, loan, deposit rate, SBI, HDFC Bank, ICICI Bank",
@@ -660,6 +660,7 @@ Pick EXACTLY ONE:
 If the story is foreign/global with no Indian company or market involved, prefer "global-economy" (or "us-markets" for US market/Fed/Wall Street news).
 Use "investment-banking" for M&A, mergers/acquisitions, IPOs, private equity or venture-capital funding rounds, deals, buyouts and capital raising. Use "banking-finance" for bank lending, deposits, NPAs, insurance and RBI rate policy — NOT deals.
 Use "macro-policy" for taxation (GST, income/corporate/capital-gains tax), the Union Budget, and government fiscal policy.
+Use "indian-markets" ONLY for overall market moves (Sensex/Nifty rallies, crashes, records), FII/DII fund flows, the rupee, and exchange/market structure — NOT a single company's results (use its sector), NOT deals/IPOs (use investment-banking), NOT rate/policy (use banking-finance or macro-policy).
 
 ━━━ STEP 3: IMPORTANCE ━━━
 Set is_headline: false for all articles. The briefing section auto-selects the best story per category separately.
