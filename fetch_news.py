@@ -60,6 +60,10 @@ RSS_FEEDS = [
     {"url": "https://www.thehindubusinessline.com/money-and-banking/?service=rss",                "category": "banking-finance"},
     {"url": "https://www.cnbc.com/id/10000664/device/rss/rss.html",                               "category": "banking-finance"},
     {"url": "https://www.livemint.com/rss/industry",                                              "category": "banking-finance"},
+
+    # ── Investment Banking (deals, IPOs, PE/VC, startups) ──
+    {"url": "https://news.crunchbase.com/feed/",                                                   "category": "investment-banking"},
+    {"url": "https://inc42.com/feed/",                                                             "category": "investment-banking"},
     # ── Macro & Policy ──
     {"url": "https://www.business-standard.com/rss/economy-policy-102.rss",                       "category": "macro-policy"},
     {"url": "https://economictimes.indiatimes.com/news/economy/rssfeeds/1373380680.cms",          "category": "macro-policy"},
