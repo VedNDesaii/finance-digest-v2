@@ -66,8 +66,9 @@ const ALL_SECTIONS = [
   { id: 'indian-markets',  label: 'Indian Markets'    },
   { id: 'us-markets',      label: 'US Markets'        },
   { id: 'global-economy',  label: 'Global Economy'    },
-  { id: 'macro-policy',    label: 'Macro & Policy'    },
+  { id: 'macro-policy',    label: 'Macro, Tax & Budget' },
   { id: 'banking-finance', label: 'Banking & Finance' },
+  { id: 'investment-banking', label: 'Investment Banking' },
   { id: 'technology-it',   label: 'Technology & IT'   },
   { id: 'energy-oil',      label: 'Energy & Oil'      },
   { id: 'pharma-health',   label: 'Pharma & Health'   },
@@ -131,7 +132,7 @@ function isWeekend() {
 function getActiveMobileTab(section) {
   if (section === 'headlines') return 'top'
   if (section === 'quiz') return 'top'
-  if (['indian-markets','us-markets','global-economy','macro-policy','banking-finance'].includes(section)) return 'markets'
+  if (['indian-markets','us-markets','global-economy','macro-policy','banking-finance','investment-banking'].includes(section)) return 'markets'
   if (SECTOR_IDS.includes(section)) return 'sectors'
   if (section === 'portfolio') return 'portfolio'
   return 'top'
@@ -1178,6 +1179,7 @@ export default function Home() {
           'global-economy': 2,
           'macro-policy': 2,
           'banking-finance': 2,
+          'investment-banking': 2,
           'technology-it': 2,
           'pharma-health': 2,
           'auto-ev': 2,
@@ -1415,8 +1417,8 @@ export default function Home() {
               {sectionCounts[s.id] > 0 && <span style={{ marginLeft: 'auto', fontSize: '11px', fontWeight: '600', color: 'var(--accent)', fontFamily: 'var(--font-ui)' }}>{sectionCounts[s.id]}</span>}
             </button>
           ))}
-          <p style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '0.1em', color: dark ? '#4A4438' : '#C4B9AE', margin: '12px 0 8px', fontFamily: 'var(--font-ui)' }}>POLICY</p>
-          {[{ id: 'macro-policy', label: 'Macro & Policy', icon: '🏛️' }, { id: 'banking-finance', label: 'Banking & Finance', icon: '🏦' }].map(s => (
+          <p style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '0.1em', color: dark ? '#4A4438' : '#C4B9AE', margin: '12px 0 8px', fontFamily: 'var(--font-ui)' }}>FINANCE & POLICY</p>
+          {[{ id: 'macro-policy', label: 'Macro, Tax & Budget', icon: '🏛️' }, { id: 'banking-finance', label: 'Banking & Finance', icon: '🏦' }, { id: 'investment-banking', label: 'Investment Banking', icon: '💼' }].map(s => (
             <button key={s.id} onClick={() => handleSectionClick(s.id)} style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '13px 14px', marginBottom: '4px', borderRadius: '12px', border: 'none', cursor: 'pointer', background: activeSection === s.id ? (dark ? 'rgba(232,151,62,0.12)' : 'rgba(212,135,60,0.08)') : (dark ? 'rgba(255,255,255,0.03)' : '#FAFAF8'), textAlign: 'left' }}>
               <span style={{ fontSize: '22px' }}>{s.icon}</span>
               <span style={{ fontSize: '15px', fontWeight: activeSection === s.id ? '600' : '400', color: activeSection === s.id ? 'var(--accent)' : (dark ? '#D4C8BC' : '#1A1410'), fontFamily: 'var(--font-ui)' }}>{s.label}</span>

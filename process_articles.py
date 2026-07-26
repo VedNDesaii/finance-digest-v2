@@ -486,7 +486,8 @@ CATEGORY_LIMITS = {
     "us-markets":      12,
     "global-economy":  10,
     "banking-finance": 12,
-    "macro-policy":    10,
+    "investment-banking": 20,
+    "macro-policy":    20,
     "technology-it":   7,
     "pharma-health":   7,
     "auto-ev":         7,
@@ -504,7 +505,8 @@ CATEGORY_MINIMUMS = {
     "us-markets":      10,
     "global-economy":  8,
     "banking-finance": 10,
-    "macro-policy":    8,
+    "investment-banking": 15,
+    "macro-policy":    15,
     "technology-it":   6,
     "pharma-health":   6,
     "auto-ev":         6,
@@ -524,7 +526,8 @@ CATEGORY_KEYWORDS = {
     "us-markets":      "S&P 500, Dow Jones, NASDAQ, NYSE, Fed rate, US stocks, Wall Street, US IPO, dollar index, US Treasury, US earnings",
     "global-economy":  "IMF, World Bank, global GDP, trade war, sanctions, WTO, G7, G20, emerging markets, global inflation, geopolitics impact on economy",
     "banking-finance": "bank earnings, NPA, credit growth, NBFC, RBI policy, lending rate, insurance, fintech, loan, deposit rate, SBI, HDFC Bank, ICICI Bank",
-    "macro-policy":    "CPI inflation, WPI, GDP data, IIP, fiscal deficit, government budget, tax policy, government scheme, RBI MPC, unemployment rate",
+    "investment-banking": "M&A, merger, acquisition, takeover, buyout, IPO, DRHP, FPO, QIP, rights issue, block deal, private equity, venture capital, PE, VC, startup funding round, Series A B C, fundraise, valuation, unicorn, PE exit, stake sale, open offer, delisting, bond issuance, NCD, deal advisory, underwriting, Goldman Sachs, Morgan Stanley, Kotak, Axis Capital, Jefferies",
+    "macro-policy":    "CPI inflation, WPI, GDP data, IIP, fiscal deficit, Union Budget, budget allocation, direct tax, indirect tax, GST, income tax, corporate tax, capital gains tax, customs duty, tax policy, disinvestment, subsidy, government scheme, RBI MPC, unemployment rate",
     "technology-it":   "TCS, Infosys, Wipro, HCL Tech, IT sector, software exports, AI startup, chip, semiconductor, tech layoffs, SaaS, tech IPO",
     "pharma-health":   "pharma company, drug approval, USFDA, clinical trial, hospital, health policy, API, generic drug, Cipla, Sun Pharma, Dr Reddy",
     "auto-ev":         "car sales, two-wheeler, EV policy, electric vehicle, battery, Maruti, Tata Motors, Bajaj, Hero, auto sector, EV subsidy",
@@ -653,8 +656,10 @@ Pick EXACTLY ONE:
   "indian-markets" | "us-markets" | "global-economy" | "technology-it" |
   "pharma-health"  | "auto-ev"    | "energy-oil"      | "metals-mining" |
   "infrastructure" | "fmcg-consumer" | "renewables"   | "real-estate"   |
-  "telecom-media"  | "banking-finance" | "macro-policy"
+  "telecom-media"  | "banking-finance" | "investment-banking" | "macro-policy"
 If the story is foreign/global with no Indian company or market involved, prefer "global-economy" (or "us-markets" for US market/Fed/Wall Street news).
+Use "investment-banking" for M&A, mergers/acquisitions, IPOs, private equity or venture-capital funding rounds, deals, buyouts and capital raising. Use "banking-finance" for bank lending, deposits, NPAs, insurance and RBI rate policy — NOT deals.
+Use "macro-policy" for taxation (GST, income/corporate/capital-gains tax), the Union Budget, and government fiscal policy.
 
 ━━━ STEP 3: IMPORTANCE ━━━
 Set is_headline: false for all articles. The briefing section auto-selects the best story per category separately.
