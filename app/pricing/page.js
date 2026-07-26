@@ -17,7 +17,6 @@ const PLANS = {
       '✅ Listen (text to speech)',
       '✅ Dark mode',
       '✅ Up to 50 articles/day',
-      '❌ AI Voice Agent',
       '❌ My Portfolio',
       '❌ Market Summary',
       '❌ Save articles',
@@ -30,7 +29,6 @@ const PLANS = {
     color: '#1a1410',
     features: [
       '✅ Everything in Basic',
-      '✅ AI Voice Agent (ask questions)',
       '✅ My Portfolio',
       '✅ Market Summary',
       '✅ Save articles',
@@ -220,7 +218,7 @@ export default function PricingPage() {
               <span style={{ fontSize: '14px', fontWeight: '400', color: '#9a8e7e' }}>/mo</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '28px' }}>
-              {['✅ Major Headlines (3/day)', '✅ Quick Take only', '❌ Full story', '❌ Investor Take', '❌ Voice Agent'].map((f, i) => (
+              {['✅ Major Headlines (3/day)', '✅ Quick Take only', '❌ Full story', '❌ Investor Take'].map((f, i) => (
                 <p key={i} style={{ fontSize: '13px', color: '#5a4f3e', margin: 0 }}>{f}</p>
               ))}
             </div>

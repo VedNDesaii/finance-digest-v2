@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { supabase } from '../lib/supabase'
 import ArticleCard from '../components/ArticleCard'
-import NewsReader from '../components/NewsReader'
 import { useAuth } from '../hooks/useAuth'
 import WelcomeModal from '../components/WelcomeModal'
 import { registerPushNotification, touchLastSeen } from '../lib/pushNotifications'
@@ -1254,10 +1253,7 @@ export default function Home() {
   const activeSectionLabel = ALL_SECTIONS.find(s => s.id === activeSection)?.label || ''
   const iqLevel = getIQLevel(iqScore)
 
-  const hasNewsReader = !isPortfolio && articles.length > 0 && isPro
-  const headerH = isMobile
-    ? (hasNewsReader ? 130 : 72)
-    : (hasNewsReader ? 100 : 64)
+  const headerH = isMobile ? 72 : 64
 
   const BadgeWall = ({ compact = false }) => (
     <div style={{ marginBottom: compact ? '8px' : '0' }}>
@@ -1342,13 +1338,6 @@ export default function Home() {
             <AccountButton dark={dark} user={user} />
           </div>
         </div>
-        {hasNewsReader && (
-          <div style={{ borderTop: `1px solid ${dark ? '#2C2822' : '#EDE8E0'}`, background: dark ? '#111009' : '#FAFAF7' }}>
-            <div style={{ padding: isMobile ? '8px 16px' : '9px 24px' }}>
-              <NewsReader newsItems={articles} currentIndex={currentIndex} onIndexChange={setCurrentIndex} dark={dark} />
-            </div>
-          </div>
-        )}
       </header>
 
       {/* ── Floating Bottom Nav ── */}
