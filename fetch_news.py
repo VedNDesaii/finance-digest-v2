@@ -241,6 +241,48 @@ def is_today(entry):
         return True
 
 
+def scrape_vccircle(existing_links, existing_titles):
+    """VCCircle has no RSS feed and blocks the search crawler, so scrape its
+    homepage directly. Headlines are bare anchor tags with single-segment
+    article slugs (e.g. /baincapital-to-acquire-...); nav links are shorter."""
+    print("\n📡 [investment-banking] Scraping VCCircle homepage...")
+    saved = 0
+    try:
+        r = requests.get("https://www.vccircle.com/", headers=HEADERS, timeout=15)
+        soup = BeautifulSoup(r.text, "html.parser")
+        seen, picks = set(), []
+        for a in soup.find_all("a", href=True):
+            t = a.get_text(strip=True)
+            h = a["href"]
+            if len(t) >= 35 and h.startswith("/") and h.count("/") == 1 and len(h) > 25 and h not in seen:
+                seen.add(h)
+                picks.append((t, "https://www.vccircle.com" + h))
+
+        for title, link in picks[:15]:
+            if link in existing_links or title[:60].lower().strip() in existing_titles:
+                continue
+            content = scrape_content(link)
+            if len(content) < 100:
+                content = title
+            article_data = {
+                "title":        title,
+                "source":       "VCCircle",
+                "link":         link,
+                "published_at": datetime.utcnow().isoformat(),
+                "content":      content,
+                "image_url":    get_og_image(link),
+                "category":     "investment-banking",
+            }
+            supabase.table("raw_articles").insert(article_data).execute()
+            existing_links.add(link)
+            existing_titles.add(title[:60].lower().strip())
+            saved += 1
+    except Exception as e:
+        print(f"  ❌ VCCircle scrape failed: {e}")
+    print(f"  📊 Saved {saved} from VCCircle")
+    return saved
+
+
 def fetch_articles():
     cleanup_old_articles()
 
@@ -306,6 +348,8 @@ def fetch_articles():
                 print(f"  ❌ ERROR: {e}")
 
         print(f"  📊 Saved {saved_this_feed} from this feed")
+
+    total_saved += scrape_vccircle(existing_links, existing_titles)
 
     print(f"\n🎉 DONE. Total articles saved: {total_saved}")
 

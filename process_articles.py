@@ -82,9 +82,11 @@ DAILY_MANDATORY = [
     "India nuclear energy policy today",
     "India LPG energy security today",
     "India IT sector earnings warning today",
-    "VCCircle latest India private equity, venture capital, M&A deal news today",
     "Invest India latest FDI, investment and industrial policy announcement today",
 ]
+# Note: VCCircle is fetched by scraping its homepage in fetch_news.py — it has
+# no RSS feed and blocks the Anthropic search crawler, so a web search here
+# would only waste a call returning nothing.
 
 
 def run_mandatory_searches(client):
