@@ -522,7 +522,7 @@ CATEGORY_MINIMUMS = {
 CATEGORIES = list(CATEGORY_LIMITS.keys())
 
 CATEGORY_KEYWORDS = {
-    "indian-markets":  "Sensex, Nifty, BSE, NSE, Indian stock market, Dalal Street, market rally, market crash, record high, market correction, FII, DII, institutional fund flows, rupee vs dollar, SEBI market regulation, Nifty Bank, sectoral indices, market sentiment",
+    "indian-markets":  "Sensex, Nifty, BSE, NSE, Indian stock market, Dalal Street, market rally, market crash, record high, market correction, FII, DII, institutional fund flows, rupee vs dollar, SEBI market regulation, Nifty Bank, sectoral indices, market sentiment, top gainers, top losers, biggest movers, stock in focus, share surges, stock plunges, 52-week high, 52-week low, India VIX, market breadth, listing day debut",
     "us-markets":      "S&P 500, Dow Jones, NASDAQ, NYSE, Fed rate, US stocks, Wall Street, US IPO, dollar index, US Treasury, US earnings",
     "global-economy":  "IMF, World Bank, global GDP, trade war, sanctions, WTO, G7, G20, emerging markets, global inflation, geopolitics impact on economy",
     "banking-finance": "bank earnings, NPA, credit growth, NBFC, RBI policy, lending rate, insurance, fintech, loan, deposit rate, SBI, HDFC Bank, ICICI Bank",
@@ -660,7 +660,9 @@ Pick EXACTLY ONE:
 If the story is foreign/global with no Indian company or market involved, prefer "global-economy" (or "us-markets" for US market/Fed/Wall Street news).
 Use "investment-banking" for M&A, mergers/acquisitions, IPOs, private equity or venture-capital funding rounds, deals, buyouts and capital raising. Use "banking-finance" for bank lending, deposits, NPAs, insurance and RBI rate policy — NOT deals.
 Use "macro-policy" for taxation (GST, income/corporate/capital-gains tax), the Union Budget, and government fiscal policy.
-Use "indian-markets" ONLY for overall market moves (Sensex/Nifty rallies, crashes, records), FII/DII fund flows, the rupee, and exchange/market structure — NOT a single company's results (use its sector), NOT deals/IPOs (use investment-banking), NOT rate/policy (use banking-finance or macro-policy).
+Use "indian-markets" for the day's market pulse: Sensex/Nifty moves, FII/DII fund flows, the rupee, market breadth/sentiment, exchange structure, AND big individual STOCK MOVERS (top gainers/losers) when the story's HOOK is the price move or market reaction ("Stock X +12% today, top Nifty gainer, on...").
+Tiebreaker for a single stock: if the hook is the PRICE MOVE / market reaction → "indian-markets"; if the hook is the BUSINESS event itself (results, order win, product launch, management change) → its sector, NOT indian-markets.
+A new IPO's listing-day debut performance (the trading pop) = "indian-markets"; the IPO fundraise itself = "investment-banking". Still NOT rate/tax/policy (use banking-finance or macro-policy).
 
 ━━━ STEP 3: IMPORTANCE ━━━
 Set is_headline: false for all articles. The briefing section auto-selects the best story per category separately.
@@ -668,6 +670,7 @@ Set is_headline: false for all articles. The briefing section auto-selects the b
 ━━━ STEP 4: WRITE ━━━
 PART 1: 1 sentence, max 25 words. WHO+WHAT+number+impact.
 PART 2: 4 sentences, max 110 words. Before/What/Effect/Watch.
+MOVEMENT RULE (MANDATORY): If the article is about a price MOVE — the index (Sensex/Nifty) or a stock rising/falling — you MUST state the specific DRIVER of the move: the actual trigger (e.g. FII selling, weak global cues, crude spike, an analyst downgrade, a results miss, block-deal buzz, promoter selling). NEVER publish a naked number or a vague filler cause like "on selling pressure", "amid volatility", or "on profit booking" without the real reason. If the source genuinely gives no reason, say so plainly ("no clear trigger reported").
 PART 3 (MANDATORY): 2 sentences, max 40 words. Explain the likely implication for investors and why, in neutral analytical language (avoid "good/bad" verdicts). One thing to watch.
 GLOSSARY: 2-3 unfamiliar terms, max 20 words each.
 
