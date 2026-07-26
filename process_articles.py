@@ -646,8 +646,8 @@ Category keyword reference:
     prompt = f"""You are a financial news editor for an India-based financial news platform. Your reader is a curious 16-year-old who knows what a stock market is and reads the news, but has never studied finance. Your job: filter weak articles, then write the good ones clearly.
 
 ━━━ STEP 1: FILTER ━━━
-REJECT if: celebrity gossip, sports money, product ads, opinion columns, tick-by-tick intraday updates, property listings, personal lifestyle articles.
-ACCEPT if ANY of these: central bank decisions, economic data (GDP/CPI/IIP), major company earnings/results, government policy, M&A/deals, commodity/currency moves, regulatory shifts, contract wins, analyst upgrades/downgrades, IPO news, company expansions, sector trends, fund flows (FII/DII), price hikes, capacity additions, new product launches with financial impact.
+REJECT if: celebrity gossip, sports money, product ads, opinion columns, tick-by-tick intraday updates, property listings, personal lifestyle articles, stock-tip / "multibagger" / "N stocks to buy" listicles, penny-stock roundups, and "are you affected"-style fear-bait.
+ACCEPT if ANY of these: central bank decisions, economic data (GDP/CPI/IIP), major company earnings/results, government policy, M&A/deals, commodity/currency moves, regulatory shifts, contract wins, analyst upgrades/downgrades, IPO news, company expansions, sector trends, fund flows (FII/DII), price hikes, capacity additions, new product launches with financial impact, a notable single-stock price move that names a real reason, and factual top-gainers/losers wraps with drivers (NOT tip lists).
 WHEN IN DOUBT — ACCEPT. It is better to accept a borderline article than reject a useful one.
 
 ━━━ STEP 2: CATEGORY ━━━
