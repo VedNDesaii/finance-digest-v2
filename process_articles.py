@@ -478,9 +478,12 @@ def run_prepass(client, supabase, existing_titles_data,
 
 COST_PER_M_INPUT  = 0.80
 COST_PER_M_OUTPUT = 4.00
-DAILY_BUDGET      = 0.88
-AVG_INPUT_TOKENS  = 800
-AVG_OUTPUT_TOKENS = 300
+DAILY_BUDGET      = 0.60
+# Measured against a real process_strict prompt (instructions + full category
+# keyword reference + article content). The old 800/300 estimate was ~2.3x too
+# low, so the budget cap silently allowed ~2x the intended spend.
+AVG_INPUT_TOKENS  = 2300
+AVG_OUTPUT_TOKENS = 450
 COST_PER_ARTICLE  = (AVG_INPUT_TOKENS / 1_000_000) * COST_PER_M_INPUT + (AVG_OUTPUT_TOKENS / 1_000_000) * COST_PER_M_OUTPUT
 # Cheap pre-filter call: ~120 input tokens, ~5 output. Runs on every article
 # to kill obvious junk before the full (COST_PER_ARTICLE) write.
