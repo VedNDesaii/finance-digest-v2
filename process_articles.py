@@ -482,6 +482,9 @@ DAILY_BUDGET      = 0.88
 AVG_INPUT_TOKENS  = 800
 AVG_OUTPUT_TOKENS = 300
 COST_PER_ARTICLE  = (AVG_INPUT_TOKENS / 1_000_000) * COST_PER_M_INPUT + (AVG_OUTPUT_TOKENS / 1_000_000) * COST_PER_M_OUTPUT
+# Cheap pre-filter call: ~120 input tokens, ~5 output. Runs on every article
+# to kill obvious junk before the full (COST_PER_ARTICLE) write.
+COST_PER_PREFILTER = (120 / 1_000_000) * COST_PER_M_INPUT + (5 / 1_000_000) * COST_PER_M_OUTPUT
 
 CATEGORY_LIMITS = {
     "indian-markets":  12,
@@ -635,6 +638,33 @@ def is_valid_output(processed_data):
 # ═══════════════════════════════════════════════════════════════
 # ARTICLE PROCESSING
 # ═══════════════════════════════════════════════════════════════
+
+def prefilter_relevant(title, content):
+    """Cheap first-pass gate: kill only OBVIOUS junk before the expensive
+    process_strict write. Deliberately LENIENT — anything borderline passes
+    through to the real filter. Fails OPEN (keeps) on any error, so a filter
+    hiccup can never silently drop a real story."""
+    try:
+        message = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=5,
+            messages=[{
+                "role": "user",
+                "content": (
+                    "Relevance gate for an Indian financial-news app. Reply with ONE word: KEEP or SKIP.\n"
+                    "SKIP only if the headline is clearly: celebrity gossip, sports, product ads, horoscope, "
+                    "lifestyle, a stock-tip / \"multibagger\" / \"N stocks to buy\" listicle, a penny-stock "
+                    "roundup, or \"are you affected\"-style clickbait.\n"
+                    "KEEP everything else. When unsure, KEEP.\n\n"
+                    f"Headline: {title}"
+                )
+            }]
+        )
+        text = "".join(b.text for b in message.content if b.type == "text").strip().upper()
+        return "SKIP" not in text  # keep unless it explicitly says SKIP
+    except Exception:
+        return True  # never lose an article to a pre-filter error
+
 
 def process_strict(title, content, feed_category):
     category_hint = f"""
@@ -793,7 +823,7 @@ def run():
 
     articles.sort(key=sort_priority)
 
-    accepted = rejected = skipped_full = skipped_dup = skipped_inv = 0
+    accepted = rejected = skipped_full = skipped_dup = skipped_inv = prefiltered = 0
 
     for article in articles:
         if running_cost + COST_PER_ARTICLE > DAILY_BUDGET * 0.75:
@@ -812,6 +842,12 @@ def run():
 
             if category_counts.get(feed_category, 0) >= CATEGORY_LIMITS.get(feed_category, 7):
                 skipped_full += 1
+                continue
+
+            # Cheap gate first — skip the expensive write on obvious junk.
+            running_cost += COST_PER_PREFILTER
+            if not prefilter_relevant(title, content):
+                prefiltered += 1
                 continue
 
             processed = process_strict(title, content, feed_category)
@@ -847,7 +883,7 @@ def run():
         except Exception as e:
             print(f"  ❌ Error: {e}")
 
-    print(f"\nPass 1 — Accepted: {accepted} | Rejected: {rejected} | Dupes blocked: {skipped_dup} | 💰 ${running_cost:.3f} spent")
+    print(f"\nPass 1 — Accepted: {accepted} | Pre-filtered: {prefiltered} | Rejected: {rejected} | Dupes blocked: {skipped_dup} | 💰 ${running_cost:.3f} spent")
 
     # ════ PASS 2 — Top-up ════
     under_filled = {
