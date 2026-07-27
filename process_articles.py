@@ -13,7 +13,9 @@ SUPABASE_KEY  = os.getenv("SUPABASE_KEY")
 ANTHROPIC_KEY = os.getenv("ANTHROPIC_API_KEY")
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-client   = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
+# timeout so a dropped connection (e.g. laptop sleep) fails fast instead of
+# hanging the whole run forever — which previously forced a costly re-run.
+client   = anthropic.Anthropic(api_key=ANTHROPIC_KEY, timeout=90.0, max_retries=2)
 
 import feedparser
 import httpx
@@ -206,7 +208,7 @@ def generate_dynamic_watchlist(client):
     prompt = f"""You are a senior financial editor for Finance Digest,
 an Indian financial news platform for retail investors.
 
-List the 20 most important stories, companies, and developing situations
+List the 10 most important stories, companies, and developing situations
 that Indian investors must track TODAY — {today}.
 
 Think about:
@@ -222,7 +224,7 @@ Think about:
   Adani developments, US-Iran ceasefire, India-China trade, IT sector warnings)
 - FII/DII flow trends and block deal activity
 
-Return ONLY a JSON array of 20 specific search queries, each under 8 words.
+Return ONLY a JSON array of 10 specific search queries, each under 8 words.
 No markdown, no explanation, no preamble.
 
 Example format:
@@ -476,8 +478,8 @@ def run_prepass(client, supabase, existing_titles_data,
 # BUDGET GUARD
 # ═══════════════════════════════════════════════════════════════
 
-COST_PER_M_INPUT  = 0.80
-COST_PER_M_OUTPUT = 4.00
+COST_PER_M_INPUT  = 1.00   # real Claude Haiku 4.5 pricing (was under-set at 0.80)
+COST_PER_M_OUTPUT = 5.00   # real Claude Haiku 4.5 pricing (was under-set at 4.00)
 DAILY_BUDGET      = 0.60
 # Measured against a real process_strict prompt (instructions + full category
 # keyword reference + article content). The old 800/300 estimate was ~2.3x too
