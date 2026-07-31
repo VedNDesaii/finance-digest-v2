@@ -74,18 +74,15 @@ DAILY_MANDATORY = [
     "RBI announcement decision today",
     "SEBI order regulation today",
     "India GDP inflation IIP data today",
-    "India external debt RBI data today",
     "major Indian company acquisition today",
-    "Nifty Sensex crash rally today",
-    "crude oil India impact today",
-    "US Fed India impact today",
     "India US trade tariff today",
     "NSE BSE IPO listing today",
-    "India nuclear energy policy today",
-    "India LPG energy security today",
     "India IT sector earnings warning today",
     "Invest India latest FDI, investment and industrial policy announcement today",
 ]
+# Trimmed from 14 → 8: dropped searches already well-covered by the 82 RSS
+# feeds (Nifty/Sensex moves, crude oil, US Fed) and near-dead niche ones
+# (external debt, nuclear, LPG) to cut web-search cost without losing coverage.
 # Note: VCCircle is fetched by scraping its homepage in fetch_news.py — it has
 # no RSS feed and blocks the Anthropic search crawler, so a web search here
 # would only waste a call returning nothing.
