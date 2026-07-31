@@ -1216,12 +1216,16 @@ export default function Home() {
         setArticles(briefing)
 
       } else {
-        const { data, error } = await supabase
-          .from('processed_articles')
-          .select('*')
-          .eq('category', section)
+        // "Investment Banking" is a combined view: it also pulls in
+        // banking-finance articles so the section stays full.
+        const isCombinedIB = section === 'investment-banking'
+        let q = supabase.from('processed_articles').select('*')
+        q = isCombinedIB
+          ? q.in('category', ['investment-banking', 'banking-finance'])
+          : q.eq('category', section)
+        const { data, error } = await q
           .order('created_at', { ascending: false })
-          .limit(12)
+          .limit(isCombinedIB ? 24 : 12)
 
         if (error) throw error
         setArticles(data || [])
@@ -1407,7 +1411,7 @@ export default function Home() {
             </button>
           ))}
           <p style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '0.1em', color: dark ? '#4A4438' : '#C4B9AE', margin: '12px 0 8px', fontFamily: 'var(--font-ui)' }}>FINANCE & POLICY</p>
-          {[{ id: 'macro-policy', label: 'Macro, Tax & Budget', icon: '🏛️' }, { id: 'banking-finance', label: 'Banking & Finance', icon: '🏦' }, { id: 'investment-banking', label: 'Investment Banking', icon: '💼' }].map(s => (
+          {[{ id: 'macro-policy', label: 'Macro, Tax & Budget', icon: '🏛️' }, { id: 'investment-banking', label: 'Investment Banking', icon: '💼' }].map(s => (
             <button key={s.id} onClick={() => handleSectionClick(s.id)} style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '13px 14px', marginBottom: '4px', borderRadius: '12px', border: 'none', cursor: 'pointer', background: activeSection === s.id ? (dark ? 'rgba(232,151,62,0.12)' : 'rgba(212,135,60,0.08)') : (dark ? 'rgba(255,255,255,0.03)' : '#FAFAF8'), textAlign: 'left' }}>
               <span style={{ fontSize: '22px' }}>{s.icon}</span>
               <span style={{ fontSize: '15px', fontWeight: activeSection === s.id ? '600' : '400', color: activeSection === s.id ? 'var(--accent)' : (dark ? '#D4C8BC' : '#1A1410'), fontFamily: 'var(--font-ui)' }}>{s.label}</span>
