@@ -702,6 +702,7 @@ A new IPO's listing-day debut performance (the trading pop) = "indian-markets"; 
 Set is_headline: false for all articles. The briefing section auto-selects the best story per category separately.
 
 ━━━ STEP 4: WRITE ━━━
+HEADLINE: rewrite the article's headline in plain, punchy English a 16-year-old instantly understands — max 12 words. Keep the key fact/number and any company name; drop jargon, procedural wording, and clickbait. E.g. "Procedure for TRQs allocation under India-Oman trade pact notified" → "India-Oman trade deal: new import quota rules set".
 PART 1: 1 sentence, max 25 words. WHO+WHAT+number+impact.
 PART 2: 4 sentences, max 110 words. Before/What/Effect/Watch.
 MOVEMENT RULE (MANDATORY): If the article is about a price MOVE — the index (Sensex/Nifty) or a stock rising/falling — you MUST state the specific DRIVER of the move: the actual trigger (e.g. FII selling, weak global cues, crude spike, an analyst downgrade, a results miss, block-deal buzz, promoter selling). NEVER publish a naked number or a vague filler cause like "on selling pressure", "amid volatility", or "on profit booking" without the real reason. If the source genuinely gives no reason, say so plainly ("no clear trigger reported").
@@ -710,7 +711,7 @@ GLOSSARY: 2-3 unfamiliar terms, max 20 words each.
 
 Return ONLY valid JSON:
 REJECT: {{"verdict":"reject"}}
-ACCEPT: {{"verdict":"accept","category":"<str>","is_headline":false,"simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}]}}
+ACCEPT: {{"verdict":"accept","headline":"<simplified headline>","category":"<str>","is_headline":false,"simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}]}}
 
 Title: {title}
 Content: {content[:2000]}"""
@@ -737,6 +738,7 @@ ACCEPT quarterly results, company updates, sector news, price moves, analyst rep
 Category is FIXED as "{target_category}" — do not change it.
 
 WRITE:
+HEADLINE: rewrite the headline in plain, punchy English a 16-year-old instantly understands — max 12 words. Keep the key fact/number and company name; drop jargon and clickbait.
 PART 1: 1 sentence, max 25 words. WHO+WHAT+number+impact.
 PART 2: 4 sentences, max 110 words. Before/What/Effect/Watch.
 PART 3 (MANDATORY): 2 sentences, max 40 words. Explain the likely implication for investors and why, in neutral analytical language (avoid "good/bad" verdicts). One thing to watch.
@@ -744,7 +746,7 @@ GLOSSARY: 1-2 terms max.
 
 Return ONLY valid JSON:
 REJECT: {{"verdict":"reject"}}
-ACCEPT: {{"verdict":"accept","category":"{target_category}","is_headline":false,"simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}]}}
+ACCEPT: {{"verdict":"accept","headline":"<simplified headline>","category":"{target_category}","is_headline":false,"simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}]}}
 
 Title: {title}
 Content: {content[:2000]}"""
@@ -768,9 +770,11 @@ def save_processed_article(raw_article, processed_data):
         processed_data["investor_take"] = "Markets may react as more details emerge."
     if not processed_data.get("glossary"):
         processed_data["glossary"] = []
+    # Prefer the LLM's simplified headline; fall back to the original if missing.
+    headline = (processed_data.get("headline") or "").strip()
     data = {
         "raw_article_id": raw_article["id"],
-        "title":          raw_article["title"],
+        "title":          headline or raw_article["title"],
         "source":         raw_article["source"],
         "image_url":      raw_article.get("image_url"),
         "simplified_article": processed_data["simplified_article"],
