@@ -993,45 +993,12 @@ function YesterdayQuiz({ dark, isMobile, addIQ, earnedBadges, awardBadge }) {
   async function fetchYesterdayQuiz() {
     setLoading(true)
     try {
-      const { data } = await supabase
-        .from('processed_articles')
-        .select('title, simplified_article, glossary, category')
-        .not('glossary', 'is', null)
-        .order('created_at', { ascending: false })
-        .limit(40)
-      let articles = data || []
-      const allTerms = []
-      articles.forEach(article => {
-        const g = article.glossary
-        if (Array.isArray(g)) {
-          g.forEach(item => {
-            if ((item.term || item.word) && (item.definition || item.meaning))
-              allTerms.push({ term: item.term || item.word, definition: item.definition || item.meaning, articleTitle: article.title })
-          })
-        }
-      })
-      const unique = [...new Map(allTerms.map(t => [t.term.toLowerCase(), t])).values()]
-      if (unique.length < 4) { setLoading(false); return }
-      const seed = new Date().toDateString().split('').reduce((a, c) => a + c.charCodeAt(0), 0)
-      function seededShuffle(arr, s) {
-        const a = [...arr]
-        for (let i = a.length - 1; i > 0; i--) {
-          const j = Math.floor((Math.sin(s * (i + 1)) * 0.5 + 0.5) * (i + 1))
-          ;[a[i], a[j]] = [a[j], a[i]]
-        }
-        return a
-      }
-      const shuffled  = seededShuffle(unique, seed)
-      const selected  = shuffled.slice(0, Math.min(4, shuffled.length))
-      const wrongPool = shuffled.slice(4)
-      const questions = selected.map((term, i) => {
-        const wrongs  = seededShuffle(wrongPool.filter(t => t.term !== term.term), seed + i).slice(0, 3).map(t => t.definition.slice(0, 100))
-        const correct = term.definition.slice(0, 100)
-        const opts    = seededShuffle([correct, ...wrongs], seed + i + 99)
-        return { term: term.term, options: opts, answer: opts.indexOf(correct), hint: term.articleTitle }
-      })
-      setQuiz(questions)
-    } catch (e) { console.error('Yesterday quiz failed', e) }
+      // Medium-difficulty questions generated daily from the news by the
+      // pipeline (generate_quiz.py -> public/daily-quiz.json).
+      const res  = await fetch('/daily-quiz.json', { cache: 'no-store' })
+      const data = await res.json()
+      setQuiz(Array.isArray(data.questions) ? data.questions.slice(0, 5) : [])
+    } catch (e) { console.error('Quiz load failed', e) }
     setLoading(false)
   }
 
@@ -1042,7 +1009,7 @@ function YesterdayQuiz({ dark, isMobile, addIQ, earnedBadges, awardBadge }) {
     setAnswers(updated)
     safeLS.setItem(`fd-yquiz-${todayStr}`, JSON.stringify(updated))
     const correct = optIdx === quiz[qIdx]?.answer
-    addIQ(correct ? 20 : 0, correct ? '+20 IQ! Correct! 🎉' : null)
+    addIQ(correct ? 10 : 0, correct ? '+10 IQ! Correct! 🎉' : null)
     const totalQuizzes = parseInt(safeLS.getItem('fd-total-quizzes') || '0') + 1
     safeLS.setItem('fd-total-quizzes', totalQuizzes)
     if (totalQuizzes >= 10) awardBadge('quiz10', earnedBadges)
@@ -1068,8 +1035,8 @@ function YesterdayQuiz({ dark, isMobile, addIQ, earnedBadges, awardBadge }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span style={{ fontSize: '18px' }}>📋</span>
           <div>
-            <div style={{ fontSize: '11px', fontWeight: '700', color: '#C9A84C', letterSpacing: '0.1em', fontFamily: 'var(--font-ui)' }}>YESTERDAY'S NEWS QUIZ</div>
-            <div style={{ fontSize: '10px', color: '#6B6055', fontFamily: 'var(--font-ui)', marginTop: '2px' }}>Based on yesterday's articles · +20 IQ per correct answer</div>
+            <div style={{ fontSize: '11px', fontWeight: '700', color: '#C9A84C', letterSpacing: '0.1em', fontFamily: 'var(--font-ui)' }}>DAILY NEWS QUIZ</div>
+            <div style={{ fontSize: '10px', color: '#6B6055', fontFamily: 'var(--font-ui)', marginTop: '2px' }}>5 questions on today's news · +10 IQ per correct answer</div>
           </div>
         </div>
         {totalAnswered > 0 && (
@@ -1092,9 +1059,8 @@ function YesterdayQuiz({ dark, isMobile, addIQ, earnedBadges, awardBadge }) {
               <div style={{ padding: '10px 14px', background: dark ? 'rgba(255,255,255,0.03)' : '#F7F4EF' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                   <span style={{ fontSize: '10px', fontWeight: '700', color: 'var(--accent)', fontFamily: 'var(--font-ui)', background: dark ? 'rgba(201,168,76,0.1)' : 'rgba(201,168,76,0.12)', padding: '1px 7px', borderRadius: '20px' }}>Q{qi + 1}</span>
-                  {q.hint && <span style={{ fontSize: '10px', color: dark ? '#4A4438' : '#B8AFA3', fontFamily: 'var(--font-ui)', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '60%' }}>from: {q.hint}</span>}
                 </div>
-                <p style={{ margin: 0, fontSize: isMobile ? '13px' : '14px', fontWeight: '700', color: dark ? '#F0EBE3' : '#1A1410', fontFamily: 'var(--font-display)' }}>What does "{q.term}" mean?</p>
+                <p style={{ margin: 0, fontSize: isMobile ? '13px' : '14px', fontWeight: '700', color: dark ? '#F0EBE3' : '#1A1410', fontFamily: 'var(--font-display)' }}>{q.q}</p>
               </div>
               <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {q.options.map((opt, oi) => {
@@ -1117,6 +1083,11 @@ function YesterdayQuiz({ dark, isMobile, addIQ, earnedBadges, awardBadge }) {
                     </button>
                   )
                 })}
+                {answered && q.explain && (
+                  <p style={{ margin: '4px 2px 0', fontSize: '11px', lineHeight: 1.5, color: dark ? '#9A8E7E' : '#6B5E4E', fontFamily: 'var(--font-ui)' }}>
+                    <b style={{ color: 'var(--accent)' }}>Why:</b> {q.explain}
+                  </p>
+                )}
               </div>
             </div>
           )
@@ -1126,7 +1097,7 @@ function YesterdayQuiz({ dark, isMobile, addIQ, earnedBadges, awardBadge }) {
             background: totalCorrect >= 3 ? 'rgba(22,163,74,0.08)' : 'rgba(201,168,76,0.08)',
             border: `1px solid ${totalCorrect >= 3 ? 'rgba(22,163,74,0.2)' : 'rgba(201,168,76,0.2)'}` }}>
             <p style={{ margin: 0, fontSize: '14px', fontWeight: '700', fontFamily: 'var(--font-display)', color: totalCorrect >= 3 ? '#4ADE80' : '#C9A84C' }}>
-              {totalCorrect >= 3 ? '🎉' : '📖'} {totalCorrect}/{quiz.length} correct · +{totalCorrect * 20} IQ earned
+              {totalCorrect >= 3 ? '🎉' : '📖'} {totalCorrect}/{quiz.length} correct · +{totalCorrect * 10} IQ earned
             </p>
             <p style={{ margin: '4px 0 0', fontSize: '11px', color: dark ? '#6B6055' : '#9A8E7E', fontFamily: 'var(--font-ui)' }}>
               {totalCorrect < quiz.length ? "Read today's articles to do better tomorrow!" : "Excellent! You're on top of the news."}
