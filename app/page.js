@@ -33,6 +33,11 @@ function safeParse(str, fallback) {
   try { return JSON.parse(str) } catch { return fallback }
 }
 
+// Finance IQ points. Bump POINTS_VERSION to reset every user's score to 0 on
+// their next visit (points live in localStorage, so there's no server wipe).
+const POINTS_VERSION    = 'v2-2026-08'
+const PREDICTION_POINTS = 30   // awarded once per day for a correct market prediction
+
 const BOTTOM_TABS = [
   { id: 'top',       icon: '📰', label: 'Briefing' },
   { id: 'markets',   icon: '📈', label: 'Markets' },
@@ -1016,6 +1021,12 @@ export default function Home() {
       safeLS.setItem('fd-last-visit', todayStr)
       setStreak(newStreak)
     }
+    // One-time points reset for all users when POINTS_VERSION changes.
+    if (safeLS.getItem('fd-points-version') !== POINTS_VERSION) {
+      safeLS.setItem('fd-iq', '0')
+      safeLS.setItem('fd-pred-streak', '0')
+      safeLS.setItem('fd-points-version', POINTS_VERSION)
+    }
     const savedIQ     = parseInt(safeLS.getItem('fd-iq') || '0')
     const savedBadges = safeParse(safeLS.getItem('fd-badges') || '[]', [])
     const savedPred   = safeLS.getItem(`fd-pred-${todayStr}`)
@@ -1043,11 +1054,17 @@ export default function Home() {
 
   useEffect(() => {
     if (!prediction || !indices.nifty?.pct || predCorrect !== null || !afterClose) return
-    const niftyUp = parseFloat(indices.nifty.pct) >= 0
-    const correct = (prediction === 'up' && niftyUp) || (prediction === 'down' && !niftyUp)
+    const todayStr   = new Date().toDateString()
+    const settledKey = `fd-pred-settled-${todayStr}`
+    const niftyUp    = parseFloat(indices.nifty.pct) >= 0
+    const correct    = (prediction === 'up' && niftyUp) || (prediction === 'down' && !niftyUp)
     setPredCorrect(correct)
+    // Settle exactly once per day — without this, every reload after close
+    // re-awarded the points. Show the result on later visits, don't re-award.
+    if (safeLS.getItem(settledKey)) return
+    safeLS.setItem(settledKey, correct ? 'correct' : 'wrong')
     if (correct) {
-      addIQ(30, '+30 IQ! Correct prediction 🎯')
+      addIQ(PREDICTION_POINTS, `+${PREDICTION_POINTS} IQ! Correct prediction 🎯`)
       const predStreak = parseInt(safeLS.getItem('fd-pred-streak') || '0') + 1
       safeLS.setItem('fd-pred-streak', predStreak)
       if (predStreak >= 3) awardBadge('predict3', earnedBadges)
@@ -1088,7 +1105,7 @@ export default function Home() {
   function trackArticleRead() {
     const total = parseInt(safeLS.getItem('fd-articles-read') || '0') + 1
     safeLS.setItem('fd-articles-read', total)
-    addIQ(5, null)
+    // Reading no longer awards Finance IQ — points come from predictions and quizzes.
     if (total >= 50) awardBadge('articles50', earnedBadges)
   }
 
