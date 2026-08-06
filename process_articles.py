@@ -6,7 +6,7 @@ from datetime import datetime, date, timedelta, timezone
 from dotenv import load_dotenv
 import os
 
-load_dotenv()
+load_dotenv(override=True)  # .env always wins over a stale shell key
 
 SUPABASE_URL  = os.getenv("SUPABASE_URL")
 SUPABASE_KEY  = os.getenv("SUPABASE_KEY")
