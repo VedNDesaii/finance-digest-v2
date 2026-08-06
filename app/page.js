@@ -101,6 +101,45 @@ const ALL_BADGES = [
   { id: 'earlybird',  emoji: '🌅', name: 'Early Bird',    desc: 'Read before 9 AM'               },
 ]
 
+// Finance Wordle — curated 5-letter finance terms (no trivial ones like STOCK/ASSET).
+// Each carries an easy definition + a simple example for the post-round reveal.
+const WORDLE_WORDS = [
+  { word: 'YIELD', def: 'The annual return you earn on a bond or investment, shown as a %.', ex: 'A bond paying ₹7 a year on a ₹100 price has a 7% yield.' },
+  { word: 'HEDGE', def: 'A trade taken to offset the risk of losing money on another investment.', ex: 'An exporter buys a dollar contract to hedge against the rupee rising.' },
+  { word: 'ALPHA', def: 'The extra return a fund earns above its benchmark index.', ex: 'A fund up 15% when the Nifty rose 12% delivered 3% alpha.' },
+  { word: 'DELTA', def: "How much an option's price moves for a ₹1 move in the underlying stock.", ex: 'A call with 0.5 delta gains ₹0.50 if the stock rises ₹1.' },
+  { word: 'THETA', def: 'How much value an option loses each day just from time passing.', ex: 'Options lose theta fastest in their final week before expiry.' },
+  { word: 'SWAPS', def: 'Contracts where two parties exchange cash flows, often fixed vs floating interest.', ex: 'A firm swaps its floating-rate loan for a fixed rate to lock costs.' },
+  { word: 'BASIS', def: 'A basis point is 0.01%; used to quote small changes in rates.', ex: 'The RBI cut the repo rate by 25 basis points, i.e. 0.25%.' },
+  { word: 'FLOAT', def: 'The portion of a company’s shares actually available to trade in the market.', ex: 'Most shares are promoter-held, so the free float is small.' },
+  { word: 'SCRIP', def: 'Another word for a share or stock certificate.', ex: 'The exchange halted trading in the scrip after a sharp move.' },
+  { word: 'DEMAT', def: 'An account that holds your shares in electronic form (India).', ex: 'You need a demat account to buy shares on the NSE.' },
+  { word: 'USURY', def: 'Charging an unfairly or illegally high rate of interest.', ex: 'Regulators cracked down on apps accused of usury.' },
+  { word: 'BASEL', def: 'Global rules setting how much capital a bank must hold as a safety buffer.', ex: 'Indian banks raised capital to meet Basel III norms.' },
+  { word: 'MERGE', def: 'When two companies combine into a single company.', ex: 'The two lenders plan to merge to build scale.' },
+  { word: 'AUDIT', def: 'An independent check of a company’s financial accounts.', ex: 'The auditor flagged issues in the firm’s annual audit.' },
+  { word: 'STAKE', def: 'The share of ownership someone holds in a company.', ex: 'The founder sold a 5% stake to a private equity fund.' },
+  { word: 'BONUS', def: 'Free extra shares given to existing shareholders.', ex: 'The company announced a 1:1 bonus, doubling your share count.' },
+  { word: 'SPLIT', def: 'Dividing each share into more shares to lower the per-share price.', ex: 'A 1:5 split turns one ₹1,000 share into five ₹200 shares.' },
+  { word: 'GILTS', def: 'Government bonds — among the safest debt you can hold.', ex: 'Funds moved into gilts when markets turned risky.' },
+  { word: 'REPOS', def: 'Short-term loans where securities are sold and bought back later.', ex: 'Banks borrow overnight from the RBI through repos.' },
+  { word: 'TENOR', def: 'The length of time until a loan or bond matures.', ex: 'A 10-year bond has a longer tenor than a 2-year one.' },
+  { word: 'CARRY', def: 'Profit earned from holding a higher-yielding asset funded by a cheaper one.', ex: 'Traders borrow in low-rate yen to earn carry elsewhere.' },
+  { word: 'PRIME', def: 'The benchmark rate banks charge their most creditworthy borrowers.', ex: 'Loan rates rose as the prime lending rate went up.' },
+  { word: 'PENNY', def: 'A very low-priced, high-risk stock of a tiny company.', ex: 'Regulators warn against tips to buy penny stocks.' },
+  { word: 'BLOCK', def: 'A single large trade of shares done between two parties.', ex: 'A fund exited via a ₹2,000 crore block deal.' },
+  { word: 'DEBUT', def: 'A company’s first day of trading after its IPO.', ex: 'The stock made a strong debut, listing 30% above its issue price.' },
+  { word: 'CHURN', def: 'Frequent buying and selling that racks up costs.', ex: 'High churn in a portfolio eats returns through fees.' },
+  { word: 'ISSUE', def: 'When a company offers new shares or bonds to raise money.', ex: 'The firm raised ₹500 crore through a rights issue.' },
+  { word: 'LEVER', def: 'Using borrowed money to amplify potential returns (and losses).', ex: 'High leverage boosts gains but magnifies losses if trades go wrong.' },
+  { word: 'QUOTA', def: 'A fixed limit set on something, such as imports or exports.', ex: 'India set a quota on how much of a metal can be imported duty-free.' },
+  { word: 'SHORT', def: 'Betting a stock will fall by selling borrowed shares first.', ex: 'Traders went short expecting the results to disappoint.' },
+  { word: 'PIVOT', def: 'A notable change in a company’s or central bank’s strategy or stance.', ex: 'Markets rallied on hopes of a policy pivot to rate cuts.' },
+  { word: 'SLUMP', def: 'A sharp, sustained fall in prices or activity.', ex: 'Auto sales are in a slump amid weak demand.' },
+  { word: 'RALLY', def: 'A strong, sustained rise in prices.', ex: 'The Sensex staged a sharp rally after the budget.' },
+  { word: 'INDEX', def: 'A basket of stocks that tracks how a market is doing.', ex: 'The Nifty 50 index tracks India’s 50 largest companies.' },
+]
+
 function getIQLevel(iq) {
   if (iq >= 2500) return { title: 'Market Expert',      color: '#C9A84C' }
   if (iq >= 1000) return { title: 'Savvy Investor',     color: '#E8973E' }
@@ -765,6 +804,179 @@ function PredictionGame({ indices, prediction, predCorrect, afterClose, weekend,
 }
 
 // ── Yesterday's News Quiz ──────────────────────────────────────────────────────
+
+// ── FinanceWordle ─────────────────────────────────────────────────────────────
+function FinanceWordle({ dark, isMobile, addIQ }) {
+  const dayIndex = Math.floor(Date.now() / 86400000) % WORDLE_WORDS.length
+  const entry    = WORDLE_WORDS[dayIndex]
+  const answer   = entry.word
+  const todayStr = new Date().toDateString()
+  const storeKey = `fd-wordle-${todayStr}`
+
+  const [guesses, setGuesses] = useState([])
+  const [current, setCurrent] = useState('')
+  const [done, setDone]       = useState(null)      // 'won' | 'lost' | null
+  const [news, setNews]       = useState(undefined) // undefined=not fetched, null=none, obj=found
+
+  useEffect(() => {
+    const saved = safeParse(safeLS.getItem(storeKey) || 'null', null)
+    if (saved && Array.isArray(saved.guesses)) { setGuesses(saved.guesses); setDone(saved.done || null) }
+  }, [])
+
+  useEffect(() => {
+    if (!done || news !== undefined) return
+    ;(async () => {
+      try {
+        const w = answer.toLowerCase()
+        const { data } = await supabase
+          .from('processed_articles')
+          .select('title, category')
+          .or(`title.ilike.%${w}%,simplified_article.ilike.%${w}%`)
+          .order('created_at', { ascending: false })
+          .limit(1)
+        setNews(data && data[0] ? data[0] : null)
+      } catch { setNews(null) }
+    })()
+  }, [done])
+
+  function evaluate(guess) {
+    const res = Array(5).fill('absent')
+    const ans = answer.split('')
+    for (let i = 0; i < 5; i++) if (guess[i] === ans[i]) { res[i] = 'correct'; ans[i] = null }
+    for (let i = 0; i < 5; i++) {
+      if (res[i] === 'correct') continue
+      const j = ans.indexOf(guess[i])
+      if (j !== -1) { res[i] = 'present'; ans[j] = null }
+    }
+    return res
+  }
+
+  function submit() {
+    if (done || current.length !== 5) return
+    const guess   = current.toUpperCase()
+    const next    = [...guesses, guess]
+    const won     = guess === answer
+    const lost    = !won && next.length >= 6
+    const newDone = won ? 'won' : lost ? 'lost' : null
+    setGuesses(next); setCurrent('')
+    if (newDone) setDone(newDone)
+    safeLS.setItem(storeKey, JSON.stringify({ guesses: next, done: newDone }))
+    if (won && !safeLS.getItem(`fd-wordle-solved-${todayStr}`)) {
+      safeLS.setItem(`fd-wordle-solved-${todayStr}`, '1')
+      addIQ(10, '+10 IQ! Solved the Wordle 🟩')
+    }
+  }
+
+  function press(k) {
+    if (done) return
+    if (k === 'ENTER') return submit()
+    if (k === 'BACK')  return setCurrent(c => c.slice(0, -1))
+    if (/^[A-Z]$/.test(k) && current.length < 5) setCurrent(c => c + k)
+  }
+
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === 'Enter') press('ENTER')
+      else if (e.key === 'Backspace') press('BACK')
+      else if (/^[a-zA-Z]$/.test(e.key)) press(e.key.toUpperCase())
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
+
+  const rank = { correct: 3, present: 2, absent: 1 }
+  const keyStatus = {}
+  guesses.forEach(g => {
+    const ev = evaluate(g)
+    g.split('').forEach((ch, i) => { if ((rank[ev[i]] || 0) > (rank[keyStatus[ch]] || 0)) keyStatus[ch] = ev[i] })
+  })
+
+  const COLORS = { correct: '#22A05B', present: '#C9A84C', absent: dark ? '#3A3028' : '#B8AFA3', empty: dark ? '#2C2822' : '#EDE8E0' }
+
+  const rows = []
+  for (let r = 0; r < 6; r++) {
+    const guess = guesses[r]
+    const ev    = guess ? evaluate(guess) : null
+    const chars = guess ? guess.split('') : (r === guesses.length ? current.padEnd(5).split('') : Array(5).fill(''))
+    rows.push(
+      <div key={r} style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+        {chars.map((c, i) => {
+          const filled = c && c !== ' '
+          const bg     = ev ? COLORS[ev[i]] : 'transparent'
+          const border = ev ? bg : (filled ? (dark ? '#5A4F3E' : '#9A8E7E') : COLORS.empty)
+          return (
+            <div key={i} style={{
+              width: isMobile ? '46px' : '52px', height: isMobile ? '46px' : '52px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              borderRadius: '8px', border: `2px solid ${border}`, background: bg,
+              fontSize: '22px', fontWeight: '700', textTransform: 'uppercase',
+              color: ev ? '#fff' : (dark ? '#F0EBE3' : '#1A1410'), fontFamily: 'var(--font-display)',
+            }}>{filled ? c : ''}</div>
+          )
+        })}
+      </div>
+    )
+  }
+
+  const KEYS = [['Q','W','E','R','T','Y','U','I','O','P'], ['A','S','D','F','G','H','J','K','L'], ['ENTER','Z','X','C','V','B','N','M','BACK']]
+
+  return (
+    <div style={{ borderRadius: '14px', padding: isMobile ? '16px' : '20px', marginTop: '20px',
+      border: `1px solid ${dark ? '#2C2822' : '#EDE8E0'}`, background: dark ? '#1A1410' : '#fff' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+        <span style={{ fontSize: '20px' }}>🟩</span>
+        <span style={{ fontSize: '15px', fontWeight: '700', color: dark ? '#F0EBE3' : '#1A1410', fontFamily: 'var(--font-display)' }}>Finance Wordle</span>
+        <span style={{ marginLeft: 'auto', fontSize: '11px', color: 'var(--accent)', fontWeight: '600', fontFamily: 'var(--font-ui)' }}>+10 IQ if solved</span>
+      </div>
+      <p style={{ margin: '0 0 14px', fontSize: '12px', color: dark ? '#6B6055' : '#9A8E7E', fontFamily: 'var(--font-ui)' }}>Guess today’s 5-letter finance word in 6 tries.</p>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px' }}>{rows}</div>
+
+      {!done && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {KEYS.map((row, ri) => (
+            <div key={ri} style={{ display: 'flex', gap: '5px', justifyContent: 'center' }}>
+              {row.map(k => {
+                const wide = k === 'ENTER' || k === 'BACK'
+                const st   = keyStatus[k]
+                return (
+                  <button key={k} onClick={() => press(k)} style={{
+                    flex: wide ? '1.5' : '1', minWidth: 0, padding: isMobile ? '13px 0' : '15px 0',
+                    borderRadius: '6px', border: 'none', cursor: 'pointer',
+                    background: st ? COLORS[st] : (dark ? '#2C2822' : '#F0EBE3'),
+                    color: st ? '#fff' : (dark ? '#F0EBE3' : '#1A1410'),
+                    fontSize: wide ? '10px' : '14px', fontWeight: '700', fontFamily: 'var(--font-ui)',
+                  }}>{k === 'BACK' ? '⌫' : k}</button>
+                )
+              })}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {done && (
+        <div style={{ marginTop: '4px', padding: '14px', borderRadius: '10px',
+          background: dark ? 'rgba(201,168,76,0.08)' : 'rgba(201,168,76,0.1)',
+          borderLeft: `3px solid ${done === 'won' ? COLORS.correct : '#C9A84C'}` }}>
+          <p style={{ margin: '0 0 8px', fontSize: '14px', fontWeight: '700', color: done === 'won' ? COLORS.correct : (dark ? '#F0EBE3' : '#1A1410'), fontFamily: 'var(--font-display)' }}>
+            {done === 'won' ? 'Solved it! 🎉 +10 IQ' : `The word was ${answer}`}
+          </p>
+          <p style={{ margin: '0 0 6px', fontSize: '14px', lineHeight: 1.5, color: dark ? '#D4C8BC' : '#1A1410', fontFamily: 'var(--font-ui)' }}>
+            <b style={{ color: 'var(--accent)' }}>{answer}</b> — {entry.def}
+          </p>
+          <p style={{ margin: '0 0 6px', fontSize: '13px', lineHeight: 1.5, color: dark ? '#9A8E7E' : '#6B5E4E', fontFamily: 'var(--font-ui)' }}>
+            <b>Example:</b> {entry.ex}
+          </p>
+          <p style={{ margin: 0, fontSize: '13px', lineHeight: 1.5, color: dark ? '#9A8E7E' : '#6B5E4E', fontFamily: 'var(--font-ui)' }}>
+            <b>In the news:</b> {news === undefined ? 'Looking for a related story…' : news ? `“${news.title}”` : 'Commonly appears in market and policy news — watch for it.'}
+          </p>
+          <p style={{ margin: '10px 0 0', fontSize: '11px', color: dark ? '#6B6055' : '#9A8E7E', fontFamily: 'var(--font-ui)' }}>Come back tomorrow for a new word!</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 
 function YesterdayQuiz({ dark, isMobile, addIQ, earnedBadges, awardBadge }) {
   const [quiz, setQuiz]       = useState([])
@@ -1493,6 +1705,10 @@ export default function Home() {
             </div>
             <BadgeWall compact={true} />
           </div>
+          <button onClick={() => handleSectionClick('quiz')} style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '13px 14px', marginBottom: '8px', borderRadius: '12px', border: 'none', cursor: 'pointer', background: activeSection === 'quiz' ? (dark ? 'rgba(232,151,62,0.12)' : 'rgba(212,135,60,0.08)') : (dark ? 'rgba(255,255,255,0.03)' : '#FAFAF8'), textAlign: 'left' }}>
+            <span style={{ fontSize: '22px' }}>🧩</span>
+            <span style={{ fontSize: '15px', fontWeight: '500', color: dark ? '#D4C8BC' : '#1A1410', fontFamily: 'var(--font-ui)' }}>Quiz &amp; Wordle</span>
+          </button>
           <button onClick={() => handleSectionClick('portfolio')} style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '13px 14px', borderRadius: '12px', border: 'none', cursor: 'pointer', background: activeSection === 'portfolio' ? (dark ? 'rgba(232,151,62,0.12)' : 'rgba(212,135,60,0.08)') : (dark ? 'rgba(255,255,255,0.03)' : '#FAFAF8'), textAlign: 'left' }}>
             <span style={{ fontSize: '22px' }}>💰</span>
             <span style={{ fontSize: '15px', fontWeight: '500', color: dark ? '#D4C8BC' : '#1A1410', fontFamily: 'var(--font-ui)' }}>My Portfolio</span>
@@ -1516,7 +1732,10 @@ export default function Home() {
             )}
 
             {activeSection === 'quiz' && (
-              <YesterdayQuiz dark={dark} isMobile={isMobile} addIQ={addIQ} earnedBadges={earnedBadges} awardBadge={awardBadge} />
+              <>
+                <YesterdayQuiz dark={dark} isMobile={isMobile} addIQ={addIQ} earnedBadges={earnedBadges} awardBadge={awardBadge} />
+                <FinanceWordle dark={dark} isMobile={isMobile} addIQ={addIQ} />
+              </>
             )}
 
             {activeSection === 'headlines' && !loading && (
