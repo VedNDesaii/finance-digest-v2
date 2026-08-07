@@ -10,3 +10,4 @@ lxml
 lxml[html_clean]
 pywebpush
 resend
+httpx
