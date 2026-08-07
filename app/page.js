@@ -42,6 +42,7 @@ const BOTTOM_TABS = [
   { id: 'top',       icon: '📰', label: 'Briefing' },
   { id: 'markets',   icon: '📈', label: 'Markets' },
   { id: 'sectors',   icon: '🏭', label: 'Sectors' },
+  { id: 'quiz',      icon: '🧩', label: 'Quiz' },
   { id: 'portfolio', icon: '💰', label: 'Portfolio' },
 ]
 
@@ -174,7 +175,7 @@ function isWeekend() {
 
 function getActiveMobileTab(section) {
   if (section === 'headlines') return 'top'
-  if (section === 'quiz') return 'top'
+  if (section === 'quiz') return 'quiz'
   if (['indian-markets','us-markets','global-economy','macro-policy','banking-finance','investment-banking'].includes(section)) return 'markets'
   if (SECTOR_IDS.includes(section)) return 'sectors'
   if (section === 'portfolio') return 'portfolio'
@@ -1448,6 +1449,7 @@ export default function Home() {
     setNavShrunk(false)
     if (tabId === 'top')            handleSectionClick('headlines')
     else if (tabId === 'portfolio') handleSectionClick('portfolio')
+    else if (tabId === 'quiz')      handleSectionClick('quiz')
     else setOverlay(overlay === tabId ? null : tabId)
   }
 
