@@ -1,54 +1,68 @@
-"""Generate a daily 5-question, medium-difficulty finance quiz from the day's
-published news and write it to public/daily-quiz.json (served statically, like
-market-data.json). Runs once/day in the pipeline — costs ~1 cent.
+"""Generate a daily 5-question, medium-difficulty FINANCE-KNOWLEDGE quiz and
+write it to public/daily-quiz.json (served statically, like market-data.json).
 
-Questions test whether the reader followed the actual news (who did what, what
-a number was, what a policy means), NOT plain vocabulary. Each has 4 options,
-one correct, and a one-line explanation.
+Questions test evergreen finance/investing understanding — markets, mutual
+funds, taxes, bonds, derivatives, personal finance, etc. — NOT the day's news.
+A rotating topic mix keeps it varied day to day. Runs once/day, ~half a cent.
 """
 import os
 import json
+from datetime import date
 import anthropic
-from supabase import create_client
 from dotenv import load_dotenv
 
 load_dotenv(override=True)
 
-supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
-client   = anthropic.Anthropic(
+client = anthropic.Anthropic(
     api_key=os.getenv("ANTHROPIC_API_KEY").strip(),
     timeout=90.0, max_retries=2,
 )
 
+# Rotate through these so the quiz covers different ground each day.
+TOPICS = [
+    "stock market basics (shares, indices, how prices move)",
+    "mutual funds and SIPs",
+    "bonds and how interest rates affect them",
+    "income tax, capital gains tax, and GST in India",
+    "banking, the RBI, and how monetary policy works",
+    "inflation, GDP, and the broader economy",
+    "derivatives — options and futures",
+    "IPOs and the primary market",
+    "financial ratios (P/E, ROE, debt-to-equity)",
+    "personal finance, budgeting, and emergency funds",
+    "insurance (term, health, ULIPs)",
+    "gold, commodities, and safe-haven assets",
+    "currency, forex, and the rupee",
+    "risk, diversification, and asset allocation",
+    "credit, loans, EMIs, and credit scores",
+    "ETFs and index investing",
+    "compounding and the time value of money",
+    "market participants (FIIs, DIIs, retail, promoters)",
+]
 
-def get_top_articles(limit: int = 14):
-    """Pull the most recent published stories to base questions on."""
-    r = (
-        supabase.table("processed_articles")
-        .select("title, simplified_article, category")
-        .order("created_at", desc=True)
-        .limit(limit)
-        .execute()
-    )
-    return r.data or []
+
+def todays_topics(n=5):
+    """Deterministically pick n topics that rotate by day, so a given day is
+    the same for every user but different from yesterday."""
+    start = date.today().toordinal()
+    return [TOPICS[(start + i) % len(TOPICS)] for i in range(n)]
 
 
-def build_quiz(articles):
-    news = "\n".join(
-        f"- {a['title']}: {(a.get('simplified_article') or '')[:200]}"
-        for a in articles
-    )
-    prompt = f"""You are a finance quizmaster for an Indian retail-investor news app.
+def build_quiz(topics):
+    topic_lines = "\n".join(f"  {i+1}. {t}" for i, t in enumerate(topics))
+    prompt = f"""You are a finance quizmaster for an Indian retail-investor app.
 
-Using ONLY the news below, write EXACTLY 5 multiple-choice questions that test
-whether the reader actually followed today's news.
+Write EXACTLY 5 multiple-choice questions that test general finance and
+investing UNDERSTANDING — one question for each of these topics, in order:
+{topic_lines}
 
-Difficulty: MEDIUM. Not trivia, not vocabulary. Ask about what happened, who did
-it, a specific number/figure, or what a development means. Make the 3 wrong
-options plausible (not obviously silly), so a guesser can't easily win.
+Difficulty: MEDIUM. Not definitions or trivia — test whether someone actually
+understands the concept (e.g. what happens to bond prices when rates rise, how
+an SIP averages cost, why diversification lowers risk). Make the 3 wrong
+options plausible so a guesser can't easily win. Use simple language and
+India-relevant examples where natural (₹, Nifty, RBI, SIP).
 
 Rules:
-- Each question stands on its own (a reader who read the news can answer it).
 - Exactly 4 options, exactly one correct.
 - Keep questions and options concise.
 - Add a one-line explanation of the correct answer.
@@ -56,10 +70,7 @@ Rules:
 Return ONLY valid JSON, no markdown:
 {{"questions":[
   {{"q":"<question>","options":["A","B","C","D"],"answer":<index 0-3>,"explain":"<one line>"}}
-]}}
-
-NEWS:
-{news}"""
+]}}"""
 
     msg = client.messages.create(
         model="claude-haiku-4-5-20251001",
@@ -74,7 +85,6 @@ NEWS:
         text = text.strip()
     data = json.loads(text)
     qs = data.get("questions", [])
-    # keep only well-formed questions
     clean = [
         q for q in qs
         if isinstance(q.get("options"), list) and len(q["options"]) == 4
@@ -85,13 +95,10 @@ NEWS:
 
 
 if __name__ == "__main__":
-    print("🧠 Generating daily quiz...")
-    articles = get_top_articles()
-    if len(articles) < 5:
-        print(f"  ⚠️ Only {len(articles)} articles — skipping quiz generation.")
-        raise SystemExit(0)
+    print("🧠 Generating daily finance quiz...")
+    topics = todays_topics()
     try:
-        questions = build_quiz(articles)
+        questions = build_quiz(topics)
     except Exception as e:
         print(f"  ❌ Quiz generation failed: {e}")
         raise SystemExit(1)

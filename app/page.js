@@ -1035,8 +1035,8 @@ function YesterdayQuiz({ dark, isMobile, addIQ, earnedBadges, awardBadge }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span style={{ fontSize: '18px' }}>📋</span>
           <div>
-            <div style={{ fontSize: '11px', fontWeight: '700', color: '#C9A84C', letterSpacing: '0.1em', fontFamily: 'var(--font-ui)' }}>DAILY NEWS QUIZ</div>
-            <div style={{ fontSize: '10px', color: '#6B6055', fontFamily: 'var(--font-ui)', marginTop: '2px' }}>5 questions on today's news · +10 IQ per correct answer</div>
+            <div style={{ fontSize: '11px', fontWeight: '700', color: '#C9A84C', letterSpacing: '0.1em', fontFamily: 'var(--font-ui)' }}>DAILY FINANCE QUIZ</div>
+            <div style={{ fontSize: '10px', color: '#6B6055', fontFamily: 'var(--font-ui)', marginTop: '2px' }}>5 finance questions · +10 IQ per correct answer</div>
           </div>
         </div>
         {totalAnswered > 0 && (
@@ -1100,7 +1100,7 @@ function YesterdayQuiz({ dark, isMobile, addIQ, earnedBadges, awardBadge }) {
               {totalCorrect >= 3 ? '🎉' : '📖'} {totalCorrect}/{quiz.length} correct · +{totalCorrect * 10} IQ earned
             </p>
             <p style={{ margin: '4px 0 0', fontSize: '11px', color: dark ? '#6B6055' : '#9A8E7E', fontFamily: 'var(--font-ui)' }}>
-              {totalCorrect < quiz.length ? "Read today's articles to do better tomorrow!" : "Excellent! You're on top of the news."}
+              {totalCorrect < quiz.length ? "Come back tomorrow for 5 new finance questions!" : "Excellent! Your finance fundamentals are sharp."}
             </p>
           </div>
         )}
