@@ -79,7 +79,7 @@ export default function ArticleCard({ article, dark }) {
           {diff && <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: '9.5px', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', border: '1px solid var(--border-main)', borderRadius: '20px', padding: '3px 9px' }}>● {diff}</span>}
         </div>
 
-        <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '19px', lineHeight: 1.22, letterSpacing: '-0.01em', color: 'var(--text-primary)', margin: '0 0 9px' }}>
+        <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '19px', lineHeight: 1.22, letterSpacing: '-0.01em', color: 'var(--accent)', margin: '0 0 9px' }}>
           {article.title}
         </h2>
 
