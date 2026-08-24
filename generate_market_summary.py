@@ -42,7 +42,7 @@ def fetch_prices(tickers: dict) -> dict:
                     "value":  f"{curr:,.0f}",
                     "change": f"{'▲' if change >= 0 else '▼'} {abs(change):,.0f}",
                     "pct":    f"{'+'if change >= 0 else ''}{pct:.2f}%",
-                    "up":     change >= 0,
+                    "up":     bool(change >= 0),   # native bool (numpy bool_ isn't JSON-serializable)
                 }
             elif len(hist) == 1:
                 curr = hist["Close"].iloc[-1]
@@ -61,7 +61,7 @@ def fetch_sector_moves(tickers: dict) -> list:
             hist = yf.Ticker(symbol).history(period="2d")
             if len(hist) >= 2:
                 prev, curr = hist["Close"].iloc[-2], hist["Close"].iloc[-1]
-                out.append({"name": name, "pct": round((curr - prev) / prev * 100, 1)})
+                out.append({"name": name, "pct": round(float((curr - prev) / prev * 100), 1)})
         except Exception as e:
             print(f"  ⚠️  sector {name} ({symbol}) failed: {e}")
     out.sort(key=lambda s: s["pct"], reverse=True)
@@ -78,7 +78,7 @@ def compute_verdict(indices: list) -> str:
 
 INDIA_SECTORS = {
     "Banking": "^NSEBANK", "IT": "^CNXIT", "Auto": "^CNXAUTO", "FMCG": "^CNXFMCG",
-    "Pharma": "^CNXPHARMA", "Metal": "^CNXMET", "Realty": "^CNXREALTY", "Energy": "^CNXENERGY",
+    "Pharma": "^CNXPHARMA", "Metal": "^CNXMETAL", "Realty": "^CNXREALTY", "Energy": "^CNXENERGY",
 }
 US_SECTORS = {"Tech": "XLK", "Financials": "XLF", "Energy": "XLE", "Healthcare": "XLV"}
 
