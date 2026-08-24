@@ -12,6 +12,17 @@ const CAT_LABEL = {
   'renewables': 'Renewables', 'real-estate': 'Real Estate', 'telecom-media': 'Telecom',
 }
 
+// Trim the card blurb to a true ~30-second read: first 1–2 sentences, word-capped.
+function cardBlurb(text, maxWords = 34) {
+  const t = (text || '').replace(/\s*\n+\s*/g, ' ').trim()
+  if (!t) return ''
+  const sentences = t.match(/[^.!?]+[.!?]+/g) || [t]
+  let out = sentences.slice(0, 2).join(' ').trim()
+  const words = out.split(/\s+/)
+  if (words.length > maxWords) out = words.slice(0, maxWords).join(' ').replace(/[,;:]?$/, '') + '…'
+  return out
+}
+
 // sentiment → colour token + label
 function sentiment(article) {
   const s = (article.sentiment || '').toLowerCase()
@@ -30,8 +41,8 @@ export default function ArticleCard({ article, dark }) {
   const stat     = article.stat || ''
   const statLbl  = article.stat_label || ''
 
-  // 30-second card summary: the plain-words simplified article.
-  const summary = (article.simplified_article || article.investor_take || '').trim()
+  // 30-second card summary: a trimmed blurb (full text lives in Read in full).
+  const summary = cardBlurb(article.simplified_article || article.investor_take || '')
 
   return (
     <article style={{

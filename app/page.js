@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic'
 import { supabase } from '../lib/supabase'
 import ArticleCard from '../components/ArticleCard'
 import SwipeDeck from '../components/SwipeDeck'
+import Tutorial from '../components/Tutorial'
 import { useAuth } from '../hooks/useAuth'
 import WelcomeModal from '../components/WelcomeModal'
 import { registerPushNotification, touchLastSeen } from '../lib/pushNotifications'
@@ -21,11 +22,11 @@ const MyPortfolio = dynamic(() => import('../components/MyPortfolio'), {
 // which is why the site failed to load in Instagram's Android browser.
 const safeLS = {
   getItem(key) {
-    try { return typeof localStorage !== 'undefined' ? safeLS.getItem(key) : null }
+    try { return typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null }
     catch { return null }
   },
   setItem(key, val) {
-    try { if (typeof localStorage !== 'undefined') safeLS.setItem(key, val) }
+    try { if (typeof localStorage !== 'undefined') localStorage.setItem(key, val) }
     catch { /* storage blocked — ignore */ }
   },
 }
@@ -1053,6 +1054,7 @@ export default function Home() {
   const [currentIndex, setCurrentIndex]   = useState(0)
   const [fetchError, setFetchError]       = useState(null)
   const [dark, setDark]                   = useState(true)  // True Black default
+  const [showTutorial, setShowTutorial]   = useState(false)
   const [isMobile, setIsMobile]           = useState(false)
   const [sectionCounts, setSectionCounts] = useState({})
   const [overlay, setOverlay]             = useState(null)
@@ -1208,6 +1210,15 @@ export default function Home() {
     const saved = safeLS.getItem('fd-theme')
     if (saved === 'light') setDark(false)
   }, [])
+
+  // One-time "what's new" tutorial — shows once, then never again.
+  useEffect(() => {
+    if (safeLS.getItem('fd-tutorial-v1') === 'done') return
+    const t = setTimeout(() => setShowTutorial(true), 700)
+    return () => clearTimeout(t)
+  }, [])
+
+  const dismissTutorial = () => { safeLS.setItem('fd-tutorial-v1', 'done'); setShowTutorial(false) }
 
   const toggleTheme = () => {
     setDark(d => { safeLS.setItem('fd-theme', !d ? 'dark' : 'light'); return !d })
@@ -1383,6 +1394,7 @@ export default function Home() {
     <div style={{ background: 'var(--bg-page)', minHeight: '100vh', fontFamily: 'var(--font-ui)' }}>
 
       <WelcomeModal dark={dark} user={user} authLoading={authLoading} />
+      {showTutorial && <Tutorial onClose={dismissTutorial} />}
       <InstallBanner dark={dark} />
 
       {showPointPop && (
