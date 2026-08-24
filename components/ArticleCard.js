@@ -1,266 +1,96 @@
 'use client'
-import { useState, useEffect } from 'react'
-import DoubtBox from './DoubtBox'
+import { useState } from 'react'
+import DetailReader from './DetailReader'
+
+// Friendly labels for the category badge.
+const CAT_LABEL = {
+  'indian-markets': 'Indian Markets', 'us-markets': 'US Markets', 'global-economy': 'Global',
+  'macro-policy': 'Economy & Policy', 'banking-finance': 'Deals & Banking',
+  'investment-banking': 'Deals & Banking', 'technology-it': 'Technology',
+  'pharma-health': 'Pharma', 'auto-ev': 'Auto & EV', 'energy-oil': 'Energy',
+  'metals-mining': 'Metals', 'infrastructure': 'Infrastructure', 'fmcg-consumer': 'FMCG',
+  'renewables': 'Renewables', 'real-estate': 'Real Estate', 'telecom-media': 'Telecom',
+}
+
+// sentiment → colour token + label
+function sentiment(article) {
+  const s = (article.sentiment || '').toLowerCase()
+  if (s === 'bullish') return { color: 'var(--up)',   label: 'Bullish'  }
+  if (s === 'bearish') return { color: 'var(--down)', label: 'Bearish'  }
+  return { color: 'var(--text-muted)', label: 'Neutral' }
+}
 
 export default function ArticleCard({ article, dark }) {
-  const [showGlossary, setShowGlossary] = useState(false)
-  const [showDetail, setShowDetail] = useState(false)
-  const [isMobile, setIsMobile] = useState(false)
+  const [showReader, setShowReader] = useState(false)
 
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768)
-    check()
-    window.addEventListener('resize', check)
-    return () => window.removeEventListener('resize', check)
-  }, [])
+  const source   = article.source?.split('|').pop()?.trim() || article.source || 'Finance Digest'
+  const catLabel = CAT_LABEL[article.category] || 'Markets'
+  const sen      = sentiment(article)
+  const diff     = article.difficulty || ''
+  const stat     = article.stat || ''
+  const statLbl  = article.stat_label || ''
 
-  const raw = article.simplified_article || ''
-  const parts = raw.split(/\n\n+/)
-  const quickRead = parts[0]?.trim() || raw
-  const readMore = parts.slice(1).join('\n\n').trim()
-  const safeQuickRead = quickRead.length < 60 ? raw : quickRead
-  const safeReadMore = quickRead.length < 60 ? '' : readMore
+  // 30-second card summary: the plain-words simplified article.
+  const summary = (article.simplified_article || article.investor_take || '').trim()
 
-  // FIX: show full safeQuickRead instead of just first sentence
-  const displayQuickRead =
-    safeQuickRead && safeQuickRead !== 'undefined' && safeQuickRead.length > 20
-      ? safeQuickRead
-      : article.investor_take || article.title || 'Full summary currently processing.'
-
-  const source = article.source?.split('|').pop()?.trim() || article.source
-
-  /* ─── MOBILE ─── */
-  if (isMobile) {
-    return (
-      <article style={{
-        background: 'var(--bg-card)',
-        borderRadius: 'var(--radius-card)',
-        overflow: 'hidden',
-        border: '1px solid var(--border-main)',
-        boxShadow: 'var(--shadow-card)',
-        fontFamily: 'var(--font-display)',
-      }}>
-
-        {article.image_url ? (
-          <div style={{ position: 'relative', overflow: 'hidden', height: '180px' }}>
-            <img loading="lazy" referrerPolicy="no-referrer"
-              src={article.image_url} alt={article.title}
-              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-              onError={e => e.target.src = 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?q=80&w=1200&auto=format&fit=crop'}
-            />
-            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '80px', background: 'linear-gradient(to top, rgba(26,20,16,0.6), transparent)' }} />
-            <div style={{ position: 'absolute', top: '12px', left: '12px', background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)', borderRadius: 'var(--radius-pill)', padding: '4px 12px', fontSize: '10px', fontFamily: 'var(--font-ui)', fontWeight: '600', letterSpacing: '0.08em', color: 'var(--accent-text)', textTransform: 'uppercase' }}>
-              {source}
-            </div>
-          </div>
-        ) : null}
-
-        <div style={{ padding: '18px 18px 16px' }}>
-          {!article.image_url && (
-            <div style={{ display: 'inline-block', background: 'var(--accent-light)', borderRadius: 'var(--radius-pill)', padding: '4px 12px', fontSize: '10px', fontFamily: 'var(--font-ui)', fontWeight: '600', letterSpacing: '0.08em', color: 'var(--accent-text)', textTransform: 'uppercase', marginBottom: '12px' }}>
-              {source}
-            </div>
-          )}
-
-          <h2 style={{ fontSize: '17px', fontWeight: '700', lineHeight: '1.35', color: 'var(--text-primary)', margin: '0 0 12px', fontFamily: 'var(--font-display)', letterSpacing: '-0.02em' }}>
-            {article.title}
-          </h2>
-
-          <div style={{ width: '32px', height: '3px', background: 'linear-gradient(90deg, var(--accent), var(--accent-dark))', borderRadius: '2px', marginBottom: '14px' }} />
-
-          {/* Quick Take */}
-          <div style={{ background: 'var(--bg-gist)', borderRadius: 'var(--radius-sm)', padding: '12px 14px', marginBottom: '10px', borderLeft: '3px solid var(--accent)' }}>
-            <p style={{ fontSize: '10px', fontFamily: 'var(--font-ui)', fontWeight: '700', letterSpacing: '0.1em', color: 'var(--accent)', textTransform: 'uppercase', margin: '0 0 6px' }}>⚡ Quick Take</p>
-            <p style={{ fontSize: '14px', lineHeight: '1.6', color: 'var(--text-primary)', margin: '0', fontFamily: 'var(--font-display)' }}>
-              {displayQuickRead}
-            </p>
-          </div>
-
-          {/* Read full breakdown — now a clear pill button with animated chevron */}
-          {safeReadMore && (
-            <div style={{ marginBottom: '12px' }}>
-              <button onClick={() => setShowDetail(!showDetail)} style={{
-                width: '100%',
-                background: showDetail ? 'var(--accent-light)' : 'transparent',
-                border: '1px solid var(--accent)',
-                borderRadius: 'var(--radius-pill)',
-                cursor: 'pointer',
-                color: 'var(--accent)',
-                fontFamily: 'var(--font-ui)',
-                fontSize: '13px',
-                fontWeight: '700',
-                padding: '10px 16px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '7px',
-                letterSpacing: '0.02em',
-                transition: 'background 0.2s ease',
-              }}>
-                <span>{showDetail ? 'Hide full breakdown' : 'Read full breakdown'}</span>
-                <span style={{
-                  display: 'inline-block',
-                  transition: 'transform 0.25s ease',
-                  transform: showDetail ? 'rotate(180deg)' : 'rotate(0deg)',
-                  fontSize: '11px',
-                }}>▼</span>
-              </button>
-              {showDetail && (
-                <div style={{ marginTop: '10px', background: 'var(--bg-detail)', borderRadius: 'var(--radius-sm)', padding: '12px 14px', borderLeft: '3px solid var(--border-main)', animation: 'fadeIn 0.2s ease' }}>
-                  <p style={{ fontSize: '14px', lineHeight: '1.7', color: 'var(--text-secondary)', margin: '0', fontFamily: 'var(--font-display)' }}>{safeReadMore}</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Investor Take — always visible, like desktop */}
-          {article.investor_take && (
-            <div style={{ background: 'var(--investor-bg)', border: '1px solid rgba(22,163,74,0.15)', borderLeft: '3px solid var(--investor-border)', borderRadius: 'var(--radius-sm)', padding: '12px 14px', marginBottom: '10px' }}>
-              <p style={{ fontSize: '10px', fontFamily: 'var(--font-ui)', fontWeight: '700', letterSpacing: '0.1em', color: 'var(--investor-border)', textTransform: 'uppercase', margin: '0 0 6px' }}>📈 What This Means for Investors</p>
-              <p style={{ fontSize: '13px', lineHeight: '1.6', color: 'var(--investor-text)', margin: '0', fontFamily: 'var(--font-display)' }}>{article.investor_take}</p>
-            </div>
-          )}
-
-          {/* Glossary — same accordion style as desktop */}
-          {article.glossary?.length > 0 && (
-            <div style={{ border: '1px solid var(--border-main)', borderRadius: 'var(--radius-sm)', overflow: 'hidden', marginBottom: '14px' }}>
-              <button onClick={() => setShowGlossary(!showGlossary)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', background: showGlossary ? 'var(--accent-light)' : 'var(--bg-detail)', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-ui)', transition: 'background 0.15s' }}>
-                <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)' }}>📖 Key Terms ({article.glossary.length})</span>
-                <span style={{ fontSize: '11px', color: 'var(--accent)', fontWeight: '700' }}>{showGlossary ? '▲' : '▼'}</span>
-              </button>
-              {showGlossary && (
-                <div>
-                  {article.glossary.map((item, index) => (
-                    <div key={index} style={{ padding: '10px 14px', borderTop: '1px solid var(--border-light)', background: index % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-detail)' }}>
-                      <span style={{ fontFamily: 'var(--font-ui)', fontWeight: '700', color: 'var(--text-primary)', fontSize: '12px' }}>{item.word || item.term}</span>
-                      <p style={{ fontFamily: 'var(--font-display)', color: 'var(--text-muted)', fontSize: '12px', margin: '3px 0 0', lineHeight: '1.5' }}>{item.meaning || item.definition}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          <DoubtBox article={article} dark={dark} />
-        </div>
-      </article>
-    )
-  }
-
-  /* ─── DESKTOP ─── */
   return (
     <article style={{
-      background: 'var(--bg-card)', borderRadius: 'var(--radius-card)',
-      overflow: 'hidden', border: '1px solid var(--border-main)',
-      boxShadow: 'var(--shadow-card)', fontFamily: 'var(--font-display)',
-      transition: 'box-shadow 0.2s ease, transform 0.2s ease',
-    }}
-    onMouseEnter={e => { e.currentTarget.style.boxShadow = 'var(--shadow-card-hover)'; e.currentTarget.style.transform = 'translateY(-1px)' }}
-    onMouseLeave={e => { e.currentTarget.style.boxShadow = 'var(--shadow-card)'; e.currentTarget.style.transform = 'translateY(0)' }}>
-
-      {article.image_url && (
-        <div style={{ position: 'relative', overflow: 'hidden', height: '220px' }}>
-          <img loading="lazy" referrerPolicy="no-referrer"
-            src={article.image_url} alt={article.title}
+      background: 'var(--bg-card)', borderRadius: 'var(--radius-card)', overflow: 'hidden',
+      border: '1px solid var(--border-main)', boxShadow: 'var(--shadow-card)',
+      display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-ui)', height: '100%',
+    }}>
+      {/* Image */}
+      <div style={{ position: 'relative', flex: 'none', height: '168px', overflow: 'hidden', background: 'var(--bg-gist)' }}>
+        {article.image_url ? (
+          <img loading="lazy" referrerPolicy="no-referrer" src={article.image_url} alt={article.title}
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-            onError={e => e.target.src = 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?q=80&w=1200&auto=format&fit=crop'}
-          />
-          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '100px', background: 'linear-gradient(to top, rgba(26,20,16,0.6), transparent)' }} />
-          <div style={{ position: 'absolute', top: '14px', left: '14px', background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)', borderRadius: 'var(--radius-pill)', padding: '4px 12px', fontSize: '11px', fontFamily: 'var(--font-ui)', fontWeight: '600', letterSpacing: '0.08em', color: 'var(--accent-text)', textTransform: 'uppercase' }}>
-            {source}
-          </div>
-        </div>
-      )}
-
-      <div style={{ padding: '24px 28px 22px' }}>
-        {!article.image_url && (
-          <div style={{ display: 'inline-block', background: 'var(--accent-light)', borderRadius: 'var(--radius-pill)', padding: '4px 12px', fontSize: '11px', fontFamily: 'var(--font-ui)', fontWeight: '600', letterSpacing: '0.08em', color: 'var(--accent-text)', textTransform: 'uppercase', marginBottom: '14px' }}>
-            {source}
+            onError={e => { e.target.style.display = 'none' }} />
+        ) : (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-faint)', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '30px', letterSpacing: '-0.02em' }}>
+            {catLabel}
           </div>
         )}
+        <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '54px', background: 'linear-gradient(to top, rgba(0,0,0,0.5), transparent)' }} />
+        <span style={{
+          position: 'absolute', top: '12px', left: '12px', fontFamily: 'var(--font-mono)',
+          fontSize: '10px', letterSpacing: '0.06em', textTransform: 'uppercase',
+          background: 'rgba(0,0,0,0.55)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)',
+          borderRadius: '6px', padding: '4px 8px', backdropFilter: 'blur(4px)',
+        }}>{source}</span>
+      </div>
 
-        <h2 style={{ fontSize: '21px', fontWeight: '700', lineHeight: '1.35', color: 'var(--text-primary)', margin: '0 0 16px', fontFamily: 'var(--font-display)', letterSpacing: '-0.02em' }}>
+      {/* Body */}
+      <div style={{ padding: '15px 17px 16px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-primary)', background: 'var(--bg-gist)', border: '1px solid var(--border-main)', borderRadius: '6px', padding: '4px 8px' }}>{catLabel}</span>
+          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: sen.color }} />
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: sen.color }}>{sen.label}</span>
+          {diff && <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: '9.5px', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', border: '1px solid var(--border-main)', borderRadius: '20px', padding: '3px 9px' }}>● {diff}</span>}
+        </div>
+
+        <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '19px', lineHeight: 1.22, letterSpacing: '-0.01em', color: 'var(--text-primary)', margin: '0 0 9px' }}>
           {article.title}
         </h2>
 
-        <div style={{ width: '36px', height: '3px', background: 'linear-gradient(90deg, var(--accent), var(--accent-dark))', borderRadius: '2px', marginBottom: '18px' }} />
+        <p style={{ fontSize: '14px', lineHeight: 1.6, color: 'var(--text-secondary)', margin: 0, flex: 1, minHeight: 0, overflow: 'auto', whiteSpace: 'pre-line' }}>
+          {summary}
+        </p>
 
-        {/* Quick Take — now shows full paragraph */}
-        <div style={{ background: 'var(--bg-gist)', borderRadius: 'var(--radius-sm)', padding: '16px 18px', marginBottom: '12px', borderLeft: '3px solid var(--accent)' }}>
-          <p style={{ fontSize: '11px', fontFamily: 'var(--font-ui)', fontWeight: '700', letterSpacing: '0.1em', color: 'var(--accent)', textTransform: 'uppercase', margin: '0 0 8px' }}>⚡ Quick Take</p>
-          <p style={{ fontSize: '15px', lineHeight: '1.65', color: 'var(--text-primary)', margin: '0', fontFamily: 'var(--font-display)' }}>
-            {displayQuickRead}
-          </p>
-        </div>
-
-        {/* Read full breakdown — now a clear pill button with animated chevron + hover state */}
-        {safeReadMore && (
-          <div style={{ marginBottom: '14px' }}>
-            <button onClick={() => setShowDetail(!showDetail)} style={{
-              background: showDetail ? 'var(--accent-light)' : 'transparent',
-              border: '1px solid var(--accent)',
-              borderRadius: 'var(--radius-pill)',
-              cursor: 'pointer',
-              color: 'var(--accent)',
-              fontFamily: 'var(--font-ui)',
-              fontSize: '13px',
-              fontWeight: '700',
-              padding: '10px 20px',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              letterSpacing: '0.02em',
-              transition: 'background 0.2s ease, transform 0.15s ease',
-            }}
-            onMouseEnter={e => e.currentTarget.style.background = 'var(--accent-light)'}
-            onMouseLeave={e => e.currentTarget.style.background = showDetail ? 'var(--accent-light)' : 'transparent'}>
-              <span>{showDetail ? 'Hide full breakdown' : 'Read full breakdown'}</span>
-              <span style={{
-                display: 'inline-block',
-                transition: 'transform 0.25s ease',
-                transform: showDetail ? 'rotate(180deg)' : 'rotate(0deg)',
-                fontSize: '11px',
-              }}>▼</span>
-            </button>
-            {showDetail && (
-              <div style={{ marginTop: '10px', background: 'var(--bg-detail)', borderRadius: 'var(--radius-sm)', padding: '16px 18px', borderLeft: '3px solid var(--border-main)', animation: 'fadeIn 0.2s ease' }}>
-                <p style={{ fontSize: '14px', lineHeight: '1.75', color: 'var(--text-secondary)', margin: '0', fontFamily: 'var(--font-display)' }}>{safeReadMore}</p>
-              </div>
-            )}
+        {stat && (
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', margin: '13px 0', paddingTop: '13px', borderTop: '1px solid var(--border-main)' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, fontSize: '23px', color: sen.color }}>{stat}</span>
+            {statLbl && <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>{statLbl}</span>}
           </div>
         )}
 
-        {article.investor_take && (
-          <div style={{ background: 'var(--investor-bg)', border: '1px solid rgba(22,163,74,0.15)', borderLeft: '3px solid var(--investor-border)', borderRadius: 'var(--radius-sm)', padding: '16px 18px', marginBottom: '12px' }}>
-            <p style={{ fontSize: '11px', fontFamily: 'var(--font-ui)', fontWeight: '700', letterSpacing: '0.1em', color: 'var(--investor-border)', textTransform: 'uppercase', margin: '0 0 8px' }}>📈 What This Means for Investors</p>
-            <p style={{ fontSize: '14px', lineHeight: '1.65', color: 'var(--investor-text)', margin: '0', fontFamily: 'var(--font-display)' }}>{article.investor_take}</p>
-          </div>
-        )}
-
-        {article.glossary?.length > 0 && (
-          <div style={{ border: '1px solid var(--border-main)', borderRadius: 'var(--radius-sm)', overflow: 'hidden', marginBottom: '16px' }}>
-            <button onClick={() => setShowGlossary(!showGlossary)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: showGlossary ? 'var(--accent-light)' : 'var(--bg-detail)', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-ui)', transition: 'background 0.15s' }}>
-              <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)' }}>📖 Key Terms ({article.glossary.length})</span>
-              <span style={{ fontSize: '11px', color: 'var(--accent)', fontWeight: '700' }}>{showGlossary ? '▲' : '▼'}</span>
-            </button>
-            {showGlossary && (
-              <div>
-                {article.glossary.map((item, index) => (
-                  <div key={index} style={{ padding: '11px 16px', borderTop: '1px solid var(--border-light)', background: index % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-detail)' }}>
-                    <span style={{ fontFamily: 'var(--font-ui)', fontWeight: '700', color: 'var(--text-primary)', fontSize: '13px' }}>{item.word || item.term}</span>
-                    <p style={{ fontFamily: 'var(--font-display)', color: 'var(--text-muted)', fontSize: '13px', margin: '3px 0 0', lineHeight: '1.5' }}>{item.meaning || item.definition}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        <DoubtBox article={article} dark={dark} />
-
+        <button onClick={(e) => { e.stopPropagation(); setShowReader(true) }} style={{
+          marginTop: stat ? 0 : '13px', width: '100%', border: 'none', borderRadius: '12px', padding: '13px',
+          fontFamily: 'var(--font-mono)', fontWeight: 600, fontSize: '12px', letterSpacing: '0.04em',
+          textTransform: 'uppercase', cursor: 'pointer', background: 'var(--text-primary)', color: 'var(--bg-page)',
+        }}>Read in full →</button>
       </div>
 
-      <style>{`@keyframes fadeIn { from { opacity:0; transform:translateY(-4px) } to { opacity:1; transform:translateY(0) } }`}</style>
+      <DetailReader article={article} dark={dark} open={showReader} onClose={() => setShowReader(false)} />
     </article>
   )
 }

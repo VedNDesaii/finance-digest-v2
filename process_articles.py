@@ -6,16 +6,14 @@ from datetime import datetime, date, timedelta, timezone
 from dotenv import load_dotenv
 import os
 
-load_dotenv(override=True)  # .env always wins over a stale shell key
+load_dotenv()
 
 SUPABASE_URL  = os.getenv("SUPABASE_URL")
 SUPABASE_KEY  = os.getenv("SUPABASE_KEY")
 ANTHROPIC_KEY = os.getenv("ANTHROPIC_API_KEY")
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-# timeout so a dropped connection (e.g. laptop sleep) fails fast instead of
-# hanging the whole run forever — which previously forced a costly re-run.
-client   = anthropic.Anthropic(api_key=ANTHROPIC_KEY, timeout=90.0, max_retries=2)
+client   = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
 
 import feedparser
 import httpx
@@ -37,21 +35,15 @@ RSS_FEEDS = [
     "https://www.livemint.com/rss/markets",
     "https://www.thehindubusinessline.com/feeder/default.rss",
     "https://www.ft.com/rss/home/india",
-    "https://news.crunchbase.com/feed/",
-    "https://inc42.com/feed/",
 ]
 
 
 def fetch_rss_headlines():
     """Layer 1: Fetch latest headlines from top financial RSS feeds."""
     headlines = []
-    headers = {"User-Agent": "Mozilla/5.0 (compatible; FinanceDigestBot/1.0)"}
     for url in RSS_FEEDS:
         try:
-            # Fetch via httpx (proper certs + UA) then parse — some feeds
-            # (e.g. Crunchbase) block feedparser's default fetch.
-            resp = httpx.get(url, headers=headers, follow_redirects=True, timeout=15)
-            feed = feedparser.parse(resp.text)
+            feed = feedparser.parse(url)
             for entry in feed.entries[:15]:
                 headlines.append({
                     "title":   entry.get("title", ""),
@@ -74,18 +66,83 @@ DAILY_MANDATORY = [
     "RBI announcement decision today",
     "SEBI order regulation today",
     "India GDP inflation IIP data today",
+    "India external debt RBI data today",
     "major Indian company acquisition today",
+    "Nifty Sensex crash rally today",
+    "crude oil India impact today",
+    "US Fed India impact today",
     "India US trade tariff today",
     "NSE BSE IPO listing today",
+    "India nuclear energy policy today",
+    "India LPG energy security today",
     "India IT sector earnings warning today",
-    "Invest India latest FDI, investment and industrial policy announcement today",
 ]
-# Trimmed from 14 → 8: dropped searches already well-covered by the 82 RSS
-# feeds (Nifty/Sensex moves, crude oil, US Fed) and near-dead niche ones
-# (external debt, nuclear, LPG) to cut web-search cost without losing coverage.
-# Note: VCCircle is fetched by scraping its homepage in fetch_news.py — it has
-# no RSS feed and blocks the Anthropic search crawler, so a web search here
-# would only waste a call returning nothing.
+
+
+# ── WHOLE-RUN COST TRACKER ──────────────────────────────────────
+# The pre-pass web searches used to run OUTSIDE the budget cap, so a run
+# could cost far more than DAILY_BUDGET. Now every web search + scoring call
+# adds to RUN_COST, the search phase stops at SEARCH_BUDGET, and the main
+# processing loop counts RUN_COST too — so DAILY_BUDGET is a TRUE total cap.
+RUN_COST         = {"spent": 0.0}
+SEARCH_BUDGET    = 0.25    # hard cap on the whole pre-pass search phase
+
+# Haiku 4.5 real pricing (per token)
+_IN_RATE      = 0.80 / 1_000_000
+_OUT_RATE     = 4.00 / 1_000_000
+_CACHE_R_RATE = 0.08 / 1_000_000
+_CACHE_W_RATE = 1.00 / 1_000_000
+_SEARCH_RATE  = 0.01          # per web search request
+
+
+def add_cost(message):
+    """Add the REAL cost of one API call to RUN_COST, read from message.usage
+    (input/output tokens + any web searches). This replaces flat estimates that
+    undercounted and let runs blow past the budget."""
+    try:
+        u = message.usage
+        cost = ((getattr(u, "input_tokens", 0) or 0)  * _IN_RATE +
+                (getattr(u, "output_tokens", 0) or 0) * _OUT_RATE +
+                (getattr(u, "cache_read_input_tokens", 0) or 0)     * _CACHE_R_RATE +
+                (getattr(u, "cache_creation_input_tokens", 0) or 0) * _CACHE_W_RATE)
+        stu = getattr(u, "server_tool_use", None)
+        if stu:
+            cost += (getattr(stu, "web_search_requests", 0) or 0) * _SEARCH_RATE
+        RUN_COST["spent"] += cost
+        return cost
+    except Exception:
+        RUN_COST["spent"] += 0.003   # tiny fallback so a call is never free
+        return 0.003
+
+# Optional columns that enrich each article for the "Read in full" detail page
+# and the swipe card. Any that don't exist in the DB yet are simply skipped on
+# insert, so a missing column never breaks the run or wastes an API call.
+OPTIONAL_COLS = [
+    "detailed_article", "market_impact", "what_this_means",
+    "sentiment", "difficulty", "stat", "stat_label",
+]
+AVAILABLE_OPT_COLS = set(OPTIONAL_COLS)   # narrowed at startup by detect_optional_columns()
+
+
+def detect_optional_columns():
+    """Probe which optional columns exist; skip the rest on insert."""
+    global AVAILABLE_OPT_COLS
+    present, missing = set(), []
+    for col in OPTIONAL_COLS:
+        try:
+            supabase.table("processed_articles").select(col).limit(1).execute()
+            present.add(col)
+        except Exception:
+            missing.append(col)
+    AVAILABLE_OPT_COLS = present
+    if missing:
+        print("⚠️ " * 12)
+        print(f"⚠️  Missing columns in processed_articles: {', '.join(missing)}")
+        print("⚠️  Articles still save & upload (without those fields — no money wasted).")
+        print("⚠️  To enable the full detail page, run this once in Supabase → SQL Editor:")
+        for col in missing:
+            print(f"⚠️     alter table processed_articles add column if not exists {col} text;")
+        print("⚠️ " * 12)
 
 
 def run_mandatory_searches(client):
@@ -94,6 +151,9 @@ def run_mandatory_searches(client):
     headlines = []
 
     for query in DAILY_MANDATORY:
+        if RUN_COST["spent"] >= SEARCH_BUDGET:
+            print(f"  ⏹️  Search budget reached (${RUN_COST['spent']:.2f}); stopping mandatory searches.")
+            break
         try:
             message = client.messages.create(
                 model="claude-haiku-4-5-20251001",
@@ -108,6 +168,7 @@ def run_mandatory_searches(client):
                     )
                 }]
             )
+            add_cost(message)
             for block in message.content:
                 if block.type == "text":
                     text = block.text.strip()
@@ -192,10 +253,7 @@ def scrape_homepages():
 
 
 # ═══════════════════════════════════════════════════════════════
-# LAYER 4 — DYNAMIC WATCHLIST (PERMANENT FIX)
-# Asks Claude to generate today's must-search topics based on
-# what's actively developing — catches named-company stories
-# that RSS and fixed searches never find.
+# LAYER 4 — DYNAMIC WATCHLIST
 # ═══════════════════════════════════════════════════════════════
 
 def generate_dynamic_watchlist(client):
@@ -205,7 +263,7 @@ def generate_dynamic_watchlist(client):
     prompt = f"""You are a senior financial editor for Finance Digest,
 an Indian financial news platform for retail investors.
 
-List the 10 most important stories, companies, and developing situations
+List the 20 most important stories, companies, and developing situations
 that Indian investors must track TODAY — {today}.
 
 Think about:
@@ -220,8 +278,9 @@ Think about:
 - Ongoing sagas needing daily tracking (HDFC leadership, NSE IPO,
   Adani developments, US-Iran ceasefire, India-China trade, IT sector warnings)
 - FII/DII flow trends and block deal activity
+- IPO activity, QIP raises, block deals, PE/VC investments in India
 
-Return ONLY a JSON array of 10 specific search queries, each under 8 words.
+Return ONLY a JSON array of 20 specific search queries, each under 8 words.
 No markdown, no explanation, no preamble.
 
 Example format:
@@ -233,6 +292,7 @@ Example format:
             max_tokens=600,
             messages=[{"role": "user", "content": prompt}]
         )
+        add_cost(message)
 
         text = message.content[0].text.strip()
         if text.startswith("```"):
@@ -271,6 +331,9 @@ def run_dynamic_watchlist(client, supabase,
     seen_in_batch = set()
 
     for query in queries:
+        if RUN_COST["spent"] >= SEARCH_BUDGET:
+            print(f"  ⏹️  Search budget reached (${RUN_COST['spent']:.2f}); stopping watchlist.")
+            break
         try:
             message = client.messages.create(
                 model="claude-haiku-4-5-20251001",
@@ -288,6 +351,7 @@ def run_dynamic_watchlist(client, supabase,
                     )
                 }]
             )
+            add_cost(message)
 
             for block in message.content:
                 if block.type == "text":
@@ -352,6 +416,7 @@ Score 8-10 (must publish) if:
 - Direct India impact: oil price spike, US-India trade, Fed decision
 - Market structure: exchange news, FII flows data, block deals
 - Energy/nuclear/defence policy with named companies
+- IPO, QIP, block deal, PE/VC investment, M&A advisory in India
 
 Score 4-7 (publish if relevant):
 - Indian sector trend with named companies
@@ -372,6 +437,7 @@ Summary: {summary[:300]}"""
         max_tokens=100,
         messages=[{"role": "user", "content": prompt}]
     )
+    add_cost(message)
     text = message.content[0].text.strip()
     if text.startswith("```"):
         text = text.split("```")[1]
@@ -412,7 +478,7 @@ def inject_important_headlines(client, supabase, headlines,
 
         try:
             scored = score_headline_importance(client, title, content)
-            scoring_cost += HAIKU_COST_PER_SCORE
+            scoring_cost += HAIKU_COST_PER_SCORE  # local estimate for the log line only
 
             score    = scored.get("score", 0)
             category = scored.get("category", "indian-markets")
@@ -450,18 +516,16 @@ def run_prepass(client, supabase, existing_titles_data,
     print("PRE-PASS — Four-Layer News Coverage")
     print("=" * 50)
 
-    # Layers 1, 2, 3 — harvest and score
     all_headlines = []
-    all_headlines += fetch_rss_headlines()         # Layer 1
-    all_headlines += scrape_homepages()             # Layer 3
-    all_headlines += run_mandatory_searches(client) # Layer 2
+    all_headlines += fetch_rss_headlines()          # Layer 1
+    all_headlines += scrape_homepages()              # Layer 3
+    all_headlines += run_mandatory_searches(client)  # Layer 2
 
     inject_important_headlines(
         client, supabase, all_headlines,
         existing_titles_data, is_duplicate_story_fn
     )
 
-    # Layer 4 — dynamic watchlist (permanent fix for named-company gaps)
     run_dynamic_watchlist(
         client, supabase,
         existing_titles_data,
@@ -475,76 +539,80 @@ def run_prepass(client, supabase, existing_titles_data,
 # BUDGET GUARD
 # ═══════════════════════════════════════════════════════════════
 
-COST_PER_M_INPUT  = 1.00   # real Claude Haiku 4.5 pricing (was under-set at 0.80)
-COST_PER_M_OUTPUT = 5.00   # real Claude Haiku 4.5 pricing (was under-set at 4.00)
-DAILY_BUDGET      = 0.60
-# Measured against a real process_strict prompt (instructions + full category
-# keyword reference + article content). The old 800/300 estimate was ~2.3x too
-# low, so the budget cap silently allowed ~2x the intended spend.
-AVG_INPUT_TOKENS  = 2300
-AVG_OUTPUT_TOKENS = 450
-COST_PER_ARTICLE  = (AVG_INPUT_TOKENS / 1_000_000) * COST_PER_M_INPUT + (AVG_OUTPUT_TOKENS / 1_000_000) * COST_PER_M_OUTPUT
-# Cheap pre-filter call: ~120 input tokens, ~5 output. Runs on every article
-# to kill obvious junk before the full (COST_PER_ARTICLE) write.
-COST_PER_PREFILTER = (120 / 1_000_000) * COST_PER_M_INPUT + (5 / 1_000_000) * COST_PER_M_OUTPUT
+COST_PER_M_INPUT  = 0.80
+COST_PER_M_OUTPUT = 4.00
 
+# TRUE total cap for the whole run (pre-pass searches + scoring + processing),
+# now that RUN_COST tracks everything. Kept under $1.00 with margin.
+DAILY_BUDGET      = 0.90
+
+# Realistic look-ahead ONLY (a safety buffer for the budget pre-check).
+# Actual spend is measured from each response's usage via add_cost().
+AVG_INPUT_TOKENS  = 2000   # instructions + up to 3500 chars of article content
+AVG_OUTPUT_TOKENS = 1300   # summary + investor + glossary + full picture + impact + meta
+COST_PER_ARTICLE  = (
+    (AVG_INPUT_TOKENS  / 1_000_000) * COST_PER_M_INPUT +
+    (AVG_OUTPUT_TOKENS / 1_000_000) * COST_PER_M_OUTPUT
+)
+
+# ── LIMITS: max articles kept per category ──
+# banking-finance is 20 = 10 for banking/finance + 10 for investment banking (clubbed)
 CATEGORY_LIMITS = {
-    "indian-markets":  12,
-    "us-markets":      12,
-    "global-economy":  10,
-    "banking-finance": 12,
-    "investment-banking": 20,
-    "macro-policy":    20,
-    "technology-it":   7,
-    "pharma-health":   7,
-    "auto-ev":         7,
-    "energy-oil":      7,
-    "metals-mining":   6,
-    "infrastructure":  6,
-    "fmcg-consumer":   6,
-    "renewables":      6,
-    "real-estate":     6,
-    "telecom-media":   6,
-}
-
-CATEGORY_MINIMUMS = {
     "indian-markets":  10,
     "us-markets":      10,
-    "global-economy":  8,
-    "banking-finance": 10,
-    "investment-banking": 15,
-    "macro-policy":    15,
-    "technology-it":   6,
-    "pharma-health":   6,
-    "auto-ev":         6,
-    "energy-oil":      6,
-    "metals-mining":   5,
-    "infrastructure":  5,
-    "fmcg-consumer":   5,
-    "renewables":      5,
-    "real-estate":     5,
-    "telecom-media":   5,
+    "global-economy":  10,
+    "banking-finance": 20,   # clubbed: banking-finance + investment banking
+    "macro-policy":    10,
+    "technology-it":    5,
+    "pharma-health":    5,
+    "auto-ev":          5,
+    "energy-oil":       5,
+    "metals-mining":    5,
+    "infrastructure":   5,
+    "fmcg-consumer":    3,
+    "renewables":       3,
+    "real-estate":      3,
+    "telecom-media":    3,
+}
+
+# ── MINIMUMS: realistic floors per category ──
+# banking-finance minimum = 12 (6 banking + 6 IB, achievable daily)
+CATEGORY_MINIMUMS = {
+    "indian-markets":  7,
+    "us-markets":      6,
+    "global-economy":  5,
+    "banking-finance": 12,   # clubbed: higher floor to reflect two topics
+    "macro-policy":    5,
+    "technology-it":   4,
+    "pharma-health":   3,
+    "auto-ev":         3,
+    "energy-oil":      3,
+    "metals-mining":   3,
+    "infrastructure":  3,
+    "fmcg-consumer":   3,
+    "renewables":      3,
+    "real-estate":     3,
+    "telecom-media":   3,
 }
 
 CATEGORIES = list(CATEGORY_LIMITS.keys())
 
 CATEGORY_KEYWORDS = {
-    "indian-markets":  "Sensex, Nifty, BSE, NSE, Indian stock market, Dalal Street, market rally, market crash, record high, market correction, FII, DII, institutional fund flows, rupee vs dollar, SEBI market regulation, Nifty Bank, sectoral indices, market sentiment, top gainers, top losers, biggest movers, stock in focus, share surges, stock plunges, 52-week high, 52-week low, India VIX, market breadth, listing day debut",
-    "us-markets":      "S&P 500, Dow Jones, NASDAQ, NYSE, Fed rate, US stocks, Wall Street, US IPO, dollar index, US Treasury, US earnings",
-    "global-economy":  "IMF, World Bank, global GDP, trade war, sanctions, WTO, G7, G20, emerging markets, global inflation, geopolitics impact on economy",
-    "banking-finance": "bank earnings, NPA, credit growth, NBFC, bank lending rate, insurance company, fintech, loan, deposit rate, SBI, HDFC Bank, ICICI Bank, private bank, PSU bank",
-    "investment-banking": "M&A, merger, acquisition, takeover, buyout, IPO, DRHP, FPO, QIP, rights issue, block deal, private equity, venture capital, PE, VC, startup funding round, Series A B C, fundraise, valuation, unicorn, PE exit, stake sale, open offer, delisting, bond issuance, NCD, deal advisory, underwriting, Goldman Sachs, Morgan Stanley, Kotak, Axis Capital, Jefferies",
-    "macro-policy":    "CPI inflation, WPI, GDP data, IIP, fiscal deficit, Union Budget, budget allocation, direct tax, indirect tax, GST, income tax, corporate tax, capital gains tax, customs duty, tax policy, disinvestment, subsidy, government scheme, RBI MPC, repo rate, RBI monetary policy, RBI liquidity, monetary stance, forex reserves, unemployment rate",
-    "technology-it":   "TCS, Infosys, Wipro, HCL Tech, IT sector, software exports, AI startup, chip, semiconductor, tech layoffs, SaaS, tech IPO",
-    "pharma-health":   "pharma company, drug approval, USFDA, clinical trial, hospital, health policy, API, generic drug, Cipla, Sun Pharma, Dr Reddy",
-    "auto-ev":         "car sales, two-wheeler, EV policy, electric vehicle, battery, Maruti, Tata Motors, Bajaj, Hero, auto sector, EV subsidy",
-    "energy-oil":      "crude oil, Brent, WTI, OPEC, petroleum, natural gas, LNG, ONGC, Reliance oil, fuel price, energy sector",
-    "metals-mining":   "steel, aluminium, copper, iron ore, zinc, Tata Steel, JSW, Hindalco, Vedanta, coal, mining, metal prices",
-    "infrastructure":  "roads, highways, NHAI, ports, airport, railway, construction, government capex, infra spending, L&T, NIP",
-    "fmcg-consumer":   "HUL, Nestle, ITC, Dabur, Marico, FMCG sales, rural consumption, consumer goods, retail demand, FMCG earnings",
-    "renewables":      "solar, wind energy, green hydrogen, renewable energy, EV charging, clean energy, NTPC Renewable, Adani Green, ReNew",
-    "real-estate":     "housing sales, property prices, REIT, mortgage, home loan, residential demand, commercial property, DLF, Godrej Properties",
-    "telecom-media":   "Jio, Airtel, Vi, BSNL, spectrum, 5G, OTT, streaming, telecom tariff, media merger, broadband",
+    "indian-markets":    "Sensex, Nifty, BSE, NSE, Indian stocks, Dalal Street, Indian IPO, FII, DII, rupee vs dollar, SEBI, RBI rate, Nifty Bank",
+    "us-markets":        "S&P 500, Dow Jones, NASDAQ, NYSE, Fed rate, US stocks, Wall Street, US IPO, dollar index, US Treasury, US earnings",
+    "global-economy":    "IMF, World Bank, global GDP, trade war, sanctions, WTO, G7, G20, emerging markets, global inflation, geopolitics impact on economy",
+    "banking-finance":   "bank earnings, NPA, credit growth, NBFC, RBI policy, lending rate, insurance, fintech, loan, deposit rate, SBI, HDFC Bank, ICICI Bank, IPO, QIP, block deal, OFS, rights issue, PE fund, venture capital, M&A advisory, investment bank, Goldman Sachs India, Kotak Investment Banking, ICICI Securities, Axis Capital, private equity, debt raise, fundraise, investment banking deal",
+    "macro-policy":      "CPI inflation, WPI, GDP data, IIP, fiscal deficit, government budget, tax policy, government scheme, RBI MPC, unemployment rate",
+    "technology-it":     "TCS, Infosys, Wipro, HCL Tech, IT sector, software exports, AI startup, chip, semiconductor, tech layoffs, SaaS, tech IPO",
+    "pharma-health":     "pharma company, drug approval, USFDA, clinical trial, hospital, health policy, API, generic drug, Cipla, Sun Pharma, Dr Reddy",
+    "auto-ev":           "car sales, two-wheeler, EV policy, electric vehicle, battery, Maruti, Tata Motors, Bajaj, Hero, auto sector, EV subsidy",
+    "energy-oil":        "crude oil, Brent, WTI, OPEC, petroleum, natural gas, LNG, ONGC, Reliance oil, fuel price, energy sector",
+    "metals-mining":     "steel, aluminium, copper, iron ore, zinc, Tata Steel, JSW, Hindalco, Vedanta, coal, mining, metal prices",
+    "infrastructure":    "roads, highways, NHAI, ports, airport, railway, construction, government capex, infra spending, L&T, NIP",
+    "fmcg-consumer":     "HUL, Nestle, ITC, Dabur, Marico, FMCG sales, rural consumption, consumer goods, retail demand, FMCG earnings",
+    "renewables":        "solar, wind energy, green hydrogen, renewable energy, EV charging, clean energy, NTPC Renewable, Adani Green, ReNew",
+    "real-estate":       "housing sales, property prices, REIT, mortgage, home loan, residential demand, commercial property, DLF, Godrej Properties",
+    "telecom-media":     "Jio, Airtel, Vi, BSNL, spectrum, 5G, OTT, streaming, telecom tariff, media merger, broadband",
 }
 
 
@@ -641,33 +709,6 @@ def is_valid_output(processed_data):
 # ARTICLE PROCESSING
 # ═══════════════════════════════════════════════════════════════
 
-def prefilter_relevant(title, content):
-    """Cheap first-pass gate: kill only OBVIOUS junk before the expensive
-    process_strict write. Deliberately LENIENT — anything borderline passes
-    through to the real filter. Fails OPEN (keeps) on any error, so a filter
-    hiccup can never silently drop a real story."""
-    try:
-        message = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=5,
-            messages=[{
-                "role": "user",
-                "content": (
-                    "Relevance gate for an Indian financial-news app. Reply with ONE word: KEEP or SKIP.\n"
-                    "SKIP only if the headline is clearly: celebrity gossip, sports, product ads, horoscope, "
-                    "lifestyle, a stock-tip / \"multibagger\" / \"N stocks to buy\" listicle, a penny-stock "
-                    "roundup, or \"are you affected\"-style clickbait.\n"
-                    "KEEP everything else. When unsure, KEEP.\n\n"
-                    f"Headline: {title}"
-                )
-            }]
-        )
-        text = "".join(b.text for b in message.content if b.type == "text").strip().upper()
-        return "SKIP" not in text  # keep unless it explicitly says SKIP
-    except Exception:
-        return True  # never lose an article to a pre-filter error
-
-
 def process_strict(title, content, feed_category):
     category_hint = f"""
 The RSS feed that supplied this article was tagged as: "{feed_category}".
@@ -680,8 +721,8 @@ Category keyword reference:
     prompt = f"""You are a financial news editor for an India-based financial news platform. Your reader is a curious 16-year-old who knows what a stock market is and reads the news, but has never studied finance. Your job: filter weak articles, then write the good ones clearly.
 
 ━━━ STEP 1: FILTER ━━━
-REJECT if: celebrity gossip, sports money, product ads, opinion columns, tick-by-tick intraday updates, property listings, personal lifestyle articles, stock-tip / "multibagger" / "N stocks to buy" listicles, penny-stock roundups, and "are you affected"-style fear-bait.
-ACCEPT if ANY of these: central bank decisions, economic data (GDP/CPI/IIP), major company earnings/results, government policy, M&A/deals, commodity/currency moves, regulatory shifts, contract wins, analyst upgrades/downgrades, IPO news, company expansions, sector trends, fund flows (FII/DII), price hikes, capacity additions, new product launches with financial impact, a notable single-stock price move that names a real reason, and factual top-gainers/losers wraps with drivers (NOT tip lists).
+REJECT if: celebrity gossip, sports money, product ads, opinion columns, tick-by-tick intraday updates, property listings, personal lifestyle articles.
+ACCEPT if ANY of these: central bank decisions, economic data (GDP/CPI/IIP), major company earnings/results, government policy, M&A/deals, commodity/currency moves, regulatory shifts, contract wins, analyst upgrades/downgrades, IPO news, company expansions, sector trends, fund flows (FII/DII), price hikes, capacity additions, new product launches with financial impact, investment banking deals (IPO, QIP, block deal, PE/VC).
 WHEN IN DOUBT — ACCEPT. It is better to accept a borderline article than reject a useful one.
 
 ━━━ STEP 2: CATEGORY ━━━
@@ -690,37 +731,51 @@ Pick EXACTLY ONE:
   "indian-markets" | "us-markets" | "global-economy" | "technology-it" |
   "pharma-health"  | "auto-ev"    | "energy-oil"      | "metals-mining" |
   "infrastructure" | "fmcg-consumer" | "renewables"   | "real-estate"   |
-  "telecom-media"  | "banking-finance" | "investment-banking" | "macro-policy"
+  "telecom-media"  | "banking-finance" | "macro-policy"
+
+Use "banking-finance" for: bank earnings, NPA, RBI lending policy, NBFC, credit growth, deposit rates, insurance, AND investment banking deals — IPOs, QIPs, block deals, OFS, PE/VC investments, M&A advisory, fundraising rounds.
 If the story is foreign/global with no Indian company or market involved, prefer "global-economy" (or "us-markets" for US market/Fed/Wall Street news).
-Use "investment-banking" for M&A, mergers/acquisitions, IPOs, private equity or venture-capital funding rounds, deals, buyouts and capital raising. Use "banking-finance" for an INDIVIDUAL bank/NBFC/insurer's own business — its earnings, NPAs, credit growth, lending, deposits — NOT deals, and NOT central-bank policy.
-Use "macro-policy" for taxation (GST, income/corporate/capital-gains tax), the Union Budget, government fiscal policy, AND RBI monetary policy (repo rate, MPC decisions, liquidity, forex, monetary stance) — the economy-wide picture, not a single bank's results.
-Use "indian-markets" for the day's market pulse: Sensex/Nifty moves, FII/DII fund flows, the rupee, market breadth/sentiment, exchange structure, AND big individual STOCK MOVERS (top gainers/losers) when the story's HOOK is the price move or market reaction ("Stock X +12% today, top Nifty gainer, on...").
-Tiebreaker for a single stock: if the hook is the PRICE MOVE / market reaction → "indian-markets"; if the hook is the BUSINESS event itself (results, order win, product launch, management change) → its sector, NOT indian-markets.
-A new IPO's listing-day debut performance (the trading pop) = "indian-markets"; the IPO fundraise itself = "investment-banking". Still NOT rate/tax/policy (use banking-finance or macro-policy).
 
 ━━━ STEP 3: IMPORTANCE ━━━
-Set is_headline: false for all articles. The briefing section auto-selects the best story per category separately.
+Set is_headline: false for all articles.
 
 ━━━ STEP 4: WRITE ━━━
-HEADLINE: rewrite the article's headline in plain, punchy English a 16-year-old instantly understands — max 12 words. Keep the key fact/number and any company name; drop jargon, procedural wording, and clickbait. E.g. "Procedure for TRQs allocation under India-Oman trade pact notified" → "India-Oman trade deal: new import quota rules set".
 PART 1: 1 sentence, max 25 words. WHO+WHAT+number+impact.
 PART 2: 4 sentences, max 110 words. Before/What/Effect/Watch.
-MOVEMENT RULE (MANDATORY): If the article is about a price MOVE — the index (Sensex/Nifty) or a stock rising/falling — you MUST state the specific DRIVER of the move: the actual trigger (e.g. FII selling, weak global cues, crude spike, an analyst downgrade, a results miss, block-deal buzz, promoter selling). NEVER publish a naked number or a vague filler cause like "on selling pressure", "amid volatility", or "on profit booking" without the real reason. If the source genuinely gives no reason, say so plainly ("no clear trigger reported").
 PART 3 (MANDATORY): 2 sentences, max 40 words. Explain the likely implication for investors and why, in neutral analytical language (avoid "good/bad" verdicts). One thing to watch.
 GLOSSARY: 2-3 unfamiliar terms, max 20 words each.
 
+━━━ STEP 5: THE FULL PICTURE (deep dive for the "Read in full" view) ━━━
+Write a detailed, structured explainer in the SAME simple 16-year-old-friendly voice, as several short paragraphs, each beginning with its own bold label. Use the labels that fit the story — for example:
+  "**What happened.** ..."  "**The numbers.** ..."  "**Why it happened.** ..."
+  "**The bigger picture.** ..."  "**What it means for borrowers/investors.** ..."  "**The outlook / what to watch.** ..."
+GO AS DEEP AS THE SOURCE ACTUALLY SUPPORTS — pull in every relevant figure, name, decision split and driver that is present in the content. CRITICAL: use ONLY facts in the content. Do NOT pad, repeat, or invent to fill length. If the source is thin, write fewer paragraphs — a short, true deep dive beats a long, padded one.
+
+━━━ STEP 6: MARKET IMPACT (in words — NO invented numbers) ━━━
+2 short paragraphs explaining what could plausibly happen to markets, sectors and instruments, and WHY — as reasoning, not data. e.g. "rate-sensitive sectors like real estate and autos may stay soft because loans don't get cheaper". Do NOT state specific index/stock/percentage moves unless they are explicitly in the content. Reason it out; never fabricate figures.
+
+━━━ STEP 7: WHAT THIS MEANS FOR YOU ━━━
+1 short paragraph, 2-3 sentences: the practical angle for an ordinary Indian retail investor / saver (EMIs, FDs, jobs, everyday costs). Plain and concrete.
+
+━━━ STEP 8: CARD METADATA ━━━
+sentiment: one of "bullish" | "bearish" | "neutral" — the market read of this story.
+difficulty: one of "Easy" | "Medium" | "Hard" — how much finance knowledge it takes to follow.
+stat: the single most important NUMBER stated in the article for the card (e.g. "6.5%", "+640", "₹8,500cr"). If the article has no clear headline number, use "".
+stat_label: a 2-4 word label for that number (e.g. "repo rate held"). "" if no stat.
+
 Return ONLY valid JSON:
 REJECT: {{"verdict":"reject"}}
-ACCEPT: {{"verdict":"accept","headline":"<simplified headline>","category":"<str>","is_headline":false,"simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}]}}
+ACCEPT: {{"verdict":"accept","category":"<str>","is_headline":false,"simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}],"detailed_article":"**What happened.** ...\\n\\n**The numbers.** ...\\n\\n**Why it happened.** ...\\n\\n**The outlook.** ...","market_impact":"PARA1\\n\\nPARA2","what_this_means":"...","sentiment":"bullish|bearish|neutral","difficulty":"Easy|Medium|Hard","stat":"","stat_label":""}}
 
 Title: {title}
-Content: {content[:2000]}"""
+Content: {content[:3500]}"""
 
     message = client.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=900,
+        max_tokens=2200,
         messages=[{"role": "user", "content": prompt}]
     )
+    add_cost(message)
     text = message.content[0].text.strip()
     if text.startswith("```"):
         text = text.split("```")[1]
@@ -734,28 +789,32 @@ def process_relaxed(title, content, target_category):
     prompt = f"""You are filling a news section that needs more articles. Category is FIXED: "{target_category}".
 
 ONLY reject if completely unrelated to finance or business.
-ACCEPT quarterly results, company updates, sector news, price moves, analyst reports, industry data, contract wins, expansions, fund flows.
+ACCEPT quarterly results, company updates, sector news, price moves, analyst reports, industry data, contract wins, expansions, fund flows, IPOs, block deals, PE investments.
 Category is FIXED as "{target_category}" — do not change it.
 
 WRITE:
-HEADLINE: rewrite the headline in plain, punchy English a 16-year-old instantly understands — max 12 words. Keep the key fact/number and company name; drop jargon and clickbait.
 PART 1: 1 sentence, max 25 words. WHO+WHAT+number+impact.
 PART 2: 4 sentences, max 110 words. Before/What/Effect/Watch.
 PART 3 (MANDATORY): 2 sentences, max 40 words. Explain the likely implication for investors and why, in neutral analytical language (avoid "good/bad" verdicts). One thing to watch.
 GLOSSARY: 1-2 terms max.
+THE FULL PICTURE (deep dive): several short paragraphs, each with a bold label ("**What happened.** ...", "**The numbers.** ...", "**Why it happened.** ...", "**The outlook.** ..."). Go as deep as the source supports; use ONLY facts in the content; never pad or invent — a short true deep dive beats a padded one.
+MARKET IMPACT (in words): 2 short paragraphs on what could happen to markets/sectors and WHY, as reasoning — NO specific figures unless in the content, never fabricated.
+WHAT THIS MEANS FOR YOU: 1 short paragraph, the practical retail-investor/saver angle.
+CARD METADATA: sentiment ("bullish"|"bearish"|"neutral"), difficulty ("Easy"|"Medium"|"Hard"), stat (key number from the article or ""), stat_label (2-4 words or "").
 
 Return ONLY valid JSON:
 REJECT: {{"verdict":"reject"}}
-ACCEPT: {{"verdict":"accept","headline":"<simplified headline>","category":"{target_category}","is_headline":false,"simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}]}}
+ACCEPT: {{"verdict":"accept","category":"{target_category}","is_headline":false,"simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}],"detailed_article":"**What happened.** ...\\n\\n**Why it happened.** ...\\n\\n**The outlook.** ...","market_impact":"PARA1\\n\\nPARA2","what_this_means":"...","sentiment":"bullish|bearish|neutral","difficulty":"Easy|Medium|Hard","stat":"","stat_label":""}}
 
 Title: {title}
-Content: {content[:2000]}"""
+Content: {content[:3500]}"""
 
     message = client.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=700,
+        max_tokens=2000,
         messages=[{"role": "user", "content": prompt}]
     )
+    add_cost(message)
     text = message.content[0].text.strip()
     if text.startswith("```"):
         text = text.split("```")[1]
@@ -770,11 +829,9 @@ def save_processed_article(raw_article, processed_data):
         processed_data["investor_take"] = "Markets may react as more details emerge."
     if not processed_data.get("glossary"):
         processed_data["glossary"] = []
-    # Prefer the LLM's simplified headline; fall back to the original if missing.
-    headline = (processed_data.get("headline") or "").strip()
     data = {
         "raw_article_id": raw_article["id"],
-        "title":          headline or raw_article["title"],
+        "title":          raw_article["title"],
         "source":         raw_article["source"],
         "image_url":      raw_article.get("image_url"),
         "simplified_article": processed_data["simplified_article"],
@@ -783,6 +840,26 @@ def save_processed_article(raw_article, processed_data):
         "category":       processed_data.get("category", "global-economy"),
         "is_headline":    False,
     }
+
+    # Normalise the enriched fields, then write only the columns that exist.
+    sentiment = (processed_data.get("sentiment") or "neutral").strip().lower()
+    if sentiment not in ("bullish", "bearish", "neutral"):
+        sentiment = "neutral"
+    difficulty = (processed_data.get("difficulty") or "Medium").strip().capitalize()
+    if difficulty not in ("Easy", "Medium", "Hard"):
+        difficulty = "Medium"
+    opt = {
+        "detailed_article": (processed_data.get("detailed_article") or "").strip(),
+        "market_impact":    (processed_data.get("market_impact") or "").strip(),
+        "what_this_means":  (processed_data.get("what_this_means") or "").strip(),
+        "sentiment":        sentiment,
+        "difficulty":       difficulty,
+        "stat":             (processed_data.get("stat") or "").strip(),
+        "stat_label":       (processed_data.get("stat_label") or "").strip(),
+    }
+    for col in OPTIONAL_COLS:
+        if col in AVAILABLE_OPT_COLS:
+            data[col] = opt[col]
     return supabase.table("processed_articles").insert(data).execute()
 
 
@@ -791,11 +868,16 @@ def save_processed_article(raw_article, processed_data):
 # ═══════════════════════════════════════════════════════════════
 
 def run():
-    running_cost = 0.0
+    RUN_COST["spent"] = 0.0
+    total_minimum = sum(CATEGORY_MINIMUMS.values())
+
+    # Detect which enrichment columns exist; missing ones are skipped on insert
+    # (never breaks the run) and reported with the SQL to enable them.
+    detect_optional_columns()
 
     print("=" * 50)
-    print(f"💰 Daily budget: ${DAILY_BUDGET:.2f} | ~${COST_PER_ARTICLE:.4f}/article")
-    print(f"   Max articles in budget: {int(DAILY_BUDGET / COST_PER_ARTICLE)}")
+    print(f"💰 Total run budget: ${DAILY_BUDGET:.2f} (searches + processing) | ~${COST_PER_ARTICLE:.4f}/article")
+    print(f"   Total minimum target: {total_minimum} articles")
     print("=" * 50)
 
     # ════ PRE-PASS: Four-Layer Coverage ════
@@ -805,7 +887,11 @@ def run():
         existing_titles_data_early,
         is_duplicate_story
     )
-    # ════ END PRE-PASS ════
+
+    # Pre-pass web searches + scoring already spent this much; the processing
+    # loop below counts it so DAILY_BUDGET caps the WHOLE run.
+    running_cost = RUN_COST["spent"]
+    print(f"\n💰 Pre-pass spend so far: ${running_cost:.3f} (of ${DAILY_BUDGET:.2f} total)")
 
     # ════ PASS 1 — Strict ════
     print("\nPASS 1 — Strict filtering")
@@ -821,19 +907,20 @@ def run():
     def sort_priority(article):
         cat   = article.get("category", "global-economy")
         count = category_counts.get(cat, 0)
-        minim = CATEGORY_MINIMUMS.get(cat, 5)
-        limit = CATEGORY_LIMITS.get(cat, 7)
+        minim = CATEGORY_MINIMUMS.get(cat, 3)
+        limit = CATEGORY_LIMITS.get(cat, 5)
         if count < minim:  return 0
         if count < limit:  return 1
         return 2
 
     articles.sort(key=sort_priority)
 
-    accepted = rejected = skipped_full = skipped_dup = skipped_inv = prefiltered = 0
+    accepted = rejected = skipped_full = skipped_dup = skipped_inv = 0
 
     for article in articles:
-        if running_cost + COST_PER_ARTICLE > DAILY_BUDGET * 0.75:
-            print(f"\n⚠️  Reached 75% of budget (${running_cost:.3f}). Reserving rest for top-up pass.")
+        # Pass 1 stops at 85% — reserves 15% for top-up Pass 2. Uses REAL spend.
+        if RUN_COST["spent"] + COST_PER_ARTICLE > DAILY_BUDGET * 0.85:
+            print(f"\n⚠️  Reached 85% of budget (${RUN_COST['spent']:.3f}). Reserving rest for top-up pass.")
             break
 
         title   = article["title"]
@@ -846,18 +933,12 @@ def run():
 
             feed_category = article.get("category", "global-economy")
 
-            if category_counts.get(feed_category, 0) >= CATEGORY_LIMITS.get(feed_category, 7):
+            if category_counts.get(feed_category, 0) >= CATEGORY_LIMITS.get(feed_category, 5):
                 skipped_full += 1
                 continue
 
-            # Cheap gate first — skip the expensive write on obvious junk.
-            running_cost += COST_PER_PREFILTER
-            if not prefilter_relevant(title, content):
-                prefiltered += 1
-                continue
-
             processed = process_strict(title, content, feed_category)
-            running_cost += COST_PER_ARTICLE
+            running_cost = RUN_COST["spent"]
 
             if processed is None:
                 rejected += 1
@@ -868,7 +949,7 @@ def run():
                 continue
 
             category  = processed.get("category", feed_category)
-            cat_limit = CATEGORY_LIMITS.get(category, 7)
+            cat_limit = CATEGORY_LIMITS.get(category, 5)
 
             if category_counts.get(category, 0) >= cat_limit:
                 skipped_full += 1
@@ -878,18 +959,18 @@ def run():
             existing_titles_data.append((title, get_title_fingerprint(title)))
             category_counts[category] = category_counts.get(category, 0) + 1
 
-            gap    = category_counts[category] - CATEGORY_MINIMUMS.get(category, 5)
+            gap    = category_counts[category] - CATEGORY_MINIMUMS.get(category, 3)
             status = "✅" if gap >= 0 else f"⚠️  {abs(gap)} below min"
             print(f"  ✓ [{category}] {category_counts[category]}/{CATEGORY_LIMITS[category]} {status} | 💰 ${running_cost:.3f}")
             accepted += 1
 
         except json.JSONDecodeError as e:
-            running_cost += COST_PER_ARTICLE
+            running_cost = RUN_COST["spent"]
             print(f"  ❌ JSON error: {e}")
         except Exception as e:
             print(f"  ❌ Error: {e}")
 
-    print(f"\nPass 1 — Accepted: {accepted} | Pre-filtered: {prefiltered} | Rejected: {rejected} | Dupes blocked: {skipped_dup} | 💰 ${running_cost:.3f} spent")
+    print(f"\nPass 1 — Accepted: {accepted} | Rejected: {rejected} | Dupes blocked: {skipped_dup} | 💰 ${running_cost:.3f} spent")
 
     # ════ PASS 2 — Top-up ════
     under_filled = {
@@ -911,8 +992,8 @@ def run():
         for article in topup_articles:
             if not under_filled:
                 break
-            if running_cost + COST_PER_ARTICLE > DAILY_BUDGET:
-                print(f"\n🛑 Budget limit reached (${running_cost:.3f}). Stopping.")
+            if RUN_COST["spent"] + COST_PER_ARTICLE > DAILY_BUDGET:
+                print(f"\n🛑 Budget limit reached (${RUN_COST['spent']:.3f}). Stopping.")
                 break
 
             title    = article["title"]
@@ -926,7 +1007,7 @@ def run():
 
             try:
                 processed = process_relaxed(title, content, feed_cat)
-                running_cost += COST_PER_ARTICLE
+                running_cost = RUN_COST["spent"]
 
                 if processed is None:
                     continue
@@ -934,7 +1015,7 @@ def run():
                     continue
 
                 category  = processed.get("category", feed_cat)
-                cat_limit = CATEGORY_LIMITS.get(category, 7)
+                cat_limit = CATEGORY_LIMITS.get(category, 5)
 
                 if category_counts.get(category, 0) >= cat_limit:
                     continue
@@ -953,7 +1034,7 @@ def run():
                 print(f"  ↑ [{category}] {category_counts[category]}/{CATEGORY_LIMITS[category]} | 💰 ${running_cost:.3f}")
 
             except Exception as e:
-                running_cost += COST_PER_ARTICLE
+                running_cost = RUN_COST["spent"]
                 print(f"  ❌ {e}")
 
         print(f"\nTop-up: +{topup_accepted} articles | 💰 ${running_cost:.3f} total")
@@ -973,9 +1054,9 @@ def run():
         if count < minim:
             all_met = False
 
+    total = RUN_COST["spent"]
     print(f"\n{'✅ ALL MINIMUMS MET' if all_met else '⚠️  SOME STILL BELOW MIN'}")
-    print(f"💰 Total cost this run: ${running_cost:.4f} / ${DAILY_BUDGET:.2f} budget")
-    print(f"   Remaining: ${DAILY_BUDGET - running_cost:.4f}")
+    print(f"💰 REAL total cost this run (searches + processing): ${total:.4f} / ${DAILY_BUDGET:.2f} cap")
     print("=" * 50)
 
     enforce_per_category_limit()

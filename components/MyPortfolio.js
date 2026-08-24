@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 
 const NEWS_TYPE_BADGE = {
-  earnings:   { label: 'Earnings',   color: '#C9A84C', bg: 'rgba(201,168,76,0.12)'  },
+  earnings:   { label: 'Earnings',   color: 'var(--accent)', bg: 'rgba(255,75,43,0.12)'  },
   regulatory: { label: 'Regulatory', color: '#60a5fa', bg: 'rgba(96,165,250,0.12)'  },
   management: { label: 'Management', color: '#a78bfa', bg: 'rgba(167,139,250,0.12)' },
   analyst:    { label: 'Analyst',    color: '#34d399', bg: 'rgba(52,211,153,0.12)'  },
@@ -77,7 +77,7 @@ function StockSearch({ onSelect, onCancel, existingStocks }) {
     <div style={{ animation: 'fadeIn 0.15s ease' }}>
       <div style={{
         display: 'flex', alignItems: 'center', gap: '10px',
-        background: '#1e1a15', border: '1px solid rgba(201,168,76,0.4)',
+        background: '#1e1a15', border: '1px solid rgba(255,75,43,0.4)',
         borderRadius: (results.length > 0 || loading || query.length > 0) ? '12px 12px 0 0' : '12px',
         padding: '11px 14px',
       }}>
@@ -89,22 +89,22 @@ function StockSearch({ onSelect, onCancel, existingStocks }) {
           style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: '#fff', fontFamily: 'sans-serif', fontSize: '14px' }}
         />
         {loading && (
-          <div style={{ width: '14px', height: '14px', border: '2px solid rgba(201,168,76,0.2)', borderTop: '2px solid #C9A84C', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+          <div style={{ width: '14px', height: '14px', border: '2px solid rgba(255,75,43,0.2)', borderTop: '2px solid var(--accent)', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
         )}
         <button onClick={onCancel} style={{ background: 'none', border: 'none', color: '#9a8e7e', fontFamily: 'sans-serif', fontSize: '13px', cursor: 'pointer', padding: 0 }}>Cancel</button>
       </div>
 
       {results.length > 0 && (
-        <div style={{ background: '#1e1a15', border: '1px solid rgba(201,168,76,0.4)', borderTop: '1px solid rgba(255,255,255,0.04)', borderRadius: '0 0 12px 12px', overflow: 'hidden' }}>
+        <div style={{ background: '#1e1a15', border: '1px solid rgba(255,75,43,0.4)', borderTop: '1px solid rgba(255,255,255,0.04)', borderRadius: '0 0 12px 12px', overflow: 'hidden' }}>
           {results.map((s, i) => (
             <div key={s.ticker} onClick={() => onSelect(s)} style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               padding: '11px 14px', cursor: 'pointer',
-              background: i === highlighted ? 'rgba(201,168,76,0.1)' : 'transparent',
+              background: i === highlighted ? 'rgba(255,75,43,0.1)' : 'transparent',
               borderBottom: i < results.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none',
             }} onMouseEnter={() => setHighlighted(i)}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ width: '34px', height: '34px', borderRadius: '8px', background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '800', color: '#C9A84C', fontFamily: 'sans-serif', flexShrink: 0 }}>
+                <div style={{ width: '34px', height: '34px', borderRadius: '8px', background: 'rgba(255,75,43,0.1)', border: '1px solid rgba(255,75,43,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '800', color: 'var(--accent)', fontFamily: 'sans-serif', flexShrink: 0 }}>
                   {s.ticker.slice(0, 2)}
                 </div>
                 <div>
@@ -119,7 +119,7 @@ function StockSearch({ onSelect, onCancel, existingStocks }) {
       )}
 
       {!loading && query.length > 0 && results.length === 0 && (
-        <div style={{ background: '#1e1a15', border: '1px solid rgba(201,168,76,0.2)', borderTop: 'none', borderRadius: '0 0 12px 12px', padding: '14px', textAlign: 'center', color: '#6b6055', fontFamily: 'sans-serif', fontSize: '13px' }}>
+        <div style={{ background: '#1e1a15', border: '1px solid rgba(255,75,43,0.2)', borderTop: 'none', borderRadius: '0 0 12px 12px', padding: '14px', textAlign: 'center', color: '#6b6055', fontFamily: 'sans-serif', fontSize: '13px' }}>
           No results for "{query}"
         </div>
       )}
@@ -136,11 +136,11 @@ function BuyDetailsForm({ stock, onConfirm, onSkip }) {
 
   return (
     <div style={{
-      background: '#1e1a15', border: '1px solid rgba(201,168,76,0.3)',
+      background: '#1e1a15', border: '1px solid rgba(255,75,43,0.3)',
       borderRadius: '14px', padding: '20px', animation: 'fadeIn 0.2s ease',
     }}>
       <p style={{ margin: '0 0 4px', fontSize: '14px', fontWeight: '700', color: '#fff', fontFamily: 'sans-serif' }}>
-        Added <span style={{ color: '#C9A84C' }}>{stock.ticker}</span>
+        Added <span style={{ color: 'var(--accent)' }}>{stock.ticker}</span>
       </p>
       <p style={{ margin: '0 0 16px', fontSize: '12px', color: '#6b6055', fontFamily: 'sans-serif' }}>
         Add buy details to track your returns vs Nifty 50 (optional)
@@ -182,7 +182,7 @@ function BuyDetailsForm({ stock, onConfirm, onSkip }) {
       <div style={{ display: 'flex', gap: '8px' }}>
         <button onClick={() => onConfirm(buyPrice ? parseFloat(buyPrice) : null, quantity ? parseFloat(quantity) : null)} style={{
           flex: 1, padding: '9px', borderRadius: '8px', border: 'none',
-          background: '#C9A84C', color: '#1A1410', fontFamily: 'sans-serif',
+          background: 'var(--accent)', color: '#1A1410', fontFamily: 'sans-serif',
           fontSize: '13px', fontWeight: '700', cursor: 'pointer',
         }}>
           {buyPrice ? 'Save & Track' : 'Add Without Price'}
@@ -206,13 +206,13 @@ function NiftyBanner({ stocks, priceData }) {
   if (trackedStocks.length === 0) {
     return (
       <div style={{
-        background: 'rgba(201,168,76,0.06)', border: '1px solid rgba(201,168,76,0.15)',
+        background: 'rgba(255,75,43,0.06)', border: '1px solid rgba(255,75,43,0.15)',
         borderRadius: '14px', padding: '16px 20px', marginBottom: '20px',
         display: 'flex', alignItems: 'center', gap: '12px',
       }}>
         <span style={{ fontSize: '24px' }}>📊</span>
         <div>
-          <p style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#C9A84C', fontFamily: 'sans-serif' }}>
+          <p style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: 'var(--accent)', fontFamily: 'sans-serif' }}>
             Track your returns vs Nifty 50
           </p>
           <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#6b6055', fontFamily: 'sans-serif' }}>
@@ -270,11 +270,11 @@ function NiftyBanner({ stocks, priceData }) {
             Total Return
           </p>
           <p style={{ margin: 0, fontSize: '22px', fontWeight: '700', fontFamily: 'sans-serif',
-            color: portfolioReturn >= 0 ? '#4ADE80' : '#F87171' }}>
+            color: portfolioReturn >= 0 ? 'var(--up)' : 'var(--down)' }}>
             {portfolioReturn >= 0 ? '+' : ''}{portfolioReturn.toFixed(2)}%
           </p>
           <p style={{ margin: '3px 0 0', fontSize: '12px', fontFamily: 'sans-serif',
-            color: pnl >= 0 ? '#4ADE80' : '#F87171' }}>
+            color: pnl >= 0 ? 'var(--up)' : 'var(--down)' }}>
             {pnl >= 0 ? '+' : ''}{currency}{Math.abs(pnl).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
           </p>
         </div>
@@ -289,7 +289,7 @@ function NiftyBanner({ stocks, priceData }) {
           <span style={{ fontSize: '20px' }}>{isWinning ? '🎉' : '📉'}</span>
           <div style={{ flex: 1 }}>
             <p style={{ margin: 0, fontSize: '13px', fontWeight: '700', fontFamily: 'sans-serif',
-              color: isWinning ? '#4ADE80' : '#F87171' }}>
+              color: isWinning ? 'var(--up)' : 'var(--down)' }}>
               {isWinning
                 ? `Beating Nifty 50 by ${Math.abs(diff).toFixed(2)}%`
                 : `Underperforming Nifty 50 by ${Math.abs(diff).toFixed(2)}%`}
@@ -343,16 +343,16 @@ function StockCard({ stock, onRemove, forceRefresh, priceData }) {
 
   return (
     <div style={{
-      background: '#1e1a15', border: '1px solid rgba(201,168,76,0.12)',
+      background: '#1e1a15', border: '1px solid rgba(255,75,43,0.12)',
       borderRadius: '14px', overflow: 'hidden', transition: 'border-color 0.2s',
     }}
-      onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(201,168,76,0.35)'}
-      onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(201,168,76,0.12)'}
+      onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(255,75,43,0.35)'}
+      onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(255,75,43,0.12)'}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', cursor: 'pointer' }}
         onClick={() => fetchNews(false)}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'linear-gradient(135deg, rgba(201,168,76,0.25), rgba(201,168,76,0.08))', border: '1px solid rgba(201,168,76,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: '800', color: '#C9A84C', fontFamily: 'sans-serif', flexShrink: 0 }}>
+          <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'linear-gradient(135deg, rgba(255,75,43,0.25), rgba(255,75,43,0.08))', border: '1px solid rgba(255,75,43,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: '800', color: 'var(--accent)', fontFamily: 'sans-serif', flexShrink: 0 }}>
             {stock.ticker.slice(0, 2)}
           </div>
           <div>
@@ -369,7 +369,7 @@ function StockCard({ stock, onRemove, forceRefresh, priceData }) {
                 {fmtPrice(pd.price, pd.currency)}
               </p>
               <p style={{ margin: 0, fontSize: '11px', fontFamily: 'sans-serif',
-                color: parseFloat(pd.changePct) >= 0 ? '#4ADE80' : '#F87171' }}>
+                color: parseFloat(pd.changePct) >= 0 ? 'var(--up)' : 'var(--down)' }}>
                 {fmtPct(pd.changePct)} today
               </p>
             </div>
@@ -377,7 +377,7 @@ function StockCard({ stock, onRemove, forceRefresh, priceData }) {
           {pnl !== null && (
             <div style={{ textAlign: 'right' }}>
               <p style={{ margin: 0, fontSize: '12px', fontWeight: '700', fontFamily: 'sans-serif',
-                color: pnl >= 0 ? '#4ADE80' : '#F87171' }}>
+                color: pnl >= 0 ? 'var(--up)' : 'var(--down)' }}>
                 {pnl >= 0 ? '+' : ''}{currency}{Math.abs(pnl).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
               </p>
               <p style={{ margin: 0, fontSize: '10px', color: '#6b6055', fontFamily: 'sans-serif' }}>
@@ -387,11 +387,11 @@ function StockCard({ stock, onRemove, forceRefresh, priceData }) {
           )}
 
           {loading
-            ? <div style={{ width: '18px', height: '18px', border: '2px solid rgba(201,168,76,0.2)', borderTop: '2px solid #C9A84C', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+            ? <div style={{ width: '18px', height: '18px', border: '2px solid rgba(255,75,43,0.2)', borderTop: '2px solid var(--accent)', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
             : <span style={{ color: '#9a8e7e', fontSize: '12px', transform: expanded ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s', display: 'inline-block' }}>▼</span>
           }
           <button onClick={e => { e.stopPropagation(); fetchNews(true) }} style={{ background: 'none', border: 'none', color: '#9a8e7e', cursor: 'pointer', fontSize: '16px', lineHeight: 1, padding: 0 }}
-            onMouseEnter={e => e.target.style.color = '#C9A84C'}
+            onMouseEnter={e => e.target.style.color = 'var(--accent)'}
             onMouseLeave={e => e.target.style.color = '#9a8e7e'}>↻</button>
           <button onClick={e => { e.stopPropagation(); onRemove() }} style={{ background: 'none', border: 'none', color: '#9a8e7e', cursor: 'pointer', fontSize: '18px', lineHeight: 1, padding: 0 }}
             onMouseEnter={e => e.target.style.color = '#f87171'}
@@ -406,7 +406,7 @@ function StockCard({ stock, onRemove, forceRefresh, priceData }) {
           ) : news ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {news.price_summary && (
-                <p style={{ margin: 0, fontSize: '13px', color: '#C9A84C', fontFamily: 'sans-serif', fontWeight: '600' }}>
+                <p style={{ margin: 0, fontSize: '13px', color: 'var(--accent)', fontFamily: 'sans-serif', fontWeight: '600' }}>
                   {news.price_summary}
                 </p>
               )}
@@ -529,21 +529,21 @@ export default function MyPortfolio() {
       <div style={{ marginBottom: '24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
           <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '700', color: '#fff', fontFamily: "'Georgia', serif", letterSpacing: '-0.02em' }}>
-            My <span style={{ color: '#C9A84C' }}>Portfolio</span>
+            My <span style={{ color: 'var(--accent)' }}>Portfolio</span>
           </h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             {stocks.length > 0 && (
               <button onClick={refreshAll} style={{
                 display: 'flex', alignItems: 'center', gap: '6px',
-                background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.25)',
+                background: 'rgba(255,75,43,0.1)', border: '1px solid rgba(255,75,43,0.25)',
                 borderRadius: '20px', padding: '5px 12px', cursor: 'pointer',
-                color: '#C9A84C', fontFamily: 'sans-serif', fontSize: '12px', fontWeight: '600',
+                color: 'var(--accent)', fontFamily: 'sans-serif', fontSize: '12px', fontWeight: '600',
               }}>
                 <span style={{ display: 'inline-block', animation: refreshing ? 'spin 0.7s linear infinite' : 'none', fontSize: '14px' }}>↻</span>
                 Refresh All
               </button>
             )}
-            <span style={{ fontSize: '11px', color: '#6b6055', fontFamily: 'sans-serif', background: 'rgba(201,168,76,0.1)', padding: '3px 10px', borderRadius: '20px', border: '1px solid rgba(201,168,76,0.15)' }}>
+            <span style={{ fontSize: '11px', color: '#6b6055', fontFamily: 'sans-serif', background: 'rgba(255,75,43,0.1)', padding: '3px 10px', borderRadius: '20px', border: '1px solid rgba(255,75,43,0.15)' }}>
               {stocks.length} {stocks.length === 1 ? 'stock' : 'stocks'}
             </span>
           </div>
@@ -553,7 +553,7 @@ export default function MyPortfolio() {
         </p>
       </div>
 
-      <div style={{ height: '1px', background: 'linear-gradient(90deg, #C9A84C44, transparent)', marginBottom: '20px' }} />
+      <div style={{ height: '1px', background: 'linear-gradient(90deg, var(--accent)44, transparent)', marginBottom: '20px' }} />
 
       {/* Nifty comparison banner */}
       <NiftyBanner stocks={stocks} priceData={priceData} />
@@ -590,12 +590,12 @@ export default function MyPortfolio() {
         <button onClick={() => setSearching(true)} style={{
           display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
           padding: '12px 16px', background: 'transparent',
-          border: '1px dashed rgba(201,168,76,0.25)', borderRadius: '12px',
+          border: '1px dashed rgba(255,75,43,0.25)', borderRadius: '12px',
           cursor: 'pointer', color: '#9a8e7e', fontFamily: 'sans-serif', fontSize: '13px',
           transition: 'all 0.2s',
         }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(201,168,76,0.5)'; e.currentTarget.style.color = '#C9A84C'; e.currentTarget.style.background = 'rgba(201,168,76,0.05)' }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(201,168,76,0.25)'; e.currentTarget.style.color = '#9a8e7e'; e.currentTarget.style.background = 'transparent' }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,75,43,0.5)'; e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.background = 'rgba(255,75,43,0.05)' }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,75,43,0.25)'; e.currentTarget.style.color = '#9a8e7e'; e.currentTarget.style.background = 'transparent' }}
         >
           <span style={{ fontSize: '18px', lineHeight: 1 }}>+</span>
           <span>Add a stock</span>

@@ -122,10 +122,10 @@ export default function WelcomeModal({ dark, user, authLoading }) {
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
           <h1 style={{ fontSize: '26px', fontWeight: '700', color: textPri, fontFamily: 'Georgia, serif', margin: '0 0 6px' }}>
-            Finance <span style={{ color: '#C9A84C' }}>Digest</span>
+            Finance <span style={{ color: 'var(--accent)' }}>Digest</span>
           </h1>
           {isStandalone && (
-            <p style={{ color: '#C9A84C', fontSize: '11px', fontWeight: '600', letterSpacing: '0.05em', margin: '0 0 4px', textTransform: 'uppercase' }}>
+            <p style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.05em', margin: '0 0 4px', textTransform: 'uppercase' }}>
               Welcome to the app
             </p>
           )}
@@ -137,8 +137,8 @@ export default function WelcomeModal({ dark, user, authLoading }) {
         {/* Standalone mode message */}
         {isStandalone && !success && (
           <div style={{
-            background: dark ? 'rgba(201,168,76,0.08)' : 'rgba(201,168,76,0.06)',
-            border: '1px solid rgba(201,168,76,0.3)',
+            background: dark ? 'rgba(255,75,43,0.08)' : 'rgba(255,75,43,0.06)',
+            border: '1px solid rgba(255,75,43,0.3)',
             borderRadius: '10px', padding: '10px 14px', marginBottom: '20px',
             fontSize: '12px', color: textSec, textAlign: 'center', lineHeight: 1.5,
           }}>
@@ -315,7 +315,7 @@ function inputStyle(bg, border, color) {
 function submitStyle(loading) {
   return {
     width: '100%', padding: '13px',
-    background: loading ? '#d4b870' : '#C9A84C',
+    background: loading ? '#d4b870' : 'var(--accent)',
     color: '#fff', border: 'none', borderRadius: '10px',
     fontSize: '15px', fontWeight: '700',
     cursor: loading ? 'not-allowed' : 'pointer',

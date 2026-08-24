@@ -53,6 +53,36 @@ def fetch_prices(tickers: dict) -> dict:
     return results
 
 
+def fetch_sector_moves(tickers: dict) -> list:
+    """Real sector index moves (percent), sorted best→worst. No AI guessing."""
+    out = []
+    for name, symbol in tickers.items():
+        try:
+            hist = yf.Ticker(symbol).history(period="2d")
+            if len(hist) >= 2:
+                prev, curr = hist["Close"].iloc[-2], hist["Close"].iloc[-1]
+                out.append({"name": name, "pct": round((curr - prev) / prev * 100, 1)})
+        except Exception as e:
+            print(f"  ⚠️  sector {name} ({symbol}) failed: {e}")
+    out.sort(key=lambda s: s["pct"], reverse=True)
+    return out
+
+
+def compute_verdict(indices: list) -> str:
+    """up / down / mixed, from how many indices closed higher."""
+    ups = sum(1 for i in indices if i.get("up"))
+    if ups == len(indices): return "up"
+    if ups == 0:            return "down"
+    return "mixed"
+
+
+INDIA_SECTORS = {
+    "Banking": "^NSEBANK", "IT": "^CNXIT", "Auto": "^CNXAUTO", "FMCG": "^CNXFMCG",
+    "Pharma": "^CNXPHARMA", "Metal": "^CNXMET", "Realty": "^CNXREALTY", "Energy": "^CNXENERGY",
+}
+US_SECTORS = {"Tech": "XLK", "Financials": "XLF", "Energy": "XLE", "Healthcare": "XLV"}
+
+
 def get_recent_articles(categories: list, limit: int = 5) -> list:
     articles = []
     for cat in categories:
@@ -93,6 +123,7 @@ def call_claude_cached(user_content: str, max_tokens: int = 800) -> dict:
 def generate_indian_summary() -> dict:
     print("  Fetching live Indian prices...")
     prices   = fetch_prices({"Sensex": "^BSESN", "Nifty 50": "^NSEI", "Bank Nifty": "^NSEBANK"})
+    sectors  = fetch_sector_moves(INDIA_SECTORS)          # REAL sector moves, not AI guesses
     articles = get_recent_articles(["indian-markets", "banking-finance", "macro-policy"])
     news     = "\n".join(f"- {a['title']}: {a['simplified_article'][:180]}" for a in articles)
     today    = datetime.now().strftime("%d %B %Y")
@@ -100,40 +131,46 @@ def generate_indian_summary() -> dict:
     s = prices.get("Sensex",    {})
     n = prices.get("Nifty 50",  {})
     b = prices.get("Bank Nifty",{})
+    indices = [
+        {"label": "Sensex",     "value": s.get("value"), "change": s.get("change"), "pct": s.get("pct"), "up": s.get("up", True)},
+        {"label": "Nifty 50",   "value": n.get("value"), "change": n.get("change"), "pct": n.get("pct"), "up": n.get("up", True)},
+        {"label": "Bank Nifty", "value": b.get("value"), "change": b.get("change"), "pct": b.get("pct"), "up": b.get("up", True)},
+    ]
+    verdict = compute_verdict(indices)
+    sector_txt = ", ".join(f"{x['name']} {x['pct']:+.1f}%" for x in sectors) or "n/a"
 
-    prompt = f"""Today is {today}.
+    prompt = f"""Today is {today}. The Indian market had an overall "{verdict}" day.
 
-LIVE INDIAN MARKET DATA (use these exact values in the indices array):
-Sensex:     {s.get('value')} | {s.get('change')} | {s.get('pct')} | up={s.get('up')}
-Nifty 50:   {n.get('value')} | {n.get('change')} | {n.get('pct')} | up={n.get('up')}
-Bank Nifty: {b.get('value')} | {b.get('change')} | {b.get('pct')} | up={b.get('up')}
-
+LIVE INDEX DATA: Sensex {s.get('pct')}, Nifty 50 {n.get('pct')}, Bank Nifty {b.get('pct')}.
+REAL SECTOR MOVES (already computed — reference these, do NOT invent numbers): {sector_txt}
 RECENT NEWS HEADLINES:
 {news}
 
-Return ONLY this JSON (fill headline, tiles, sectors, watch using the news above — keep indices exactly as given):
+Write a market summary. Return ONLY this JSON:
 {{
-  "headline": "<one sentence, max 30 words, summarising today's Indian market mood and key driver>",
-  "indices": [
-    {{"label":"Sensex",    "value":"{s.get('value')}","change":"{s.get('change')}","pct":"{s.get('pct')}","up":{str(s.get('up',True)).lower()}}},
-    {{"label":"Nifty 50",  "value":"{n.get('value')}","change":"{n.get('change')}","pct":"{n.get('pct')}","up":{str(n.get('up',True)).lower()}}},
-    {{"label":"Bank Nifty","value":"{b.get('value')}","change":"{b.get('change')}","pct":"{b.get('pct')}","up":{str(b.get('up',True)).lower()}}}
-  ],
+  "lead": "<ONE short sentence, max 22 words: the day's verdict + the single biggest driver, plain English>",
+  "brief": "<1 sentence with the key index moves in words, e.g. 'Sensex rose 0.8% and Nifty 0.6% on ...'>",
+  "narrative": "PARA1\\n\\nPARA2 — 2 short paragraphs telling the day in full (open→close, the main driver, the undercurrents). Use ONLY facts from the data and news above; never invent figures.",
   "tiles": [
-    {{"icon":"🌍","label":"Global Cues",  "value":"<Weak/Mixed/Strong>","sub":"<1 line US futures context>","subUp":false}},
-    {{"icon":"🏦","label":"FII Activity", "value":"<Bought/Sold ₹X Cr>","sub":"<context>","subUp":null}},
-    {{"icon":"🛢","label":"Crude Oil",    "value":"$<price>/bbl","sub":"<▲/▼ move today>","subUp":false}}
+    {{"icon":"🌍","label":"Global cues",  "value":"<Weak/Mixed/Strong>","sub":"<1 line context>","subUp":false}},
+    {{"icon":"🏦","label":"FII activity", "value":"<Buying/Selling/Mixed>","sub":"<1 line, only if the news mentions it, else 'No fresh data'>","subUp":null}},
+    {{"icon":"🛢","label":"Crude oil",    "value":"<Rising/Falling/Steady>","sub":"<1 line context>","subUp":false}}
   ],
-  "sectors": [
-    {{"name":"Banking","pct":0.0}},
-    {{"name":"IT",     "pct":0.0}},
-    {{"name":"Auto",   "pct":0.0}},
-    {{"name":"FMCG",   "pct":0.0}}
-  ],
-  "watch": "<one sentence, max 25 words, one key thing to watch tomorrow>"
+  "watch": "<one sentence, max 22 words, the key thing to watch tomorrow>"
 }}"""
 
-    return call_claude_cached(prompt, max_tokens=800)
+    ai = call_claude_cached(prompt, max_tokens=700)
+    return {
+        "verdict":  verdict,
+        "headline": ai.get("lead", ""),          # kept for backward compat
+        "lead":     ai.get("lead", ""),
+        "brief":    ai.get("brief", ""),
+        "narrative": ai.get("narrative", ""),
+        "indices":  indices,
+        "sectors":  sectors,                      # REAL data
+        "tiles":    ai.get("tiles", []),
+        "watch":    ai.get("watch", ""),
+    }
 
 
 def generate_us_summary() -> dict:
@@ -146,87 +183,94 @@ def generate_us_summary() -> dict:
     sp = prices.get("S&P 500",  {})
     nq = prices.get("Nasdaq",   {})
     dj = prices.get("Dow Jones",{})
+    sectors = fetch_sector_moves(US_SECTORS)          # REAL sector moves
+    indices = [
+        {"label": "S&P 500",   "value": sp.get("value"), "change": sp.get("change"), "pct": sp.get("pct"), "up": sp.get("up", True)},
+        {"label": "Nasdaq",    "value": nq.get("value"), "change": nq.get("change"), "pct": nq.get("pct"), "up": nq.get("up", True)},
+        {"label": "Dow Jones", "value": dj.get("value"), "change": dj.get("change"), "pct": dj.get("pct"), "up": dj.get("up", True)},
+    ]
+    verdict = compute_verdict(indices)
+    sector_txt = ", ".join(f"{x['name']} {x['pct']:+.1f}%" for x in sectors) or "n/a"
 
-    prompt = f"""Today is {today}.
+    prompt = f"""Today is {today}. US markets had an overall "{verdict}" day.
 
-LIVE US MARKET DATA (use these exact values in the indices array):
-S&P 500:   {sp.get('value')} | {sp.get('change')} | {sp.get('pct')} | up={sp.get('up')}
-Nasdaq:    {nq.get('value')} | {nq.get('change')} | {nq.get('pct')} | up={nq.get('up')}
-Dow Jones: {dj.get('value')} | {dj.get('change')} | {dj.get('pct')} | up={dj.get('up')}
-
+LIVE INDEX DATA: S&P 500 {sp.get('pct')}, Nasdaq {nq.get('pct')}, Dow {dj.get('pct')}.
+REAL SECTOR MOVES (reference these, do NOT invent numbers): {sector_txt}
 RECENT NEWS HEADLINES:
 {news}
 
-Return ONLY this JSON (fill headline, tiles, sectors, watch using the news above — keep indices exactly as given):
+Write a market summary. Return ONLY this JSON:
 {{
-  "headline": "<one sentence, max 30 words, summarising today's US market mood and key driver>",
-  "indices": [
-    {{"label":"S&P 500",  "value":"{sp.get('value')}","change":"{sp.get('change')}","pct":"{sp.get('pct')}","up":{str(sp.get('up',True)).lower()}}},
-    {{"label":"Nasdaq",   "value":"{nq.get('value')}","change":"{nq.get('change')}","pct":"{nq.get('pct')}","up":{str(nq.get('up',True)).lower()}}},
-    {{"label":"Dow Jones","value":"{dj.get('value')}","change":"{dj.get('change')}","pct":"{dj.get('pct')}","up":{str(dj.get('up',True)).lower()}}}
-  ],
+  "lead": "<ONE short sentence, max 22 words: the verdict + biggest driver, plain English>",
+  "brief": "<1 sentence with the key index moves in words>",
+  "narrative": "PARA1\\n\\nPARA2 — 2 short paragraphs telling the day in full. Use ONLY facts above; never invent figures.",
   "tiles": [
-    {{"icon":"📈","label":"Big Mover",  "value":"<TICKER +X%>","sub":"<1 line reason>","subUp":true}},
-    {{"icon":"💰","label":"Key Data",   "value":"<data point>","sub":"<context>","subUp":true}},
-    {{"icon":"🏛", "label":"10yr Yield","value":"<X.XX%>","sub":"<▲/▼ move>","subUp":true}}
+    {{"icon":"📈","label":"Big mover",  "value":"<name/move if in news, else 'Mixed'>","sub":"<1 line>","subUp":true}},
+    {{"icon":"💰","label":"Key data",   "value":"<data point from news or 'None today'>","sub":"<context>","subUp":true}},
+    {{"icon":"🏛","label":"Backdrop",   "value":"<Risk-on/Risk-off/Mixed>","sub":"<1 line>","subUp":true}}
   ],
-  "sectors": [
-    {{"name":"Tech",       "pct":0.0}},
-    {{"name":"Energy",     "pct":0.0}},
-    {{"name":"Financials", "pct":0.0}},
-    {{"name":"Healthcare", "pct":0.0}}
-  ],
-  "watch": "<one sentence, max 25 words, one key thing to watch tomorrow>"
+  "watch": "<one sentence, max 22 words, key thing to watch tomorrow>"
 }}"""
 
-    return call_claude_cached(prompt, max_tokens=800)
+    ai = call_claude_cached(prompt, max_tokens=700)
+    return {
+        "verdict":  verdict,
+        "headline": ai.get("lead", ""),
+        "lead":     ai.get("lead", ""),
+        "brief":    ai.get("brief", ""),
+        "narrative": ai.get("narrative", ""),
+        "indices":  indices,
+        "sectors":  sectors,
+        "tiles":    ai.get("tiles", []),
+        "watch":    ai.get("watch", ""),
+    }
 
 
 def save_summary(market: str, data: dict):
+    """Persist the legacy columns to the DB (best effort; JSON is the source of truth)."""
     table = "indian_market_summary" if market == "indian" else "us_market_summary"
     row   = {
-        "headline":   data["headline"],
-        "indices":    data["indices"],
-        "tiles":      data["tiles"],
-        "sectors":    data["sectors"],
-        "watch":      data["watch"],
+        "headline":   data.get("headline", ""),
+        "indices":    data.get("indices", []),
+        "tiles":      data.get("tiles", []),
+        "sectors":    data.get("sectors", []),
+        "watch":      data.get("watch", ""),
         "updated_at": datetime.utcnow().isoformat(),
     }
-    existing = supabase.table(table).select("id").limit(1).execute()
-    if existing.data:
-        supabase.table(table).update(row).eq("id", existing.data[0]["id"]).execute()
-        print(f"  ✅ Updated {table}")
-    else:
-        supabase.table(table).insert(row).execute()
-        print(f"  ✅ Inserted into {table}")
+    try:
+        existing = supabase.table(table).select("id").limit(1).execute()
+        if existing.data:
+            supabase.table(table).update(row).eq("id", existing.data[0]["id"]).execute()
+        else:
+            supabase.table(table).insert(row).execute()
+        print(f"  ✅ Saved legacy row to {table}")
+    except Exception as e:
+        print(f"  ⚠️  DB save skipped ({table}): {e}")
 
 
-def save_to_json():
-    indian = supabase.table("indian_market_summary").select("*").order("updated_at", desc=True).limit(1).execute()
-    us     = supabase.table("us_market_summary").select("*").order("updated_at", desc=True).limit(1).execute()
-    out    = {
-        "indian": indian.data[0] if indian.data else {},
-        "us":     us.data[0]     if us.data     else {},
-    }
+def save_to_json(indian: dict, us: dict):
+    """Write the FULL summaries (incl. verdict/brief/narrative) straight to JSON."""
+    now = datetime.utcnow().isoformat()
+    indian = {**indian, "updated_at": now}
+    us     = {**us,     "updated_at": now}
     os.makedirs("public", exist_ok=True)
     with open("public/market-data.json", "w") as f:
-        json.dump(out, f)
+        json.dump({"indian": indian, "us": us}, f)
     print("  ✅ Saved to public/market-data.json")
 
 
 if __name__ == "__main__":
-    total_cost = 0.0
-
     print("=" * 50)
     print("📊 Generating market summaries (Haiku 4.5, cached)")
-    print(f"   Estimated cost: ~$0.005 total for both summaries")
+    print("   Estimated cost: ~$0.006 total for both summaries")
     print("=" * 50)
 
+    indian, us = {}, {}
     print("\n🇮🇳 Generating Indian market summary...")
     try:
         indian = generate_indian_summary()
         save_summary("indian", indian)
-        print(f"  Headline: {indian['headline']}")
+        print(f"  Verdict: {indian.get('verdict')} | {indian.get('lead')}")
     except Exception as e:
         print(f"  ❌ Indian summary failed: {e}")
 
@@ -234,14 +278,14 @@ if __name__ == "__main__":
     try:
         us = generate_us_summary()
         save_summary("us", us)
-        print(f"  Headline: {us['headline']}")
+        print(f"  Verdict: {us.get('verdict')} | {us.get('lead')}")
     except Exception as e:
         print(f"  ❌ US summary failed: {e}")
 
     print("\n💾 Saving to JSON...")
     try:
-        save_to_json()
+        save_to_json(indian, us)
     except Exception as e:
         print(f"  ❌ JSON save failed: {e}")
 
-    print("\n✅ Done! Estimated spend: ~$0.005")
+    print("\n✅ Done! Estimated spend: ~$0.006")

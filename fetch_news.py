@@ -283,6 +283,49 @@ def scrape_vccircle(existing_links, existing_titles):
     return saved
 
 
+def scrape_investindia(existing_links, existing_titles):
+    """Invest India (national investment promotion agency) has no RSS feed.
+    Scrape its blog listing; article links are /blogs/<slug>. These are
+    slower-moving FDI / sector investment pieces, so we take whatever's fresh."""
+    print("\n📡 [investment-banking] Scraping Invest India blogs...")
+    saved = 0
+    try:
+        r = requests.get("https://www.investindia.gov.in/team-india-blogs",
+                         headers=HEADERS, timeout=15)
+        soup = BeautifulSoup(r.text, "html.parser")
+        seen, picks = set(), []
+        for a in soup.find_all("a", href=True):
+            t = a.get_text(strip=True)
+            h = a["href"]
+            if h.startswith("/blogs/") and len(t) >= 30 and h not in seen:
+                seen.add(h)
+                picks.append((t, "https://www.investindia.gov.in" + h))
+
+        for title, link in picks[:10]:
+            if link in existing_links or title[:60].lower().strip() in existing_titles:
+                continue
+            content = scrape_content(link)
+            if len(content) < 100:
+                content = title
+            article_data = {
+                "title":        title,
+                "source":       "Invest India",
+                "link":         link,
+                "published_at": datetime.utcnow().isoformat(),
+                "content":      content,
+                "image_url":    get_og_image(link),
+                "category":     "investment-banking",
+            }
+            supabase.table("raw_articles").insert(article_data).execute()
+            existing_links.add(link)
+            existing_titles.add(title[:60].lower().strip())
+            saved += 1
+    except Exception as e:
+        print(f"  ❌ Invest India scrape failed: {e}")
+    print(f"  📊 Saved {saved} from Invest India")
+    return saved
+
+
 def fetch_articles():
     cleanup_old_articles()
 
@@ -350,6 +393,7 @@ def fetch_articles():
         print(f"  📊 Saved {saved_this_feed} from this feed")
 
     total_saved += scrape_vccircle(existing_links, existing_titles)
+    total_saved += scrape_investindia(existing_links, existing_titles)
 
     print(f"\n🎉 DONE. Total articles saved: {total_saved}")
 

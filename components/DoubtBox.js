@@ -49,7 +49,7 @@ export default function DoubtBox({ article, dark }) {
       <div style={{
         fontSize: '13px', fontWeight: '700', letterSpacing: '0.05em',
         textTransform: 'uppercase', marginBottom: '10px',
-        color: dark ? '#E8C97A' : '#B8923C',
+        color: dark ? 'var(--accent-dark)' : '#B8923C',
         display: 'flex', alignItems: 'center', gap: '6px',
       }}>
         💬 Ask a Doubt
@@ -68,7 +68,7 @@ export default function DoubtBox({ article, dark }) {
             borderRadius: '99px',
             border: dark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(0,0,0,0.1)',
             background: dark ? 'rgba(0,0,0,0.2)' : '#fff',
-            color: dark ? '#F0EBE3' : '#1A1410',
+            color: 'var(--text-primary)',
             fontSize: '14px',
             outline: 'none',
             fontFamily: 'var(--font-ui)',
@@ -83,7 +83,7 @@ export default function DoubtBox({ article, dark }) {
             border: 'none',
             background: loading || !question.trim()
               ? (dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)')
-              : 'linear-gradient(135deg, #C9A84C, #E8C97A)',
+              : 'var(--accent)',
             color: loading || !question.trim() ? (dark ? '#888' : '#999') : '#1A1410',
             fontSize: '14px', fontWeight: '700',
             cursor: loading || !question.trim() ? 'default' : 'pointer',
@@ -102,10 +102,10 @@ export default function DoubtBox({ article, dark }) {
           padding: '12px 14px',
           borderRadius: '10px',
           background: dark ? 'rgba(232,201,122,0.08)' : 'rgba(232,201,122,0.12)',
-          borderLeft: `3px solid ${dark ? '#E8C97A' : '#C9A84C'}`,
+          borderLeft: `3px solid ${dark ? 'var(--accent-dark)' : 'var(--accent)'}`,
           fontSize: '14px',
           lineHeight: '1.6',
-          color: dark ? '#F0EBE3' : '#1A1410',
+          color: 'var(--text-primary)',
           fontFamily: 'var(--font-ui)',
         }}>
           {answer}
