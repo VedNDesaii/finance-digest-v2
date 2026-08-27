@@ -8,12 +8,13 @@ import os
 
 load_dotenv(override=True)
 
+from llm import make_client, MODEL_ID, USE_BEDROCK
+
 SUPABASE_URL  = os.getenv("SUPABASE_URL")
 SUPABASE_KEY  = os.getenv("SUPABASE_KEY")
-ANTHROPIC_KEY = os.getenv("ANTHROPIC_API_KEY").strip().replace("\n", "").replace("\r", "")
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-client   = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
+client   = make_client()   # Bedrock if AWS keys present, else Anthropic API
 
 # ── Haiku 4.5 pricing ────────────────────────────────────────────────────────
 # Indian summary:  ~800 input + ~350 output = ~$0.0026
@@ -101,7 +102,7 @@ def get_recent_articles(categories: list, limit: int = 5) -> list:
 def call_claude_cached(user_content: str, max_tokens: int = 800) -> dict:
     """Call Haiku with a cached system prompt to save input token costs."""
     message = client.messages.create(
-        model="claude-haiku-4-5-20251001",
+        model=MODEL_ID,
         max_tokens=max_tokens,
         system=[
             {

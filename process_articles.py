@@ -8,12 +8,13 @@ import os
 
 load_dotenv()
 
+from llm import make_client, MODEL_ID, USE_BEDROCK
+
 SUPABASE_URL  = os.getenv("SUPABASE_URL")
 SUPABASE_KEY  = os.getenv("SUPABASE_KEY")
-ANTHROPIC_KEY = os.getenv("ANTHROPIC_API_KEY")
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-client   = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
+client   = make_client()   # Bedrock if AWS keys present, else Anthropic API
 
 import feedparser
 import httpx
@@ -148,6 +149,9 @@ def detect_optional_columns():
 def run_mandatory_searches(client):
     """Layer 2: Force-search critical topics daily regardless of RSS."""
     print("\n🔒 Layer 2 — Running mandatory daily searches...")
+    if USE_BEDROCK:
+        print("  ⏭️  Web search not available on Bedrock — skipping (relying on RSS + scraped sources).")
+        return []
     headlines = []
 
     for query in DAILY_MANDATORY:
@@ -156,7 +160,7 @@ def run_mandatory_searches(client):
             break
         try:
             message = client.messages.create(
-                model="claude-haiku-4-5-20251001",
+                model=MODEL_ID,
                 max_tokens=300,
                 tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 1}],
                 messages=[{
@@ -288,7 +292,7 @@ Example format:
 
     try:
         message = client.messages.create(
-            model="claude-haiku-4-5-20251001",
+            model=MODEL_ID,
             max_tokens=600,
             messages=[{"role": "user", "content": prompt}]
         )
@@ -316,6 +320,9 @@ def run_dynamic_watchlist(client, supabase,
     """Layer 4: Search every topic on today's dynamic watchlist."""
     print("\n🧠 Layer 4 — Dynamic Watchlist")
     print("=" * 50)
+    if USE_BEDROCK:
+        print("  ⏭️  Web search not available on Bedrock — skipping watchlist.")
+        return 0
 
     queries = generate_dynamic_watchlist(client)
     if not queries:
@@ -336,7 +343,7 @@ def run_dynamic_watchlist(client, supabase,
             break
         try:
             message = client.messages.create(
-                model="claude-haiku-4-5-20251001",
+                model=MODEL_ID,
                 max_tokens=400,
                 tools=[{"type": "web_search_20250305",
                         "name": "web_search", "max_uses": 1}],
@@ -433,7 +440,7 @@ Title: {title}
 Summary: {summary[:300]}"""
 
     message = client.messages.create(
-        model="claude-haiku-4-5-20251001",
+        model=MODEL_ID,
         max_tokens=100,
         messages=[{"role": "user", "content": prompt}]
     )
@@ -771,7 +778,7 @@ Title: {title}
 Content: {content[:3500]}"""
 
     message = client.messages.create(
-        model="claude-haiku-4-5-20251001",
+        model=MODEL_ID,
         max_tokens=2200,
         messages=[{"role": "user", "content": prompt}]
     )
@@ -810,7 +817,7 @@ Title: {title}
 Content: {content[:3500]}"""
 
     message = client.messages.create(
-        model="claude-haiku-4-5-20251001",
+        model=MODEL_ID,
         max_tokens=2000,
         messages=[{"role": "user", "content": prompt}]
     )
