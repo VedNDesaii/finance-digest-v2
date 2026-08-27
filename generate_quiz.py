@@ -8,13 +8,15 @@ A rotating topic mix keeps it varied day to day. Runs once/day, ~half a cent.
 import os
 import json
 from datetime import date
+import anthropic
 from dotenv import load_dotenv
 
 load_dotenv(override=True)
 
-from llm import make_client, MODEL_ID, USE_BEDROCK
-
-client = make_client(timeout=90.0, max_retries=2)   # Bedrock if AWS keys present, else Anthropic API
+client = anthropic.Anthropic(
+    api_key=os.getenv("ANTHROPIC_API_KEY").strip(),
+    timeout=90.0, max_retries=2,
+)
 
 # Rotate through these so the quiz covers different ground each day.
 TOPICS = [
@@ -71,7 +73,7 @@ Return ONLY valid JSON, no markdown:
 ]}}"""
 
     msg = client.messages.create(
-        model=MODEL_ID,
+        model="claude-haiku-4-5-20251001",
         max_tokens=1200,
         messages=[{"role": "user", "content": prompt}],
     )

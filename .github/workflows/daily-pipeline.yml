@@ -35,13 +35,6 @@ jobs:
 
       - name: Run pipeline
         env:
-          # AWS Bedrock (used automatically if these are set); else Anthropic API
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-          BEDROCK_MODEL_ID: ${{ secrets.BEDROCK_MODEL_ID }}
-          # Brave Search API — our own search source (works on Bedrock)
-          BRAVE_API_KEY: ${{ secrets.BRAVE_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}

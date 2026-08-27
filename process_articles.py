@@ -8,31 +8,12 @@ import os
 
 load_dotenv()
 
-from llm import make_client, MODEL_ID, USE_BEDROCK
-
 SUPABASE_URL  = os.getenv("SUPABASE_URL")
 SUPABASE_KEY  = os.getenv("SUPABASE_KEY")
-
-# Our own search sources, so web search works on Bedrock too (Anthropic's
-# built-in web_search tool isn't available on Bedrock):
-#   • Brave Search API — set BRAVE_API_KEY in .env (needs a key).
-#   • DuckDuckGo — needs NO key and NO card; used automatically as a free
-#     fallback whenever no Brave key is set.
-BRAVE_API_KEY = (os.getenv("BRAVE_API_KEY") or "").strip()
-
-try:                              # the library was renamed ddgs -> keep both
-    from ddgs import DDGS
-except Exception:
-    try:
-        from duckduckgo_search import DDGS
-    except Exception:
-        DDGS = None
-
-HAVE_OWN_SEARCH = bool(BRAVE_API_KEY) or (DDGS is not None)   # card-free search
-HAVE_SEARCH     = HAVE_OWN_SEARCH or (not USE_BEDROCK)        # +Anthropic's own tool
+ANTHROPIC_KEY = os.getenv("ANTHROPIC_API_KEY")
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-client   = make_client()   # Bedrock if AWS keys present, else Anthropic API
+client   = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
 
 import feedparser
 import httpx
@@ -164,136 +145,18 @@ def detect_optional_columns():
         print("⚠️ " * 12)
 
 
-def brave_search(query, count=3, freshness="pd"):
-    """Query the Brave Search API and return the top results as
-    [{title, url, description}, ...]. Returns [] on any error / no key so a
-    failed search never crashes the run. `freshness`: pd=past day, pw=past week."""
-    if not BRAVE_API_KEY:
-        return []
-    try:
-        resp = httpx.get(
-            "https://api.search.brave.com/res/v1/web/search",
-            params={
-                "q": query,
-                "count": count,
-                "freshness": freshness,
-                "country": "IN",
-                "text_decorations": 0,
-                "spellcheck": 0,
-            },
-            headers={
-                "Accept": "application/json",
-                "Accept-Encoding": "gzip",
-                "X-Subscription-Token": BRAVE_API_KEY,
-            },
-            timeout=15.0,
-        )
-        resp.raise_for_status()
-        results = (resp.json().get("web", {}) or {}).get("results", []) or []
-        out = []
-        for r in results[:count]:
-            title = (r.get("title") or "").strip()
-            if not title:
-                continue
-            out.append({
-                "title": title,
-                "url": (r.get("url") or "").strip(),
-                "description": (r.get("description") or "").strip(),
-            })
-        return out
-    except Exception as e:
-        print(f"  ⚠️  Brave search failed for '{query}': {e}")
-        return []
-
-
-def ddg_search(query, count=3):
-    """Query DuckDuckGo (no key, no card) and return the top results as
-    [{title, url, description}, ...]. Tries the news endpoint first (fresher),
-    falls back to text search. Returns [] on any error so a run never crashes."""
-    if DDGS is None:
-        return []
-    try:
-        out = []
-        with DDGS() as ddgs:
-            try:
-                results = ddgs.news(query, region="in-en", max_results=count) or []
-            except Exception:
-                results = []
-            for r in results[:count]:
-                title = (r.get("title") or "").strip()
-                if not title:
-                    continue
-                out.append({
-                    "title": title,
-                    "url": (r.get("url") or "").strip(),
-                    "description": (r.get("body") or "").strip(),
-                })
-            if not out:   # news gave nothing — fall back to a plain text search
-                results = ddgs.text(query, region="in-en", max_results=count) or []
-                for r in results[:count]:
-                    title = (r.get("title") or "").strip()
-                    if not title:
-                        continue
-                    out.append({
-                        "title": title,
-                        "url": (r.get("href") or "").strip(),
-                        "description": (r.get("body") or "").strip(),
-                    })
-        return out
-    except Exception as e:
-        print(f"  ⚠️  DuckDuckGo search failed for '{query}': {e}")
-        return []
-
-
-def search_web(query, count=3):
-    """Unified search: Brave if a key is set, otherwise free DuckDuckGo."""
-    if BRAVE_API_KEY:
-        return brave_search(query, count=count)
-    return ddg_search(query, count=count)
-
-
 def run_mandatory_searches(client):
-    """Layer 2: Force-search critical topics daily regardless of RSS.
-
-    Uses Brave Search (BRAVE_API_KEY) when available — works on Bedrock too.
-    Falls back to Anthropic's built-in web_search tool on the Anthropic API.
-    If neither is available (Bedrock without a Brave key), the layer is skipped."""
+    """Layer 2: Force-search critical topics daily regardless of RSS."""
     print("\n🔒 Layer 2 — Running mandatory daily searches...")
-
-    # ── Preferred path: our own search (Brave or free DuckDuckGo, works on Bedrock) ──
-    if HAVE_OWN_SEARCH:
-        src = "Brave" if BRAVE_API_KEY else "DuckDuckGo"
-        headlines, seen = [], set()
-        for query in DAILY_MANDATORY:
-            for r in search_web(query, count=2):
-                key = r["title"].lower()
-                if key in seen:
-                    continue
-                seen.add(key)
-                headlines.append({
-                    "title":   r["title"],
-                    "content": r["description"],
-                    "source":  "Mandatory Search",
-                    "link":    r["url"],
-                })
-                print(f"  🔒 Mandatory: {r['title'][:60]}...")
-        print(f"  ✅ Layer 2 ({src}) — Found {len(headlines)} stories")
-        return headlines
-
-    # ── No search source on Bedrock — skip, rely on RSS + scraped sources ──
-    if USE_BEDROCK:
-        print("  ⏭️  No search source available on Bedrock — skipping (install ddgs to enable free search).")
-        return []
-
-    # ── Fallback: Anthropic's built-in web_search tool ──
     headlines = []
+
     for query in DAILY_MANDATORY:
         if RUN_COST["spent"] >= SEARCH_BUDGET:
             print(f"  ⏹️  Search budget reached (${RUN_COST['spent']:.2f}); stopping mandatory searches.")
             break
         try:
             message = client.messages.create(
-                model=MODEL_ID,
+                model="claude-haiku-4-5-20251001",
                 max_tokens=300,
                 tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 1}],
                 messages=[{
@@ -425,7 +288,7 @@ Example format:
 
     try:
         message = client.messages.create(
-            model=MODEL_ID,
+            model="claude-haiku-4-5-20251001",
             max_tokens=600,
             messages=[{"role": "user", "content": prompt}]
         )
@@ -453,11 +316,6 @@ def run_dynamic_watchlist(client, supabase,
     """Layer 4: Search every topic on today's dynamic watchlist."""
     print("\n🧠 Layer 4 — Dynamic Watchlist")
     print("=" * 50)
-    # Needs a search source. Brave works on Bedrock; else fall back to
-    # Anthropic's built-in tool; if neither is available, skip.
-    if not HAVE_SEARCH:
-        print("  ⏭️  No search source (set BRAVE_API_KEY to enable on Bedrock) — skipping watchlist.")
-        return 0
 
     queries = generate_dynamic_watchlist(client)
     if not queries:
@@ -472,43 +330,13 @@ def run_dynamic_watchlist(client, supabase,
     }
     seen_in_batch = set()
 
-    # ── Preferred path: our own search (Brave or free DuckDuckGo, works on Bedrock) ──
-    if HAVE_OWN_SEARCH:
-        src = "Brave" if BRAVE_API_KEY else "DuckDuckGo"
-        for query in queries:
-            for r in search_web(query, count=1):
-                title   = r["title"].strip()
-                summary = r["description"].strip()
-                if not title or len(title) < 15:
-                    continue
-                if title.lower() in existing_raw_titles:
-                    continue
-                if title.lower() in seen_in_batch:
-                    continue
-                if is_duplicate_story_fn(title, existing_titles_data):
-                    continue
-                supabase.table("raw_articles").insert({
-                    "title":    title,
-                    "content":  summary if summary else title,
-                    "source":   "Dynamic Watchlist",
-                    "url":      r["url"],
-                    "category": "indian-markets",
-                }).execute()
-                existing_raw_titles.add(title.lower())
-                seen_in_batch.add(title.lower())
-                injected += 1
-                print(f"  💉 Watchlist: {title[:65]}...")
-        print(f"\n  ✅ Layer 4 ({src}) — Injected {injected} watchlist stories")
-        return injected
-
-    # ── Fallback: Anthropic's built-in web_search tool ──
     for query in queries:
         if RUN_COST["spent"] >= SEARCH_BUDGET:
             print(f"  ⏹️  Search budget reached (${RUN_COST['spent']:.2f}); stopping watchlist.")
             break
         try:
             message = client.messages.create(
-                model=MODEL_ID,
+                model="claude-haiku-4-5-20251001",
                 max_tokens=400,
                 tools=[{"type": "web_search_20250305",
                         "name": "web_search", "max_uses": 1}],
@@ -605,7 +433,7 @@ Title: {title}
 Summary: {summary[:300]}"""
 
     message = client.messages.create(
-        model=MODEL_ID,
+        model="claude-haiku-4-5-20251001",
         max_tokens=100,
         messages=[{"role": "user", "content": prompt}]
     )
@@ -943,7 +771,7 @@ Title: {title}
 Content: {content[:3500]}"""
 
     message = client.messages.create(
-        model=MODEL_ID,
+        model="claude-haiku-4-5-20251001",
         max_tokens=2200,
         messages=[{"role": "user", "content": prompt}]
     )
@@ -982,7 +810,7 @@ Title: {title}
 Content: {content[:3500]}"""
 
     message = client.messages.create(
-        model=MODEL_ID,
+        model="claude-haiku-4-5-20251001",
         max_tokens=2000,
         messages=[{"role": "user", "content": prompt}]
     )
