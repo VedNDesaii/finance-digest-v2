@@ -13,11 +13,23 @@ from llm import make_client, MODEL_ID, USE_BEDROCK
 SUPABASE_URL  = os.getenv("SUPABASE_URL")
 SUPABASE_KEY  = os.getenv("SUPABASE_KEY")
 
-# Brave Search API — our own search source, so web search works on Bedrock too
-# (Anthropic's built-in web_search tool isn't available on Bedrock). Get a free
-# key at https://api.search.brave.com and put BRAVE_API_KEY in .env.
+# Our own search sources, so web search works on Bedrock too (Anthropic's
+# built-in web_search tool isn't available on Bedrock):
+#   • Brave Search API — set BRAVE_API_KEY in .env (needs a key).
+#   • DuckDuckGo — needs NO key and NO card; used automatically as a free
+#     fallback whenever no Brave key is set.
 BRAVE_API_KEY = (os.getenv("BRAVE_API_KEY") or "").strip()
-HAVE_SEARCH   = bool(BRAVE_API_KEY) or (not USE_BEDROCK)   # Brave, or Anthropic's own tool
+
+try:                              # the library was renamed ddgs -> keep both
+    from ddgs import DDGS
+except Exception:
+    try:
+        from duckduckgo_search import DDGS
+    except Exception:
+        DDGS = None
+
+HAVE_OWN_SEARCH = bool(BRAVE_API_KEY) or (DDGS is not None)   # card-free search
+HAVE_SEARCH     = HAVE_OWN_SEARCH or (not USE_BEDROCK)        # +Anthropic's own tool
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 client   = make_client()   # Bedrock if AWS keys present, else Anthropic API
@@ -194,6 +206,52 @@ def brave_search(query, count=3, freshness="pd"):
         return []
 
 
+def ddg_search(query, count=3):
+    """Query DuckDuckGo (no key, no card) and return the top results as
+    [{title, url, description}, ...]. Tries the news endpoint first (fresher),
+    falls back to text search. Returns [] on any error so a run never crashes."""
+    if DDGS is None:
+        return []
+    try:
+        out = []
+        with DDGS() as ddgs:
+            try:
+                results = ddgs.news(query, region="in-en", max_results=count) or []
+            except Exception:
+                results = []
+            for r in results[:count]:
+                title = (r.get("title") or "").strip()
+                if not title:
+                    continue
+                out.append({
+                    "title": title,
+                    "url": (r.get("url") or "").strip(),
+                    "description": (r.get("body") or "").strip(),
+                })
+            if not out:   # news gave nothing — fall back to a plain text search
+                results = ddgs.text(query, region="in-en", max_results=count) or []
+                for r in results[:count]:
+                    title = (r.get("title") or "").strip()
+                    if not title:
+                        continue
+                    out.append({
+                        "title": title,
+                        "url": (r.get("href") or "").strip(),
+                        "description": (r.get("body") or "").strip(),
+                    })
+        return out
+    except Exception as e:
+        print(f"  ⚠️  DuckDuckGo search failed for '{query}': {e}")
+        return []
+
+
+def search_web(query, count=3):
+    """Unified search: Brave if a key is set, otherwise free DuckDuckGo."""
+    if BRAVE_API_KEY:
+        return brave_search(query, count=count)
+    return ddg_search(query, count=count)
+
+
 def run_mandatory_searches(client):
     """Layer 2: Force-search critical topics daily regardless of RSS.
 
@@ -202,11 +260,12 @@ def run_mandatory_searches(client):
     If neither is available (Bedrock without a Brave key), the layer is skipped."""
     print("\n🔒 Layer 2 — Running mandatory daily searches...")
 
-    # ── Preferred path: our own Brave Search (free, works on Bedrock) ──
-    if BRAVE_API_KEY:
+    # ── Preferred path: our own search (Brave or free DuckDuckGo, works on Bedrock) ──
+    if HAVE_OWN_SEARCH:
+        src = "Brave" if BRAVE_API_KEY else "DuckDuckGo"
         headlines, seen = [], set()
         for query in DAILY_MANDATORY:
-            for r in brave_search(query, count=2):
+            for r in search_web(query, count=2):
                 key = r["title"].lower()
                 if key in seen:
                     continue
@@ -218,12 +277,12 @@ def run_mandatory_searches(client):
                     "link":    r["url"],
                 })
                 print(f"  🔒 Mandatory: {r['title'][:60]}...")
-        print(f"  ✅ Layer 2 (Brave) — Found {len(headlines)} stories")
+        print(f"  ✅ Layer 2 ({src}) — Found {len(headlines)} stories")
         return headlines
 
     # ── No search source on Bedrock — skip, rely on RSS + scraped sources ──
     if USE_BEDROCK:
-        print("  ⏭️  No BRAVE_API_KEY set and web search isn't built into Bedrock — skipping.")
+        print("  ⏭️  No search source available on Bedrock — skipping (install ddgs to enable free search).")
         return []
 
     # ── Fallback: Anthropic's built-in web_search tool ──
@@ -413,10 +472,11 @@ def run_dynamic_watchlist(client, supabase,
     }
     seen_in_batch = set()
 
-    # ── Preferred path: our own Brave Search (free, works on Bedrock) ──
-    if BRAVE_API_KEY:
+    # ── Preferred path: our own search (Brave or free DuckDuckGo, works on Bedrock) ──
+    if HAVE_OWN_SEARCH:
+        src = "Brave" if BRAVE_API_KEY else "DuckDuckGo"
         for query in queries:
-            for r in brave_search(query, count=1):
+            for r in search_web(query, count=1):
                 title   = r["title"].strip()
                 summary = r["description"].strip()
                 if not title or len(title) < 15:
@@ -438,7 +498,7 @@ def run_dynamic_watchlist(client, supabase,
                 seen_in_batch.add(title.lower())
                 injected += 1
                 print(f"  💉 Watchlist: {title[:65]}...")
-        print(f"\n  ✅ Layer 4 (Brave) — Injected {injected} watchlist stories")
+        print(f"\n  ✅ Layer 4 ({src}) — Injected {injected} watchlist stories")
         return injected
 
     # ── Fallback: Anthropic's built-in web_search tool ──

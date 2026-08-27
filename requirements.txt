@@ -12,3 +12,4 @@ pywebpush
 resend
 httpx
 boto3
+ddgs
