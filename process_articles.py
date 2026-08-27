@@ -13,6 +13,12 @@ from llm import make_client, MODEL_ID, USE_BEDROCK
 SUPABASE_URL  = os.getenv("SUPABASE_URL")
 SUPABASE_KEY  = os.getenv("SUPABASE_KEY")
 
+# Brave Search API — our own search source, so web search works on Bedrock too
+# (Anthropic's built-in web_search tool isn't available on Bedrock). Get a free
+# key at https://api.search.brave.com and put BRAVE_API_KEY in .env.
+BRAVE_API_KEY = (os.getenv("BRAVE_API_KEY") or "").strip()
+HAVE_SEARCH   = bool(BRAVE_API_KEY) or (not USE_BEDROCK)   # Brave, or Anthropic's own tool
+
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 client   = make_client()   # Bedrock if AWS keys present, else Anthropic API
 
@@ -146,14 +152,82 @@ def detect_optional_columns():
         print("⚠️ " * 12)
 
 
-def run_mandatory_searches(client):
-    """Layer 2: Force-search critical topics daily regardless of RSS."""
-    print("\n🔒 Layer 2 — Running mandatory daily searches...")
-    if USE_BEDROCK:
-        print("  ⏭️  Web search not available on Bedrock — skipping (relying on RSS + scraped sources).")
+def brave_search(query, count=3, freshness="pd"):
+    """Query the Brave Search API and return the top results as
+    [{title, url, description}, ...]. Returns [] on any error / no key so a
+    failed search never crashes the run. `freshness`: pd=past day, pw=past week."""
+    if not BRAVE_API_KEY:
         return []
-    headlines = []
+    try:
+        resp = httpx.get(
+            "https://api.search.brave.com/res/v1/web/search",
+            params={
+                "q": query,
+                "count": count,
+                "freshness": freshness,
+                "country": "IN",
+                "text_decorations": 0,
+                "spellcheck": 0,
+            },
+            headers={
+                "Accept": "application/json",
+                "Accept-Encoding": "gzip",
+                "X-Subscription-Token": BRAVE_API_KEY,
+            },
+            timeout=15.0,
+        )
+        resp.raise_for_status()
+        results = (resp.json().get("web", {}) or {}).get("results", []) or []
+        out = []
+        for r in results[:count]:
+            title = (r.get("title") or "").strip()
+            if not title:
+                continue
+            out.append({
+                "title": title,
+                "url": (r.get("url") or "").strip(),
+                "description": (r.get("description") or "").strip(),
+            })
+        return out
+    except Exception as e:
+        print(f"  ⚠️  Brave search failed for '{query}': {e}")
+        return []
 
+
+def run_mandatory_searches(client):
+    """Layer 2: Force-search critical topics daily regardless of RSS.
+
+    Uses Brave Search (BRAVE_API_KEY) when available — works on Bedrock too.
+    Falls back to Anthropic's built-in web_search tool on the Anthropic API.
+    If neither is available (Bedrock without a Brave key), the layer is skipped."""
+    print("\n🔒 Layer 2 — Running mandatory daily searches...")
+
+    # ── Preferred path: our own Brave Search (free, works on Bedrock) ──
+    if BRAVE_API_KEY:
+        headlines, seen = [], set()
+        for query in DAILY_MANDATORY:
+            for r in brave_search(query, count=2):
+                key = r["title"].lower()
+                if key in seen:
+                    continue
+                seen.add(key)
+                headlines.append({
+                    "title":   r["title"],
+                    "content": r["description"],
+                    "source":  "Mandatory Search",
+                    "link":    r["url"],
+                })
+                print(f"  🔒 Mandatory: {r['title'][:60]}...")
+        print(f"  ✅ Layer 2 (Brave) — Found {len(headlines)} stories")
+        return headlines
+
+    # ── No search source on Bedrock — skip, rely on RSS + scraped sources ──
+    if USE_BEDROCK:
+        print("  ⏭️  No BRAVE_API_KEY set and web search isn't built into Bedrock — skipping.")
+        return []
+
+    # ── Fallback: Anthropic's built-in web_search tool ──
+    headlines = []
     for query in DAILY_MANDATORY:
         if RUN_COST["spent"] >= SEARCH_BUDGET:
             print(f"  ⏹️  Search budget reached (${RUN_COST['spent']:.2f}); stopping mandatory searches.")
@@ -320,8 +394,10 @@ def run_dynamic_watchlist(client, supabase,
     """Layer 4: Search every topic on today's dynamic watchlist."""
     print("\n🧠 Layer 4 — Dynamic Watchlist")
     print("=" * 50)
-    if USE_BEDROCK:
-        print("  ⏭️  Web search not available on Bedrock — skipping watchlist.")
+    # Needs a search source. Brave works on Bedrock; else fall back to
+    # Anthropic's built-in tool; if neither is available, skip.
+    if not HAVE_SEARCH:
+        print("  ⏭️  No search source (set BRAVE_API_KEY to enable on Bedrock) — skipping watchlist.")
         return 0
 
     queries = generate_dynamic_watchlist(client)
@@ -337,6 +413,35 @@ def run_dynamic_watchlist(client, supabase,
     }
     seen_in_batch = set()
 
+    # ── Preferred path: our own Brave Search (free, works on Bedrock) ──
+    if BRAVE_API_KEY:
+        for query in queries:
+            for r in brave_search(query, count=1):
+                title   = r["title"].strip()
+                summary = r["description"].strip()
+                if not title or len(title) < 15:
+                    continue
+                if title.lower() in existing_raw_titles:
+                    continue
+                if title.lower() in seen_in_batch:
+                    continue
+                if is_duplicate_story_fn(title, existing_titles_data):
+                    continue
+                supabase.table("raw_articles").insert({
+                    "title":    title,
+                    "content":  summary if summary else title,
+                    "source":   "Dynamic Watchlist",
+                    "url":      r["url"],
+                    "category": "indian-markets",
+                }).execute()
+                existing_raw_titles.add(title.lower())
+                seen_in_batch.add(title.lower())
+                injected += 1
+                print(f"  💉 Watchlist: {title[:65]}...")
+        print(f"\n  ✅ Layer 4 (Brave) — Injected {injected} watchlist stories")
+        return injected
+
+    # ── Fallback: Anthropic's built-in web_search tool ──
     for query in queries:
         if RUN_COST["spent"] >= SEARCH_BUDGET:
             print(f"  ⏹️  Search budget reached (${RUN_COST['spent']:.2f}); stopping watchlist.")
