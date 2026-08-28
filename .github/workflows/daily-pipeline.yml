@@ -5,8 +5,7 @@ name: Daily pipeline
 # never hard-coded. You can also run it on demand from the Actions tab.
 on:
   schedule:
-    - cron: "30 2 * * *"    # 2:30 UTC = 8:00 AM IST (pre-market morning news)
-    - cron: "30 11 * * *"   # 11:30 UTC = 5:00 PM IST (after the Indian market close)
+    - cron: "0 3 * * *"     # 3:00 UTC = 8:30 AM IST (single daily morning run)
   workflow_dispatch: {}      # manual "Run workflow" button
 
 # allow the job to push the updated data files back to the repo
