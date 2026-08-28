@@ -1,5 +1,6 @@
 import anthropic
 import json
+import time
 import yfinance as yf
 from supabase import create_client
 from dotenv import load_dotenv
@@ -10,7 +11,10 @@ load_dotenv(override=True)
 
 SUPABASE_URL  = os.getenv("SUPABASE_URL")
 SUPABASE_KEY  = os.getenv("SUPABASE_KEY")
-ANTHROPIC_KEY = os.getenv("ANTHROPIC_API_KEY").strip().replace("\n", "").replace("\r", "")
+# Guard against a missing key so the run fails with a clear message, not a crash.
+ANTHROPIC_KEY = (os.getenv("ANTHROPIC_API_KEY") or "").strip().replace("\n", "").replace("\r", "")
+if not ANTHROPIC_KEY:
+    raise SystemExit("❌ ANTHROPIC_API_KEY is not set — cannot generate market summary.")
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 client   = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
@@ -28,42 +32,60 @@ Never use jargon without explaining it. Keep every field concise.
 Always return ONLY valid JSON — no markdown, no explanation, nothing else."""
 
 
+def _recent_closes(symbol: str, tries: int = 3):
+    """Return (prev_close, last_close) from the last two *valid* trading days.
+
+    yfinance is flaky (transient empties, and Yahoo often throttles CI/server
+    IPs) and a 2-day window can hand back a stale previous close that produces a
+    wildly wrong % (e.g. a phantom Bank Nifty -6.47%). Using a 7-day window +
+    dropna() takes clean adjacent trading days, and we retry a few times."""
+    last_err = None
+    for attempt in range(tries):
+        try:
+            hist = yf.Ticker(symbol).history(period="7d")
+            closes = hist["Close"].dropna() if hist is not None and not hist.empty else None
+            if closes is not None and len(closes) >= 2:
+                return float(closes.iloc[-2]), float(closes.iloc[-1])
+            if closes is not None and len(closes) == 1:
+                return None, float(closes.iloc[-1])
+        except Exception as e:
+            last_err = e
+        time.sleep(1.5)   # brief backoff before retrying
+    if last_err:
+        print(f"  ⚠️  fetch failed for {symbol}: {last_err}")
+    return None, None
+
+
 def fetch_prices(tickers: dict) -> dict:
-    """Fetch latest price + day change for a dict of {name: symbol}."""
+    """Fetch latest price + day change for {name: symbol}. Robust to yfinance flakiness."""
     results = {}
     for name, symbol in tickers.items():
-        try:
-            hist = yf.Ticker(symbol).history(period="2d")
-            if len(hist) >= 2:
-                prev, curr = hist["Close"].iloc[-2], hist["Close"].iloc[-1]
-                change = curr - prev
-                pct    = (change / prev) * 100
-                results[name] = {
-                    "value":  f"{curr:,.0f}",
-                    "change": f"{'▲' if change >= 0 else '▼'} {abs(change):,.0f}",
-                    "pct":    f"{'+'if change >= 0 else ''}{pct:.2f}%",
-                    "up":     bool(change >= 0),   # native bool (numpy bool_ isn't JSON-serializable)
-                }
-            elif len(hist) == 1:
-                curr = hist["Close"].iloc[-1]
-                results[name] = {"value": f"{curr:,.0f}", "change": "▲ 0", "pct": "0.00%", "up": True}
-        except Exception as e:
-            print(f"  ⚠️  Could not fetch {name} ({symbol}): {e}")
+        prev, curr = _recent_closes(symbol)
+        if curr is None:
+            print(f"  ⚠️  no data for {name} ({symbol}) — marking N/A")
             results[name] = {"value": "N/A", "change": "N/A", "pct": "N/A", "up": True}
+            continue
+        if prev is None:   # only one valid day (e.g. holiday) — no change to show
+            results[name] = {"value": f"{curr:,.0f}", "change": "▲ 0", "pct": "0.00%", "up": True}
+            continue
+        change = curr - prev
+        pct    = (change / prev) * 100
+        results[name] = {
+            "value":  f"{curr:,.0f}",
+            "change": f"{'▲' if change >= 0 else '▼'} {abs(change):,.0f}",
+            "pct":    f"{'+' if change >= 0 else ''}{pct:.2f}%",
+            "up":     bool(change >= 0),   # native bool (numpy bool_ isn't JSON-serializable)
+        }
     return results
 
 
 def fetch_sector_moves(tickers: dict) -> list:
-    """Real sector index moves (percent), sorted best→worst. No AI guessing."""
+    """Real sector index moves (percent), sorted best→worst. Robust to yfinance flakiness."""
     out = []
     for name, symbol in tickers.items():
-        try:
-            hist = yf.Ticker(symbol).history(period="2d")
-            if len(hist) >= 2:
-                prev, curr = hist["Close"].iloc[-2], hist["Close"].iloc[-1]
-                out.append({"name": name, "pct": round(float((curr - prev) / prev * 100), 1)})
-        except Exception as e:
-            print(f"  ⚠️  sector {name} ({symbol}) failed: {e}")
+        prev, curr = _recent_closes(symbol)
+        if prev is not None and curr is not None:
+            out.append({"name": name, "pct": round((curr - prev) / prev * 100, 1)})
     out.sort(key=lambda s: s["pct"], reverse=True)
     return out
 
@@ -248,14 +270,35 @@ def save_summary(market: str, data: dict):
         print(f"  ⚠️  DB save skipped ({table}): {e}")
 
 
+def _load_existing_market_data() -> dict:
+    try:
+        with open("public/market-data.json") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
 def save_to_json(indian: dict, us: dict):
-    """Write the FULL summaries (incl. verdict/brief/narrative) straight to JSON."""
-    now = datetime.utcnow().isoformat()
-    indian = {**indian, "updated_at": now}
-    us     = {**us,     "updated_at": now}
+    """Write the FULL summaries to JSON. If a side is empty because its
+    generation failed (e.g. a yfinance timeout), KEEP the previous good data for
+    that side instead of blanking the site's market summary."""
+    now  = datetime.utcnow().isoformat()
+    prev = _load_existing_market_data()
+
+    def _pick(new: dict, key: str) -> dict:
+        # a valid side must carry real content (indices or verdict); else reuse yesterday's
+        if new and (new.get("indices") or new.get("verdict")):
+            return {**new, "updated_at": now}
+        old = prev.get(key)
+        if old:
+            print(f"  ⚠️  {key} summary unavailable — keeping previous data ({old.get('updated_at', '?')})")
+            return old
+        return {**(new or {}), "updated_at": now}
+
+    payload = {"indian": _pick(indian, "indian"), "us": _pick(us, "us")}
     os.makedirs("public", exist_ok=True)
     with open("public/market-data.json", "w") as f:
-        json.dump({"indian": indian, "us": us}, f)
+        json.dump(payload, f)
     print("  ✅ Saved to public/market-data.json")
 
 
