@@ -1264,11 +1264,14 @@ export default function Home() {
 
     try {
       if (section === 'headlines') {
-        const { data, error } = await supabase
-          .from('processed_articles')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(300)
+        const { data, error } = await Promise.race([
+          supabase
+            .from('processed_articles')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(300),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('Request timed out — check your connection and retry.')), 15000)),
+        ])
 
         if (error) throw error
 
@@ -1323,9 +1326,10 @@ export default function Home() {
         q = isCombinedIB
           ? q.in('category', ['investment-banking', 'banking-finance'])
           : q.eq('category', section)
-        const { data, error } = await q
-          .order('created_at', { ascending: false })
-          .limit(isCombinedIB ? 24 : 12)
+        const { data, error } = await Promise.race([
+          q.order('created_at', { ascending: false }).limit(isCombinedIB ? 24 : 12),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('Request timed out — check your connection and retry.')), 15000)),
+        ])
 
         if (error) throw error
         setArticles(data || [])
@@ -1624,8 +1628,12 @@ export default function Home() {
             </div>
 
             {fetchError && (
-              <div style={{ background: dark ? '#2D1B00' : '#FFF3CD', border: `1px solid ${dark ? '#7C4A00' : '#FFC107'}`, borderRadius: '12px', padding: '14px 18px', marginBottom: '24px', fontSize: '13px', color: dark ? '#FFC107' : '#856404' }}>
-                <strong>Error:</strong> {fetchError}
+              <div style={{ background: dark ? '#2D1B00' : '#FFF3CD', border: `1px solid ${dark ? '#7C4A00' : '#FFC107'}`, borderRadius: '12px', padding: '14px 18px', marginBottom: '24px', fontSize: '13px', color: dark ? '#FFC107' : '#856404', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                <span><strong>Couldn't load:</strong> {fetchError}</span>
+                <button onClick={() => window.location.reload()}
+                  style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  Retry
+                </button>
               </div>
             )}
 

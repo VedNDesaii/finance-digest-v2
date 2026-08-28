@@ -14,6 +14,15 @@ function safeSet(key, val) {
   catch { /* storage blocked — ignore */ }
 }
 
+// Reject after `ms` so a hung auth request can't leave the button stuck on
+// "Signing in…" forever (happens on flaky networks / standalone PWAs).
+function withTimeout(promise, ms = 15000) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
+  ])
+}
+
 export default function WelcomeModal({ dark, user, authLoading }) {
   const [show, setShow] = useState(false)
   const [isStandalone, setIsStandalone] = useState(false)
@@ -58,12 +67,17 @@ export default function WelcomeModal({ dark, user, authLoading }) {
     if (password !== confirm) { setError('Passwords do not match'); return }
     if (password.length < 6) { setError('Password must be at least 6 characters'); return }
     setLoading(true)
-    const { error } = await supabase.auth.signUp({ email, password })
-    if (error) { setError(error.message); setLoading(false) }
-    else {
-      setSuccess(true)
-      safeSet(STORAGE_KEY, 'true')
-      setTimeout(() => setShow(false), 1800)
+    try {
+      const { error } = await withTimeout(supabase.auth.signUp({ email, password }))
+      if (error) { setError(error.message); setLoading(false) }
+      else {
+        setSuccess(true)
+        safeSet(STORAGE_KEY, 'true')
+        setTimeout(() => setShow(false), 1800)
+      }
+    } catch {
+      setError('Request timed out — check your internet connection and try again.')
+      setLoading(false)
     }
   }
 
@@ -71,9 +85,14 @@ export default function WelcomeModal({ dark, user, authLoading }) {
     e.preventDefault()
     setError('')
     setLoading(true)
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) { setError(error.message); setLoading(false) }
-    else { safeSet(STORAGE_KEY, 'true'); setShow(false) }
+    try {
+      const { error } = await withTimeout(supabase.auth.signInWithPassword({ email, password }))
+      if (error) { setError(error.message); setLoading(false) }
+      else { safeSet(STORAGE_KEY, 'true'); setShow(false) }
+    } catch {
+      setError('Sign in timed out — check your internet connection and try again.')
+      setLoading(false)
+    }
   }
 
   async function handleForgotPassword(e) {

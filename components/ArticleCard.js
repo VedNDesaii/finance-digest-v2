@@ -53,9 +53,14 @@ export default function ArticleCard({ article, dark }) {
       {/* Image */}
       <div style={{ position: 'relative', flex: 'none', height: '168px', overflow: 'hidden', background: 'var(--bg-gist)' }}>
         {article.image_url ? (
-          <img loading="lazy" referrerPolicy="no-referrer" src={article.image_url} alt={article.title}
+          <img loading="lazy" referrerPolicy="no-referrer" alt={article.title}
+            src={`https://wsrv.nl/?url=ssl:${article.image_url.replace(/^https?:\/\//, '')}&w=800&output=webp&q=80`}
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-            onError={e => { e.target.style.display = 'none' }} />
+            onError={e => {
+              // if the CDN proxy fails, try the origin once, then give up
+              if (!e.target.dataset.fellBack) { e.target.dataset.fellBack = '1'; e.target.src = article.image_url }
+              else { e.target.style.display = 'none' }
+            }} />
         ) : (
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-faint)', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '30px', letterSpacing: '-0.02em' }}>
             {catLabel}

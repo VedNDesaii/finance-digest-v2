@@ -15,13 +15,20 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-
-    if (error) {
-      setError(error.message)
+    try {
+      const { error } = await Promise.race([
+        supabase.auth.signInWithPassword({ email, password }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 15000)),
+      ])
+      if (error) {
+        setError(error.message)
+        setLoading(false)
+      } else {
+        router.push('/')
+      }
+    } catch {
+      setError('Sign in timed out — check your internet connection and try again.')
       setLoading(false)
-    } else {
-      router.push('/')
     }
   }
 
