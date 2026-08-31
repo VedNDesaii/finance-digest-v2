@@ -53,7 +53,7 @@ export default function ArticleCard({ article, dark }) {
       {/* Image */}
       <div style={{ position: 'relative', flex: 'none', height: '168px', overflow: 'hidden', background: 'var(--bg-gist)' }}>
         {article.image_url ? (
-          <img loading="lazy" referrerPolicy="no-referrer" alt={article.title}
+          <img loading="eager" referrerPolicy="no-referrer" alt={article.title}
             src={`https://wsrv.nl/?url=ssl:${article.image_url.replace(/^https?:\/\//, '')}&w=800&output=webp&q=80`}
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
             onError={e => {
