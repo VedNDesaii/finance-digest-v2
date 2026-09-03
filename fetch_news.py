@@ -117,7 +117,7 @@ RSS_FEEDS = [
     {"url": "https://www.thehindubusinessline.com/economy/agri-business/green/?service=rss",      "category": "renewables"},
     {"url": "https://www.livemint.com/rss/industry",                                              "category": "renewables"},
     # ── Real Estate ──
-    {"url": "https://economictimes.indiatimes.com/wealth/rssfeeds/837555174.cms",                 "category": "real-estate"},
+    {"url": "https://economictimes.indiatimes.com/wealth/rssfeeds/837555174.cms",                 "category": "banking-finance"},
     {"url": "https://www.moneycontrol.com/rss/realestate.xml",                                    "category": "real-estate"},
     {"url": "https://www.livemint.com/rss/real-estate",                                           "category": "real-estate"},
     {"url": "https://www.thehindubusinessline.com/real-estate/?service=rss",                      "category": "real-estate"},

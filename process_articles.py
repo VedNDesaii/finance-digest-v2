@@ -712,7 +712,11 @@ def is_valid_output(processed_data):
 def process_strict(title, content, feed_category):
     category_hint = f"""
 The RSS feed that supplied this article was tagged as: "{feed_category}".
-Use this as a STRONG starting hint. Only override if article clearly belongs elsewhere.
+Treat this ONLY as a weak hint — decide the category from the article's ACTUAL
+content and ignore the hint whenever they disagree. Feeds are broad and often
+wrong: a "wealth"/personal-finance feed carries deposits, FDs, insurance, tax and
+NRI stories, which are "banking-finance" or "macro-policy", NEVER "real-estate";
+a generic "industry" feed mixes autos, FMCG, telecom, metals and energy together.
 
 Category keyword reference:
 {chr(10).join(f'  • {k}: {v}' for k, v in CATEGORY_KEYWORDS.items())}
@@ -785,12 +789,16 @@ Content: {content[:3500]}"""
     return None if parsed.get("verdict") == "reject" else parsed
 
 
-def process_relaxed(title, content, target_category):
-    prompt = f"""You are filling a news section that needs more articles. Category is FIXED: "{target_category}".
-
-ONLY reject if completely unrelated to finance or business.
+def process_relaxed(title, content, hint_category):
+    prompt = f"""You are filling out news sections that are short on articles, so accept generously — ONLY reject if completely unrelated to finance or business (celebrity gossip, sports money, ads, property listings, lifestyle).
 ACCEPT quarterly results, company updates, sector news, price moves, analyst reports, industry data, contract wins, expansions, fund flows, IPOs, block deals, PE investments.
-Category is FIXED as "{target_category}" — do not change it.
+
+CATEGORY — classify by the article's ACTUAL content; never force a category to fill a quota. This feed was loosely tagged "{hint_category}", but ignore that if the content says otherwise. Pick EXACTLY ONE:
+  "indian-markets" | "us-markets" | "global-economy" | "technology-it" |
+  "pharma-health"  | "auto-ev"    | "energy-oil"      | "metals-mining" |
+  "infrastructure" | "fmcg-consumer" | "renewables"   | "real-estate"   |
+  "telecom-media"  | "banking-finance" | "macro-policy"
+Rules: "banking-finance" = bank/NBFC news, deposit & lending rates, insurance, AND investment-banking deals (IPO/QIP/block deal/OFS/PE/VC/M&A). "real-estate" = ONLY property, housing, REITs, home loans — never personal-finance or deposits. "renewables" = ONLY solar/wind/green-hydrogen/clean energy — EV and car news is "auto-ev". "fmcg-consumer" = consumer goods (HUL, ITC, Nestle) — pharma is "pharma-health".
 
 WRITE:
 PART 1: 1 sentence, max 25 words. WHO+WHAT+number+impact.
@@ -804,7 +812,7 @@ CARD METADATA: sentiment ("bullish"|"bearish"|"neutral"), difficulty ("Easy"|"Me
 
 Return ONLY valid JSON:
 REJECT: {{"verdict":"reject"}}
-ACCEPT: {{"verdict":"accept","category":"{target_category}","is_headline":false,"simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}],"detailed_article":"**What happened.** ...\\n\\n**Why it happened.** ...\\n\\n**The outlook.** ...","market_impact":"PARA1\\n\\nPARA2","what_this_means":"...","sentiment":"bullish|bearish|neutral","difficulty":"Easy|Medium|Hard","stat":"","stat_label":""}}
+ACCEPT: {{"verdict":"accept","category":"<one of the categories listed above>","is_headline":false,"simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}],"detailed_article":"**What happened.** ...\\n\\n**Why it happened.** ...\\n\\n**The outlook.** ...","market_impact":"PARA1\\n\\nPARA2","what_this_means":"...","sentiment":"bullish|bearish|neutral","difficulty":"Easy|Medium|Hard","stat":"","stat_label":""}}
 
 Title: {title}
 Content: {content[:3500]}"""
@@ -1015,6 +1023,13 @@ def run():
                     continue
 
                 category  = processed.get("category", feed_cat)
+                # Pass 2 fills genuine gaps only. Keep the article solely if its
+                # TRUE category (decided by the model above) is still under its
+                # minimum — this is what stops unrelated stories being force-stamped
+                # into small buckets (e.g. a wealth-feed deposits story labelled
+                # "real-estate" just to hit that section's floor).
+                if category not in under_filled:
+                    continue
                 cat_limit = CATEGORY_LIMITS.get(category, 5)
 
                 if category_counts.get(category, 0) >= cat_limit:
