@@ -26,8 +26,8 @@ function cardBlurb(text, maxWords = 34) {
 // sentiment → colour token + label
 function sentiment(article) {
   const s = (article.sentiment || '').toLowerCase()
-  if (s === 'bullish') return { color: 'var(--up)',   label: 'Bullish'  }
-  if (s === 'bearish') return { color: 'var(--down)', label: 'Bearish'  }
+  if (s === 'bullish') return { color: 'var(--up)',   label: 'Positive' }
+  if (s === 'bearish') return { color: 'var(--down)', label: 'Negative' }
   return { color: 'var(--text-muted)', label: 'Neutral' }
 }
 
