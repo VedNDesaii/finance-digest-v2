@@ -1,0 +1,683 @@
+<!-- FinanceDigest — Redesign Prototype -->
+<title>FinanceDigest Redesign</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap">
+<style>
+:root{
+  --bg:#0A0A0B; --frame:#0A0A0B; --surface:#151517; --surface-2:#1C1C1F; --surface-3:#242428;
+  --ink:#F3F1EC; --ink-2:#A7A29A; --ink-3:#6C6862;
+  --accent:#FF4B2B; --accent-2:#FF6B4E; --accent-dim:#3A1710;
+  --rule:#26262B; --rule-2:#33333A;
+  --bull:#35C46B; --bull-dim:#12271A; --bear:#FF556E; --bear-dim:#2B1319; --watch:#F5A623; --watch-dim:#2A2010; --neutral:#8A8F98;
+}
+:root[data-theme="light"]{
+  --bg:#EDEBE6; --frame:#DED9D0; --surface:#FFFFFF; --surface-2:#F6F4EF; --surface-3:#ECE9E2;
+  --ink:#141210; --ink-2:#575049; --ink-3:#928A80;
+  --accent:#E8431F; --accent-2:#C9391A; --accent-dim:#FBE3DB;
+  --rule:#E5E1D9; --rule-2:#D6D1C7;
+  --bull:#1E9E56; --bull-dim:#E1F1E7; --bear:#D63859; --bear-dim:#F8E3E7; --watch:#B8791A; --watch-dim:#F6ECD8; --neutral:#8A857C;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{
+  background:
+    radial-gradient(1200px 600px at 50% -10%, color-mix(in srgb,var(--accent) 9%, transparent), transparent 60%),
+    var(--bg);
+  color:var(--ink); font-family:"IBM Plex Sans",system-ui,sans-serif;
+  display:flex; align-items:center; justify-content:center; padding:0;
+  -webkit-font-smoothing:antialiased;
+}
+@media(min-width:520px){ body{padding:26px} }
+
+/* device */
+.app{
+  position:relative; width:min(440px,100%); height:100dvh; background:var(--bg);
+  display:flex; flex-direction:column; overflow:hidden;
+}
+@media(min-width:520px){
+  .app{ height:min(896px,92vh); border-radius:38px; border:1px solid var(--rule-2);
+    box-shadow:0 40px 100px rgba(0,0,0,.5), 0 0 0 10px color-mix(in srgb,var(--frame) 90%, #000); }
+}
+
+/* header */
+header.top{ padding:14px 18px 12px; display:flex; align-items:center; gap:10px; border-bottom:1px solid var(--rule); background:color-mix(in srgb,var(--bg) 88%, transparent); backdrop-filter:blur(8px); z-index:5}
+.brand{font-family:"Archivo",sans-serif; font-weight:900; font-size:19px; letter-spacing:-.02em}
+.brand b{color:var(--accent)}
+.brand .ed{display:block; font-family:"IBM Plex Mono",monospace; font-weight:500; font-size:9.5px; letter-spacing:.13em; text-transform:uppercase; color:var(--ink-3); margin-top:1px}
+.top .sp{flex:1}
+.icobtn{width:34px;height:34px;border-radius:10px;border:1px solid var(--rule-2);background:var(--surface);color:var(--ink-2);display:grid;place-items:center;cursor:pointer;font-size:15px}
+.icobtn:active{transform:scale(.94)}
+.sharebtn{display:inline-flex;align-items:center;gap:7px;margin-top:14px;background:var(--surface-2);color:var(--ink);border:1px solid var(--rule-2);border-radius:10px;padding:9px 14px;font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:11px;letter-spacing:.05em;text-transform:uppercase;cursor:pointer}
+.sharebtn:active{transform:scale(.97)}
+.expandbtn{width:100%;background:var(--accent);color:#fff;border:none;font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:12px;letter-spacing:.04em;text-transform:uppercase;padding:14px;border-radius:12px;margin:6px 0 10px;cursor:pointer}
+.expandbtn:active{transform:scale(.99)}
+.toast{position:absolute;left:50%;bottom:80px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;padding:10px 16px;border-radius:10px;opacity:0;pointer-events:none;transition:.25s;z-index:40;max-width:80%;text-align:center}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+.asof{padding:6px 15px;font-family:"IBM Plex Mono",monospace;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);background:var(--surface);border-bottom:1px solid var(--rule)}
+.term{border:1px solid var(--rule-2);border-radius:14px;padding:13px 15px;background:var(--surface)}
+.term .k{font-family:"IBM Plex Mono",monospace;font-size:9.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.term .w{font-family:"Archivo",sans-serif;font-weight:800;font-size:16px;margin:5px 0 3px}
+.term p{margin:0;font-size:13px;color:var(--ink-2);line-height:1.5}
+.grp-lbl{font-family:"IBM Plex Mono",monospace;font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);margin:18px 2px 2px;padding-bottom:7px;border-bottom:1px solid var(--rule)}
+.predict{border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:16px;padding:16px;background:linear-gradient(180deg,var(--surface),var(--bg))}
+.predict .ph{display:flex;align-items:center;gap:9px}
+.predict .ph .em{font-size:22px}
+.predict .ph .t{font-family:"Archivo",sans-serif;font-weight:700;font-size:15px}
+.predict .q{font-size:14px;color:var(--ink-2);margin:10px 0 12px}
+.predict .q b{color:var(--ink)}
+.predict .btns{display:flex;gap:9px}
+.predict .btns button{flex:1;border:1px solid var(--rule-2);background:var(--surface-2);color:var(--ink);font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:12px;letter-spacing:.04em;text-transform:uppercase;padding:11px;border-radius:10px;cursor:pointer}
+.predict .btns button:active{transform:scale(.98)}
+.predict .done{font-size:13px;color:var(--bull);font-weight:600}
+.predict .dis{font-family:"IBM Plex Mono",monospace;font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3);margin-top:10px}
+.gloss{background:var(--surface-2);border-radius:14px;padding:14px 16px;margin-bottom:18px}
+.gloss .gl{padding:8px 0;border-top:1px solid var(--rule)}
+.gloss .gl:first-of-type{border-top:0}
+.gloss .gl b{color:var(--accent);font-size:13.5px}
+.gloss .gl span{display:block;font-size:13px;color:var(--ink-2);margin-top:2px}
+.vsrc{margin-top:11px;font-family:"IBM Plex Mono",monospace;font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3)}
+.sources{border:1px solid var(--rule);background:var(--surface);border-radius:14px;padding:13px 15px}
+.sources .cnt{font-family:"Archivo",sans-serif;font-weight:800;font-size:15px}
+.sources .cnt b{color:var(--accent)}
+.sources .list{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.sources .s{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--ink-2);border:1px solid var(--rule-2);border-radius:6px;padding:2px 7px}
+.sources .note{margin-top:10px;font-size:12.5px;color:var(--ink-2)}
+.sources .note b{color:var(--bull);font-weight:600}
+.caught{border:1px solid color-mix(in srgb,var(--bull) 40%,transparent);background:var(--bull-dim);border-radius:16px;padding:20px 16px;text-align:center}
+.caught .ic{font-size:30px}
+.caught h3{font-family:"Archivo",sans-serif;font-weight:800;font-size:18px;margin:9px 0 5px;letter-spacing:-.01em}
+.caught p{margin:0 auto;font-size:13px;color:var(--ink-2);max-width:34ch}
+.caught .ed{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin-top:12px}
+
+/* ticker */
+.ticker{display:flex; gap:0; overflow-x:auto; border-bottom:1px solid var(--rule); scrollbar-width:none; background:var(--surface)}
+.ticker::-webkit-scrollbar{display:none}
+.tk{flex:0 0 auto; padding:9px 15px; border-right:1px solid var(--rule); min-width:96px}
+.tk .n{font-family:"IBM Plex Mono",monospace; font-size:9.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3)}
+.tk .v{font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:14px; margin-top:2px}
+.tk .c{font-family:"IBM Plex Mono",monospace; font-size:11px; margin-top:1px}
+.up{color:var(--bull)} .dn{color:var(--bear)}
+
+/* scroll body */
+.scroll{flex:1; overflow-y:auto; overflow-x:hidden; scroll-behavior:smooth; padding-bottom:88px}
+.scroll::-webkit-scrollbar{width:0}
+.view{display:none; padding:16px 16px 8px} .view.on{display:block; animation:fade .35s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+.eyebrow{font-family:"IBM Plex Mono",monospace; font-size:10.5px; font-weight:600; letter-spacing:.13em; text-transform:uppercase; color:var(--accent); display:flex; align-items:center; gap:8px; margin:22px 2px 12px}
+.eyebrow:first-child{margin-top:4px}
+.eyebrow .ln{height:1px;flex:1;background:var(--rule)}
+
+/* verdict hero */
+.verdict{border:1px solid var(--rule); background:linear-gradient(180deg,var(--surface),var(--bg)); border-radius:18px; padding:18px; position:relative; overflow:hidden}
+.verdict:before{content:"";position:absolute;inset:0;background:radial-gradient(300px 120px at 88% 0%, color-mix(in srgb,var(--accent) 14%,transparent),transparent 70%)}
+.verdict>*{position:relative}
+.vtag{display:inline-flex; align-items:center; gap:7px; font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:11px; letter-spacing:.08em; text-transform:uppercase; padding:5px 11px; border-radius:20px; border:1px solid}
+.vtag.mixed{color:var(--watch); border-color:color-mix(in srgb,var(--watch) 40%,transparent); background:var(--watch-dim)}
+.verdict h2{font-family:"Archivo",sans-serif; font-weight:800; font-size:23px; line-height:1.15; letter-spacing:-.02em; margin:14px 0 8px}
+.verdict p{margin:0; color:var(--ink-2); font-size:14px; line-height:1.55}
+.verdict .watch{margin-top:14px; padding-top:13px; border-top:1px dashed var(--rule-2); font-size:13.5px; color:var(--ink-2)}
+.verdict .watch b{color:var(--ink); font-weight:600}
+.verdict .watch .w{font-family:"IBM Plex Mono",monospace; color:var(--accent); font-size:11px; letter-spacing:.06em; text-transform:uppercase; margin-right:6px}
+
+/* five things / story rows */
+.story{display:flex; gap:12px; padding:14px 4px; border-bottom:1px solid var(--rule); cursor:pointer; align-items:flex-start}
+.story:active{background:var(--surface)}
+.story .idx{font-family:"IBM Plex Mono",monospace; font-size:12px; font-weight:600; color:var(--accent); padding-top:2px; min-width:16px}
+.story .body{flex:1; min-width:0}
+.chips{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:7px}
+.chip{font-family:"IBM Plex Mono",monospace; font-size:9.5px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; padding:2px 7px; border-radius:6px; border:1px solid var(--rule-2); color:var(--ink-3)}
+.chip.sec{color:var(--ink-2)}
+.chip.bull{color:var(--bull); border-color:color-mix(in srgb,var(--bull) 35%,transparent); background:var(--bull-dim)}
+.chip.bear{color:var(--bear); border-color:color-mix(in srgb,var(--bear) 35%,transparent); background:var(--bear-dim)}
+.chip.watch{color:var(--watch); border-color:color-mix(in srgb,var(--watch) 35%,transparent); background:var(--watch-dim)}
+.chip.neutral{color:var(--neutral)}
+.story h3{font-family:"Archivo",sans-serif; font-weight:700; font-size:16px; line-height:1.24; letter-spacing:-.01em; margin:0}
+.story .why{margin:6px 0 0; font-size:13.5px; line-height:1.5; color:var(--ink-2)}
+.story .why b{color:var(--accent); font-family:"IBM Plex Mono",monospace; font-size:10px; letter-spacing:.06em; text-transform:uppercase; font-weight:600; margin-right:5px}
+.story .meta{margin-top:8px; font-family:"IBM Plex Mono",monospace; font-size:10px; letter-spacing:.03em; color:var(--ink-3); display:flex; gap:9px; align-items:center}
+.story .thumb{width:70px;height:70px;border-radius:12px;flex:0 0 auto;background:var(--surface-2);display:grid;place-items:center;font-size:24px;overflow:hidden}
+
+/* changed / calendar */
+.card{border:1px solid var(--rule); background:var(--surface); border-radius:16px; padding:6px 15px; margin-bottom:4px}
+.chg{display:flex; gap:11px; padding:11px 0; border-bottom:1px solid var(--rule)}
+.chg:last-child{border-bottom:0}
+.chg .d{width:8px;height:8px;border-radius:50%;margin-top:6px;flex:0 0 auto}
+.chg .d.up{background:var(--bull)} .chg .d.new{background:var(--accent)} .chg .d.rev{background:var(--watch)}
+.chg .t{font-size:13.5px; line-height:1.45}
+.chg .t b{color:var(--ink); font-weight:600}
+.chg .t span{color:var(--ink-2)}
+.cal{display:flex; gap:12px; padding:11px 0; border-bottom:1px solid var(--rule); align-items:center}
+.cal:last-child{border-bottom:0}
+.cal .when{font-family:"IBM Plex Mono",monospace; font-size:10px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--accent); width:74px; flex:0 0 auto}
+.cal .ev{font-size:13.5px; color:var(--ink-2)} .cal .ev b{color:var(--ink); font-weight:600}
+
+.disc{font-family:"IBM Plex Mono",monospace; font-size:10px; line-height:1.6; color:var(--ink-3); text-align:center; padding:18px 10px 6px; letter-spacing:.02em}
+
+/* markets view */
+.mbig{text-align:center; padding:8px 0 4px}
+.mbig .tag{font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--watch)}
+.mbig .h{font-family:"Archivo",sans-serif;font-weight:800;font-size:20px;letter-spacing:-.01em;margin:8px 0 6px;line-height:1.2}
+.mrow{display:flex; justify-content:space-between; align-items:baseline; padding:13px 0; border-bottom:1px solid var(--rule)}
+.mrow .nm{font-weight:600;font-size:14.5px} .mrow .nm small{display:block;color:var(--ink-3);font-family:"IBM Plex Mono",monospace;font-size:10px;font-weight:400;margin-top:2px;text-transform:uppercase;letter-spacing:.04em}
+.mrow .px{text-align:right;font-family:"IBM Plex Mono",monospace}
+.mrow .px .p{font-weight:600;font-size:15px} .mrow .px .c{font-size:11.5px;margin-top:2px}
+.sect{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--rule)}
+.sect .nm{width:78px;font-size:13px;font-weight:600;flex:0 0 auto}
+.sect .track{flex:1;height:8px;border-radius:5px;background:var(--surface-2);position:relative;overflow:hidden}
+.sect .track i{position:absolute;top:0;bottom:0;border-radius:5px}
+.sect .pct{width:52px;text-align:right;font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600}
+
+/* sector list cards */
+.sectorcard{border:1px solid var(--rule);background:var(--surface);border-radius:14px;padding:14px 15px;margin-bottom:10px;cursor:pointer;display:flex;align-items:center;gap:12px}
+.sectorcard:active{border-color:var(--accent)}
+.sectorcard .em{font-size:22px}
+.sectorcard .nm{font-family:"Archivo",sans-serif;font-weight:700;font-size:15px}
+.sectorcard .sub{font-size:12px;color:var(--ink-2);margin-top:2px}
+.sectorcard .ct{margin-left:auto;font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-3)}
+
+/* bottom nav */
+nav.tabs{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-around;padding:8px 6px calc(8px + env(safe-area-inset-bottom));background:color-mix(in srgb,var(--bg) 82%, transparent);backdrop-filter:blur(14px);border-top:1px solid var(--rule);z-index:6}
+.tab{flex:1;background:none;border:none;color:var(--ink-3);display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;cursor:pointer;font-family:"IBM Plex Mono",monospace;font-size:9.5px;letter-spacing:.04em;text-transform:uppercase}
+.tab svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.7}
+.tab.on{color:var(--accent)}
+.tab.on .lbl{color:var(--accent)}
+
+/* reader */
+.reader{position:absolute;inset:0;background:var(--bg);z-index:20;transform:translateY(100%);transition:transform .34s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column}
+.reader.on{transform:none}
+.reader .rhead{padding:12px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--rule)}
+.reader .rhead .back{width:34px;height:34px;border-radius:10px;border:1px solid var(--rule-2);background:var(--surface);color:var(--ink);display:grid;place-items:center;cursor:pointer;font-size:17px}
+.reader .rhead .rt{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.rbody{flex:1;overflow-y:auto;padding:18px 18px 40px}
+.rbody .chips{margin-bottom:12px}
+.rbody h1{font-family:"Archivo",sans-serif;font-weight:800;font-size:24px;line-height:1.18;letter-spacing:-.02em;margin:0 0 10px}
+.rbody .rsub{font-size:15px;color:var(--ink-2);line-height:1.55;margin:0 0 14px;padding-left:12px;border-left:3px solid var(--accent)}
+.rbody .rsub b{color:var(--accent);font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:3px}
+.rbody .rmeta{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.03em;color:var(--ink-3);display:flex;flex-wrap:wrap;gap:6px 12px;padding:12px 0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);margin-bottom:18px}
+.stat{border:1px solid var(--rule);background:var(--surface);border-radius:14px;padding:14px 16px;margin:0 0 18px;display:flex;align-items:baseline;gap:12px}
+.stat .num{font-family:"Archivo",sans-serif;font-weight:900;font-size:30px;color:var(--accent);letter-spacing:-.02em}
+.stat .lb{font-family:"IBM Plex Mono",monospace;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-2)}
+.blk{margin-bottom:18px}
+.blk .bh{font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.blk .impact{font-family:"IBM Plex Mono",monospace;font-size:9.5px;padding:2px 7px;border-radius:6px}
+.blk p{margin:0;font-size:15px;line-height:1.62;color:var(--ink)}
+.blk.dim p{color:var(--ink-2)}
+.simple{background:var(--surface-2);border-radius:14px;padding:14px 16px;margin-bottom:18px}
+.simple .bh{color:var(--watch)}
+.related{border-top:1px solid var(--rule);padding-top:14px}
+.rel{padding:11px 0;border-bottom:1px solid var(--rule);font-size:13.5px;cursor:pointer}
+.rel:last-child{border-bottom:0}
+.rel .rc{font-family:"IBM Plex Mono",monospace;font-size:9.5px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em}
+/* sector page */
+.shero{display:flex;align-items:center;gap:13px;margin-bottom:14px}
+.shero .em{font-size:36px;line-height:1}
+.shero h1{font-family:"Archivo",sans-serif;font-weight:800;font-size:22px;margin:0;letter-spacing:-.02em}
+.shero .idx{font-family:"IBM Plex Mono",monospace;font-size:11px;margin-top:4px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3)}
+.stake{font-size:15px;color:var(--ink-2);line-height:1.55;margin:0 0 16px}
+.mv{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--rule);font-size:14px}
+.mv:last-child{border-bottom:0}
+.mv .p{font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:13px}
+.followbtn{width:100%;background:var(--surface-2);border:1px solid var(--rule-2);color:var(--ink);font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:12px;letter-spacing:.05em;text-transform:uppercase;padding:12px;border-radius:12px;cursor:pointer;margin:2px 0 20px}
+.followbtn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+#reader{z-index:30}
+/* calm two-zone Today */
+.zone{display:flex;align-items:baseline;justify-content:space-between;margin:8px 2px 18px;padding-bottom:9px;border-bottom:2px solid var(--ink)}
+.zone.dim{border-bottom:1px solid var(--rule-2);margin-top:38px}
+.zone .z-lbl{font-family:"Archivo",sans-serif;font-weight:800;font-size:18px;letter-spacing:-.02em}
+.zone.dim .z-lbl{font-size:15px;color:var(--ink-2)}
+.zone .z-date{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.sub-lbl{font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin:26px 2px 6px}
+.fivelist{margin-top:2px}
+.fivelist .story{padding:17px 4px}
+.fivelist .story h3{font-size:17px}
+.fivelist .story .why{font-size:14px;margin-top:7px}
+.caughtline{display:flex;gap:12px;align-items:flex-start;padding:15px 16px;border:1px solid color-mix(in srgb,var(--bull) 32%,transparent);background:var(--bull-dim);border-radius:14px;margin:18px 0 2px}
+.caughtline .tick{color:var(--bull);font-weight:800;font-size:17px;line-height:1.35}
+.caughtline b{display:block;font-size:14.5px}
+.caughtline span{display:block;font-size:12.5px;color:var(--ink-2);margin-top:3px}
+.explore{width:100%;background:none;border:1px solid var(--rule-2);color:var(--ink);font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:12px;letter-spacing:.05em;text-transform:uppercase;padding:14px;border-radius:12px;margin:22px 0 4px;cursor:pointer}
+.explore:active{background:var(--surface)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="app" id="app">
+  <header class="top">
+    <div class="brand">Finance<b>Digest</b><span class="ed">Mon 31 Aug · 8:30 AM edition</span></div>
+    <div class="sp"></div>
+    <button class="icobtn" id="theme" title="Theme">◐</button>
+  </header>
+
+  <div class="ticker" id="ticker"></div>
+  <div class="asof">Prices as of Fri 28 Aug · 3:30 PM close · live at 9:15 AM</div>
+
+  <div class="scroll" id="scroll">
+
+    <!-- ===================== TODAY ===================== -->
+    <div class="view on" id="v-today">
+      <div class="zone"><span class="z-lbl">The 5-minute brief</span><span class="z-date">Mon · morning</span></div>
+
+      <div class="verdict">
+        <span class="vtag mixed">◑ Mixed · cautious open</span>
+        <h2>Markets ended lower Friday; a quiet-to-cautious start likely today.</h2>
+        <p>Sensex slipped 276 pts (−0.35%) and Nifty −0.48%, with Bharti Airtel and Reliance the biggest drags. But foreign investors turned net buyers in August — the first real sign the tide is turning.</p>
+        <div class="watch"><span class="w">Watch today</span> <b>Q1 GDP data (7–8% expected)</b> after hours, and 7 IPOs opening this week.</div>
+        <div class="vsrc">Cross-checked across ET · Mint · Bloomberg · Reuters · CNBC</div>
+        <button class="sharebtn" id="shareVerdict">↗ Share this brief</button>
+      </div>
+
+      <div class="sub-lbl">5 things to know</div>
+      <div id="five" class="fivelist"></div>
+
+      <div class="caughtline"><span class="tick">✓</span><div><b>That's your 5 minutes — you're caught up.</b><span>Swept 21 sources this morning · nothing important missed.</span></div></div>
+
+      <div class="zone dim"><span class="z-lbl">More, if you have time</span><span class="z-date">optional</span></div>
+
+      <div class="sub-lbl">Today's term</div>
+      <div class="term"><div class="k">In today's news</div><div class="w">FPI</div><p>Foreign Portfolio Investor — big overseas funds whose buying and selling swings Indian markets. They turned net buyers in August (today's top story).</p></div>
+
+      <div class="sub-lbl">What changed since you last checked</div>
+      <div class="quiet">
+        <div class="chg"><span class="d up"></span><div class="t"><b>FPI tally flipped positive.</b> <span>Foreign investors are now net buyers for August (₹30,919 cr) — they were net sellers when you last looked.</span></div></div>
+        <div class="chg"><span class="d new"></span><div class="t"><b>HDFC Bank successor shortlist.</b> <span>Reports now name Kaizad Bharucha as a leading internal candidate.</span></div></div>
+        <div class="chg"><span class="d rev"></span><div class="t"><b>GDP estimate revised up.</b> <span>SBI Research now sees Q1 at 8%, above the earlier 7–7.2% range.</span></div></div>
+      </div>
+
+      <div class="sub-lbl">Today's calendar</div>
+      <div class="quiet">
+        <div class="cal"><span class="when">Today 5:30p</span><div class="ev"><b>Q1 FY27 GDP data</b> — the number everyone's watching.</div></div>
+        <div class="cal"><span class="when">This week</span><div class="ev"><b>7 IPOs open</b> — Purple Style Labs, Deepa Jewellers &amp; more.</div></div>
+        <div class="cal"><span class="when">Ongoing</span><div class="ev"><b>US Fed commentary</b> — rate signals after Nvidia's wobble.</div></div>
+      </div>
+
+      <div class="sub-lbl">More top stories</div>
+      <div id="more"></div>
+
+      <button class="explore" id="goSectors">Explore all 10 sectors →</button>
+
+      <div class="sub-lbl">Form a view</div>
+      <div class="predict" id="predict">
+        <div class="ph"><span class="em">🎯</span><span class="t">Predict today's close</span></div>
+        <div class="q">Will the Nifty finish <b>higher</b> today?</div>
+        <div class="btns"><button data-p="up">Yes, green</button><button data-p="dn">No, red</button></div>
+        <div class="dis">A game to sharpen your view — not investment advice. Result tomorrow morning.</div>
+      </div>
+
+      <div class="disc">AI-assisted summaries, sourced from Mint, Economic Times, Business Standard, CNBC &amp; Reuters. Not investment advice. Prices as of Fri close · verdict updates at 8:30 AM.</div>
+    </div>
+
+    <!-- ===================== MARKETS ===================== -->
+    <div class="view" id="v-markets">
+      <div class="eyebrow" style="margin-top:8px">Indian markets · Friday close <span class="ln"></span></div>
+      <div class="verdict">
+        <span class="vtag mixed">▼ Down day</span>
+        <h2>A soft finish to the week as heavyweights dragged.</h2>
+        <p>Selling in Airtel and Reliance pulled the index down; broader market held up better. FPIs net buyers for the month cushioned the fall.</p>
+        <div class="watch"><span class="w">Watch</span> <b>Whether large-caps stabilise</b> and how the GDP print lands after hours.</div>
+      </div>
+
+      <div class="eyebrow">Indices <span class="ln"></span></div>
+      <div id="indices"></div>
+
+      <div class="eyebrow">Sector pulse <span class="ln"></span></div>
+      <div id="sectors-bars"></div>
+
+      <div class="disc">Real NSE/BSE data · as of Fri close · AI-assisted commentary.</div>
+    </div>
+
+    <!-- ===================== SECTORS ===================== -->
+    <div class="view" id="v-sectors">
+      <div class="eyebrow" style="margin-top:8px">Sectors <span class="ln"></span></div>
+      <div id="sectorlist"></div>
+    </div>
+
+  </div>
+
+  <!-- reader -->
+  <div class="reader" id="reader">
+    <div class="rhead"><button class="back" id="rback">‹</button><span class="rt">Full story · deep dive</span></div>
+    <div class="rbody" id="rbody"></div>
+  </div>
+
+  <!-- sector page -->
+  <div class="reader" id="sector">
+    <div class="rhead"><button class="back" id="sback">‹</button><span class="rt" id="stitle">Sector</span></div>
+    <div class="rbody" id="sbody"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- bottom nav -->
+  <nav class="tabs">
+    <button class="tab on" data-v="today"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 4l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span class="lbl">Today</span></button>
+    <button class="tab" data-v="markets"><svg viewBox="0 0 24 24"><path d="M4 19V5M4 15l5-5 4 3 7-8"/></svg><span class="lbl">Markets</span></button>
+    <button class="tab" data-v="sectors"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h10"/></svg><span class="lbl">Sectors</span></button>
+  </nav>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var $=function(s,r){return (r||document).querySelector(s)};
+  var el=function(t,c,h){var e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e};
+
+  /* ---- theme ---- */
+  var root=document.documentElement, tbtn=$("#theme");
+  function setT(t){root.setAttribute("data-theme",t); try{localStorage.setItem("fd_p_theme",t)}catch(e){}}
+  try{var sv=localStorage.getItem("fd_p_theme"); if(sv)setT(sv);}catch(e){}
+  tbtn.addEventListener("click",function(){ setT(root.getAttribute("data-theme")==="light"?"dark":"light"); });
+
+  /* ---- ticker ---- */
+  var ticks=[
+    {n:"Nifty 50",v:"24,091",c:"−0.48%",d:1},{n:"Sensex",v:"76,934",c:"−0.35%",d:1},
+    {n:"Bank Nifty",v:"57,510",c:"−0.50%",d:1},{n:"USD/INR",v:"95.55",c:"+0.12%",d:1},
+    {n:"Crude",v:"$85.1",c:"−0.6%",d:0},{n:"Gold",v:"₹1,59,189",c:"−0.3%",d:1},{n:"FPI Aug",v:"+₹30,919cr",c:"Buyers",d:0}
+  ];
+  var tk=$("#ticker");
+  ticks.forEach(function(t){ tk.appendChild(el("div","tk",'<div class="n">'+t.n+'</div><div class="v">'+t.v+'</div><div class="c '+(t.d?'dn':'up')+'">'+t.c+'</div>')); });
+
+  /* ---- articles ---- */
+  var A=[
+    {id:"fpi",cat:"Indian Markets",sent:"bull",title:"Foreign investors turn buyers — ₹30,919 cr into Indian stocks in August",
+     why:"First real sign the tide is turning after record foreign selling — supportive for large-caps.",
+     src:"Mint",time:"6:30 AM",stat:"₹30,919 cr",statLbl:"FPI net buying · August",impact:"Positive",impactC:"bull",
+     what:"Foreign portfolio investors bought ₹30,919 crore of Indian equities in August — their second straight month of net buying, after one of the worst stretches of foreign selling in years.",
+     matter:"Foreign flows are one of the biggest swing factors for Indian markets. Two months of buying suggests overseas investors are warming to India again, easing the pressure domestic investors have been absorbing alone.",
+     who:"Large-cap and index-heavy stocks that foreigners favour; the rupee, which strengthens on inflows.",
+     watch:"Whether FPI buying continues into September, global risk appetite, and the rupee.",
+     simple:"“FPI” just means big overseas funds. When they buy, more money chases Indian shares — a tailwind. When they sell, it's a drag. They just switched from selling to buying.",
+     rel:["HDFC Bank CEO succession comes into focus","Top-10 firms shed ₹1.13 lakh crore in a week"]},
+
+    {id:"hdfc",cat:"Banking",sent:"watch",title:"HDFC Bank CEO succession in focus as Jagdishan set to exit in October",
+     why:"Leadership change at the market's most-held stock — a smooth handover reassures; uncertainty rattles.",
+     src:"Bloomberg",time:"7:02 AM",stat:"Oct 2026",statLbl:"CEO Jagdishan's exit",impact:"Neutral",impactC:"neutral",
+     what:"HDFC Bank CEO Sashidhar Jagdishan has opted out of reappointment and will exit in October. The board is reportedly weighing an internal candidate (Kaizad Bharucha) and an outsider.",
+     matter:"HDFC Bank is India's largest private bank and one of the most widely-held, heavily foreign-owned stocks. The CEO sets strategy, risk and governance — so this transition moves the whole market's mood.",
+     who:"Anyone holding HDFC Bank, a bank fund, or an index fund; the broader financial sector.",
+     watch:"The board's choice and timing, and how foreign investors react to the successor.",
+     simple:"The boss of India's biggest private bank is leaving. Markets hate uncertainty at the top of a giant company — a clear, credible replacement calms nerves; a messy search spooks them.",
+     rel:["Foreign investors turn buyers in August","India Q1 GDP data due today"]},
+
+    {id:"gdp",cat:"Macro",sent:"watch",title:"India's Q1 GDP data due today — economists expect 7–8% growth",
+     why:"A beat reaffirms India as the fastest-growing major economy and lifts sentiment; a miss stings.",
+     src:"Business Standard",time:"6:00 AM",stat:"7–8%",statLbl:"Expected Q1 FY27 growth",impact:"Positive",impactC:"bull",
+     what:"Official Q1 FY27 GDP figures are released this evening. SBI Research sees 8%, Bank of Baroda 7–7.2%, CareEdge 7.3% — all pointing to strong growth led by manufacturing and construction.",
+     matter:"GDP is the broadest measure of the economy. A strong number reinforces confidence in corporate earnings and keeps India the standout among big economies — which supports flows and valuations.",
+     who:"The whole market; cyclicals and growth-linked sectors most; the RBI's rate calculus.",
+     watch:"The actual number vs the 7–8% expectation, and the quality of the internals (private investment, consumption).",
+     simple:"GDP is the size of everything the economy produces. Growing 7–8% is fast for a big country. If the number beats hopes, markets usually cheer; if it disappoints, they sulk.",
+     rel:["Foreign investors turn buyers in August","7 IPOs to open this week"]},
+
+    {id:"nvda",cat:"Global",sent:"bear",title:"Nvidia's sharp Friday reversal puts the Fed back in focus",
+     why:"The AI bellwether wobbled on rate fears — it sets a cautious tone for global tech and our IT names.",
+     src:"CNBC",time:"5:40 AM",stat:"$229 → $217",statLbl:"Nvidia's intraday slide",impact:"Negative",impactC:"bear",
+     what:"Nvidia reversed sharply on Friday, sliding from ~$229 to ~$217 within hours on huge volume, with commentary pinning the move on the Federal Reserve and rate expectations.",
+     matter:"Nvidia anchors the entire AI trade. When it wobbles on rate worries, global tech sentiment cools — and that colours how Indian IT and tech stocks open.",
+     who:"Global and US tech funds; Indian IT sentiment indirectly; anyone in the AI trade.",
+     watch:"Fed signals this week and whether the AI trade steadies or slips further.",
+     simple:"Nvidia is the poster-child of the AI boom. It fell fast because investors got nervous that interest rates will stay high — and high rates make expensive tech stocks less attractive.",
+     rel:["India Q1 GDP data due today","HDFC Bank CEO succession in focus"]},
+
+    {id:"ipo",cat:"IPOs",sent:"neutral",title:"Seven IPOs open this week, including Purple Style Labs and Deepa Jewellers",
+     why:"The hot primary market rolls on — plenty to consider, but be selective; heavy supply tests demand.",
+     src:"Mint",time:"6:15 AM",stat:"7 IPOs",statLbl:"Opening this week",impact:"Neutral",impactC:"neutral",
+     what:"Seven new IPOs — including three mainboard issues such as Purple Style Labs and Deepa Jewellers — open for subscription this week.",
+     matter:"A steady IPO pipeline reflects strong company and investor appetite. But a heavy week spreads demand thin — quality and pricing separate the good bets from the froth.",
+     who:"Retail investors chasing listings; merchant bankers and exchanges.",
+     watch:"Subscription levels, grey-market sentiment, and how the issues are priced.",
+     simple:"An IPO is a company selling shares to the public for the first time. Seven at once means lots of choice — and a reminder not to chase every one just because it's new.",
+     rel:["Foreign investors turn buyers in August","India Q1 GDP data due today"]},
+
+    {id:"mcap",cat:"Indian Markets",sent:"bear",title:"Top-10 firms shed ₹1.13 lakh crore in a week; Airtel, Reliance lead the fall",
+     why:"When the giants fall, the index and most portfolios fall with them — this was heavyweight-driven caution.",
+     src:"Mint",time:"Fri close",stat:"₹1.13 lakh cr",statLbl:"Combined m-cap lost",impact:"Negative",impactC:"bear",
+     what:"Seven of the ten most-valued Indian companies lost a combined ₹1.13 lakh crore in market value last week, with Bharti Airtel and Reliance the biggest laggards.",
+     matter:"The top-10 carry huge index weight, so their declines drag the Sensex, Nifty and nearly every index fund — even when the broader market holds up.",
+     who:"Index-fund and large-cap holders; the heavyweights themselves.",
+     watch:"Whether the large-caps stabilise this week and global cues.",
+     simple:"A handful of giant companies make up a big chunk of the index. When they drop, the whole market looks red — even if smaller stocks were fine.",
+     rel:["Foreign investors turn buyers in August","Nvidia's sharp Friday reversal"]},
+
+    {id:"jandhan",cat:"Banking",sent:"bull",title:"PM Jan Dhan turns 12 — 59 crore accounts, ₹3.17 trillion in deposits",why:"A vast, formally-banked population is the long runway under every bank, payments and insurance stock.",src:"Mint",time:"Fri",what:"India's flagship financial-inclusion scheme completed 12 years with ~59 crore accounts holding ₹3.17 trillion in deposits.",matter:"Bringing hundreds of millions into formal banking is the foundation for digital payments, credit and insurance growth — the structural tailwind behind the whole financial sector.",watch:"How many account-holders move from basic access to active credit and insurance products.",rel:["India Ratings lifts bank credit-growth forecast but flags margin pressure"]},
+    {id:"credit",cat:"Banking",sent:"watch",title:"India Ratings lifts bank credit-growth forecast but flags margin pressure",why:"Fast loan growth is good — but lower-yield lending squeezes bank profits.",src:"Mint",time:"Fri",what:"India Ratings raised its bank credit-growth forecast (latest 19.3%) but warned growth is skewed to lower-yielding corporate and NBFC loans, pressuring margins.",matter:"Loan volume and profitability aren't the same thing. Strong credit growth on thin margins means bank earnings may lag the headline.",watch:"The loan mix and deposit costs — the swing factors for bank margins.",rel:["HDFC Bank CEO succession comes into focus"]},
+    {id:"itrout",cat:"Technology / IT",sent:"bear",title:"India's IT-sector rout deepens as Goldman downgrades TCS and Infosys",why:"IT is a heavyweight — a prolonged slump in TCS/Infosys drags the whole index and most funds.",src:"CNBC",time:"Fri",stat:"~50%",statLbl:"Fall from peaks · top IT names",impact:"Negative",impactC:"bear",what:"TCS, Infosys, Wipro and LTIMindtree are each down ~50% from record highs on weak global tech spending. Goldman downgraded TCS, Infosys and Tech Mahindra, and upgraded Wipro.",matter:"India's IT firms earn most of their money from US and European clients. Softer global tech budgets plus AI-disruption fears have de-rated the sector — a big chunk of the index.",who:"IT-stock and index-fund holders; the broad market.",watch:"Global enterprise-spending trends and whether AI helps or hurts services demand.",simple:"India's software giants serve foreign companies. Those clients are spending less on IT, and investors fear AI will eat into the work — so the stocks have roughly halved.",rel:["Nvidia's sharp Friday reversal puts the Fed in focus"]},
+    {id:"amrutanjan",cat:"Pharma & Health",sent:"bull",title:"Amrutanjan Health plans 1 lakh direct chemist outlets in FY27",why:"Distribution reach is the growth lever in consumer-healthcare — more outlets, more sales.",src:"ET",time:"Fri",what:"Amrutanjan Health Care plans to set up 1 lakh direct chemist outlets this financial year to widen distribution.",matter:"In consumer healthcare, the more stores you directly supply, the more you sell — a clear, if execution-dependent, growth push.",watch:"Whether wider distribution converts into higher sales."},
+    {id:"parkmedi",cat:"Pharma & Health",sent:"bull",title:"Park Medi World to add 1,450 hospital beds across north India by FY28",why:"Bed additions track the structural growth in Indian healthcare demand.",src:"ET",time:"Fri",what:"Park Medi World will expand its hospital network across north India, adding ~1,450 beds by FY28.",matter:"Rising incomes and insurance are driving hospital demand; bed capacity is the direct measure of that growth — a sector drawing heavy investment.",watch:"Execution, occupancy and margins as capacity comes online."},
+    {id:"ather",cat:"Auto & EV",sent:"bull",title:"Hero MotoCorp to raise its Ather stake with a $184 million purchase",why:"India's biggest two-wheeler maker doubling down on an EV pure-play — a bet on electrification.",src:"VCCircle",time:"Fri",stat:"$184 mn",statLbl:"Additional Ather investment",impact:"Positive",impactC:"bull",what:"Hero MotoCorp will buy more Ather Energy shares for up to ₹17.58 billion ($184 mn), raising its stake in the EV maker.",matter:"A legacy petrol-bike giant putting more money into an EV specialist hedges the long-term shift and signals confidence in electric two-wheelers.",who:"Auto and EV-linked stocks; battery and component suppliers.",watch:"How fast two-wheeler electrification scales in India.",simple:"Hero mostly sells petrol bikes. By buying more of Ather (electric scooters), it's placing a bigger bet that India's next bikes will be electric."},
+    {id:"evmkt",cat:"Auto & EV",sent:"bull",title:"India's EV market to reach ₹20 lakh crore by 2030: Gadkari",why:"Strong policy ambition sets the incentives and infrastructure that drive EV adoption.",src:"ET",time:"Fri",what:"Union Minister Nitin Gadkari projected India's EV market will hit ₹20 lakh crore by 2030 and create ~5 crore jobs.",matter:"Government targets shape incentives, charging build-out and manufacturing support — a tailwind across the EV value chain.",watch:"Whether adoption and investment track the ambition."},
+    {id:"ongc",cat:"Energy & Oil",sent:"bull",title:"ONGC explores a drillship acquisition to build deepwater capacity",why:"More domestic output means less reliance on imported oil — an energy-security push.",src:"Agencies",time:"Fri",what:"State-run ONGC is exploring acquiring a drillship or a JV for deepwater drilling capacity under its 'Samudra Manthan' initiative.",matter:"India imports most of its crude. Tapping hard-to-reach offshore reserves cuts that dependence — strategically important, if capital-intensive.",watch:"Whether it proceeds, timelines, and the impact on domestic production."},
+    {id:"uniqlo",cat:"FMCG / Consumer",sent:"bull",title:"Uniqlo's India play: value over discounts, brand over marketplaces",why:"How global brands crack India's aspirational consumer is a read on discretionary spend.",src:"Mint",time:"Fri",what:"Uniqlo is pursuing an India strategy built on everyday value and brand storytelling rather than deep discounts or crowded online marketplaces.",matter:"It's a bet that India's rising middle class wants quality basics at fair prices — a signal about where consumption is heading.",watch:"Store expansion and whether the value-led approach resonates."},
+    {id:"bira",cat:"FMCG / Consumer",sent:"bear",title:"Bira 91's troubles deepen as a supplier serves an ₹11.77 crore default notice",why:"Default notices and NCLT threats signal real financial stress behind a buzzy brand.",src:"Mint",time:"Fri",what:"Glass-maker HNGIL served Bira 91's parent an ₹11.77 crore default notice over unpaid dues and plans to move the bankruptcy court.",matter:"A once high-flying consumer startup facing escalating supplier disputes points to cash-flow stress — brand appeal isn't the same as balance-sheet strength.",watch:"Whether the dispute is settled and the company's funding situation."},
+    {id:"rail",cat:"Infrastructure",sent:"bull",title:"Indian Railways to four-lane seven of its busiest routes",why:"Big rail-capacity projects mean orders for engineering and construction firms.",src:"ET",time:"Fri",what:"Railways plans to expand seven high-density routes into four-line corridors to cut congestion and run more trains.",matter:"Easing congestion speeds passengers and freight, and the projects feed the infrastructure capex cycle — orders for construction, engineering and equipment firms.",watch:"Project timelines, funding and order flow to rail-linked companies."},
+    {id:"acme",cat:"Renewables",sent:"bull",title:"ACME Solar raises ₹1,571 crore project funding from IIFCL",why:"Securing project finance is what turns renewable plans into operating plants.",src:"ET",time:"Fri",stat:"₹1,571 cr",statLbl:"Project funding raised",impact:"Positive",impactC:"bull",what:"ACME Solar raised ₹1,571 crore from IIFCL to build a 300 MW assured peak-power project in Rajasthan.",matter:"Renewables need heavy upfront capital; lender backing keeps capacity expansion on track and helps address the reliability challenge of solar and wind.",who:"Renewable developers, power and capital-goods names.",watch:"Execution and India's firm/peak renewable-power push."},
+    {id:"i360",cat:"Investment Banking",sent:"neutral",title:"360 ONE Capital hires a Kotak Investment Banking veteran as MD",why:"Senior banker hires are a leading signal that deal-making is heating up.",src:"VCCircle",time:"Fri",what:"360 ONE Capital hired a veteran banker from Kotak Investment Banking as MD and co-head to scale its deal-making.",matter:"Firms poach experienced bankers to win IPO, M&A and fundraising mandates — a sign of a busy capital-market pipeline.",watch:"The deals 360 ONE wins and broader hiring across banks."},
+    {id:"countryd",cat:"Investment Banking",sent:"bull",title:"Temasek-backed Country Delight scouts banks for a potential $300 million IPO",why:"A big consumer-startup IPO reflects a hot primary market and investor appetite.",src:"Mint",time:"Fri",what:"D2C dairy-and-grocery startup Country Delight is reportedly approaching investment banks for a potential ~$300 million IPO.",matter:"Scouting bankers is an early step toward listing; a sizeable consumer-startup IPO reflects strong appetite for new-age consumer names.",watch:"Whether the IPO firms up, its pricing, and the company's financials."}
+  ];
+  var byId={}; A.forEach(function(a){byId[a.id]=a});
+
+  // Full-depth fields for the main stories — mirrors the live site's article anatomy
+  // (the full narrative + market impact + "what this means for you" + investor take + key terms).
+  function fmt(t){ return t.split("\n\n").map(function(p){return '<p>'+p.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')+'</p>';}).join(''); }
+  var RICH={
+    fpi:{
+      detailed:"**What happened.** Foreign portfolio investors (FPIs) bought ₹30,919 crore of Indian equities in August — their second straight month of net buying.\n\n**Why it matters.** This year saw record FPI outflows that domestic institutions had to absorb. Two consecutive months of inflows are the first sign that trend is reversing.\n\n**The context.** Returning foreign money tends to favour large-caps and index heavyweights, and to support the rupee.\n\n**What to watch.** Whether the buying continues into September, global risk appetite, and US rate signals.",
+      means:"If you invest through SIPs or hold large-caps, returning foreign money is a tailwind for your portfolio — but two months isn't a confirmed trend yet, so don't chase it.",
+      take:"A genuine shift in a key market driver; supportive if it holds, but foreign flows are fickle by nature.",
+      gloss:[{w:"FPI",m:"Foreign Portfolio Investor — overseas funds whose buying and selling swings Indian markets."},{w:"Net buyer",m:"Bought more than they sold over the period — read as a positive signal."}]},
+    hdfc:{
+      detailed:"**What happened.** HDFC Bank CEO Sashidhar Jagdishan has opted out of reappointment and will exit in October. The board is weighing an internal candidate (Kaizad Bharucha) and an outside hire.\n\n**Why it matters.** HDFC Bank is India's largest private bank and one of the most widely-held, heavily foreign-owned stocks. The CEO sets its strategy, risk and governance.\n\n**The stakes.** A credible, smooth succession reassures markets; a contested or unclear one pressures the stock and tests investor confidence.\n\n**What to watch.** The board's choice and its timing, and how foreign investors react to the successor.",
+      means:"If you hold HDFC Bank, a bank fund or an index fund, this leadership change matters — it's one of the market's most important stocks. Watch for a clear, credible successor.",
+      take:"A major governance event; the transition, not the business, is the risk here.",
+      gloss:[{w:"Succession",m:"Choosing and transitioning to a new leader when the current one departs."},{w:"Governance",m:"How a company is run and overseen; an orderly succession is a key thing investors watch."}]},
+    gdp:{
+      detailed:"**What happened.** India's Q1 FY27 GDP data is released this evening. SBI Research projects 8%, Bank of Baroda 7–7.2%, and CareEdge 7.3%.\n\n**Why it matters.** GDP is the broadest measure of the economy. A strong print keeps India the fastest-growing major economy and supports corporate earnings and foreign flows.\n\n**The drivers.** Manufacturing, construction and sustained government capex are expected to lead the growth.\n\n**What to watch.** The actual number versus the 7–8% expectation, and the quality of the internals — private investment and consumption.",
+      means:"You don't need to trade around GDP day, but a strong economy underpins the jobs, incomes and earnings behind your investments. Watch whether it beats or misses.",
+      take:"A beat lifts sentiment; a miss disappoints. The surprise vs expectations is what moves markets.",
+      gloss:[{w:"GDP",m:"Gross Domestic Product — the total value of everything an economy produces; the headline growth number."},{w:"Capex",m:"Capital expenditure — spending on long-term assets like roads and factories."}]},
+    nvda:{
+      detailed:"**What happened.** Nvidia reversed sharply on Friday, sliding from about $229 to $217 within hours on very heavy volume, with the move tied to the Federal Reserve and rate expectations.\n\n**Why it matters.** Nvidia anchors the entire AI trade. When it wobbles on rate worries, global tech sentiment cools — and that colours how Indian IT and tech open.\n\n**The driver.** Higher-for-longer interest rates make expensive, high-growth tech stocks less attractive, so they sell off first.\n\n**What to watch.** Fed signals this week, and whether the AI trade steadies or slips further.",
+      means:"If you hold global tech or index funds, Nvidia's swings drive a big chunk of your returns. For India-focused investors, treat it as a gauge of how the AI trade is tracking.",
+      take:"A rate-driven reversal in the AI bellwether — a reminder that momentum can turn fast.",
+      gloss:[{w:"Reversal",m:"A sharp change of direction — here, from gains to a steep fall within one session."},{w:"Bellwether",m:"A stock seen as a signal for a whole sector — Nvidia for AI and chips."}]},
+    ipo:{
+      detailed:"**What happened.** Seven new IPOs — including mainboard issues such as Purple Style Labs and Deepa Jewellers — open for subscription this week.\n\n**Why it matters.** A steady IPO pipeline reflects strong corporate and investor appetite, and a vibrant primary market.\n\n**The nuance.** A heavy week spreads demand thin; quality and pricing separate the good bets from the froth.\n\n**What to watch.** Subscription levels, grey-market sentiment, and how the issues are priced.",
+      means:"If IPOs interest you, there's plenty to weigh — but judge each on fundamentals and price, not hype. A busy calendar is a reason to be selective, not to chase everything.",
+      take:"Healthy market confidence; froth risk if richly-priced issues later disappoint.",
+      gloss:[{w:"IPO",m:"Initial Public Offering — a company's first sale of shares to the public."},{w:"GMP",m:"Grey-market premium — an unofficial gauge of pre-listing demand; not a guarantee."}]},
+    mcap:{
+      detailed:"**What happened.** Seven of the ten most-valued Indian firms lost a combined ₹1.13 lakh crore in market value last week, with Bharti Airtel and Reliance the biggest laggards. The Sensex fell 276 points (−0.35%) on Friday.\n\n**Why it matters.** The top-10 carry huge index weight, so their declines drag the Sensex, Nifty and nearly every index fund — even when the broader market holds up.\n\n**The context.** A cautious tone and profit-taking in the heavyweights drove the fall, rather than any change in the companies' fundamentals.\n\n**What to watch.** Whether the large-caps stabilise this week, and global cues.",
+      means:"If you hold an index fund or large-caps, a week like this shows up as a dip — driven by a few giants, not the whole economy. For long-term investors, it's noise.",
+      take:"Near-term caution concentrated in the heavyweights; not a fundamental shift.",
+      gloss:[{w:"Market cap",m:"A company's total share value; a fall means it's worth less on the market."},{w:"Index weight",m:"How much a stock influences the index — the biggest companies move it most."}]}
+  };
+  Object.keys(RICH).forEach(function(k){ if(byId[k]){ for(var p in RICH[k]) byId[k][p]=RICH[k][p]; } });
+
+  var sentLbl={bull:"Positive",bear:"Negative",watch:"Watch",neutral:"Neutral"};
+  // impact object — describes the news, not a trade call: "Positive · large-caps"
+  var IMP={fpi:"large-caps",hdfc:"HDFC Bank",gdp:"the economy",nvda:"global tech",ipo:"IPO market",mcap:"the index",jandhan:"banks",credit:"bank margins",itrout:"IT",amrutanjan:"pharma",parkmedi:"hospitals",ather:"EVs",evmkt:"EVs",ongc:"energy",uniqlo:"retail",bira:"the brand",rail:"infra",acme:"renewables",i360:"i-banks",countryd:"IPO market"};
+  function chips(a){
+    var lab=sentLbl[a.sent]+(IMP[a.id]?' · '+IMP[a.id]:'');
+    return '<div class="chips"><span class="chip sec">'+a.cat+'</span><span class="chip '+a.sent+'">'+lab+'</span></div>';
+  }
+  function storyRow(a,i){
+    var e=el("div","story");
+    e.innerHTML=(i!=null?'<span class="idx">'+i+'</span>':'')+
+      '<div class="body">'+chips(a)+
+      '<h3>'+a.title+'</h3>'+
+      '<p class="why"><b>Why it matters</b>'+a.why+'</p>'+
+      '<div class="meta"><span>'+a.src+'</span><span>·</span><span>'+a.time+'</span></div></div>';
+    e.addEventListener("click",function(){openReader(a.id)});
+    return e;
+  }
+
+  /* five things */
+  var fiveIds=["fpi","hdfc","gdp","nvda","ipo"];
+  var fbox=$("#five"); fiveIds.forEach(function(id,i){ fbox.appendChild(storyRow(byId[id],i+1)); });
+
+  /* more top stories — capped at 6, grouped by sector so the eye can skip */
+  var moreIds=["mcap","jandhan","credit","itrout","uniqlo","bira"];
+  var mbox=$("#more"), lastCat=null;
+  moreIds.forEach(function(id){
+    var a=byId[id]; if(!a) return;
+    var cat=a.cat.replace(/&amp;/g,"&");
+    if(cat!==lastCat){ mbox.appendChild(el("div","grp-lbl",cat)); lastCat=cat; }
+    mbox.appendChild(storyRow(a,null));
+  });
+
+  /* ---- reader: everyone gets the quick read; expand in place for full depth ---- */
+  var reader=$("#reader"), rbody=$("#rbody"), scroll=$("#scroll");
+  function fullDetail(a){
+    var impC={bull:"var(--bull)",bear:"var(--bear)",neutral:"var(--neutral)"}[a.impactC]||"var(--ink-2)";
+    var impBg={bull:"var(--bull-dim)",bear:"var(--bear-dim)",neutral:"var(--surface-2)"}[a.impactC]||"var(--surface-2)";
+    var h='';
+    if(a.stat) h+='<div class="stat"><span class="num">'+a.stat+'</span><span class="lb">'+a.statLbl+'</span></div>';
+    h+='<div class="blk"><div class="bh">The full picture</div>'+(a.detailed?fmt(a.detailed):('<p>'+a.what+'</p><p>'+a.matter+'</p>'))+'</div>';
+    if(a.who) h+='<div class="blk"><div class="bh">Market impact <span class="impact" style="color:'+impC+';background:'+impBg+'">'+a.impact+'</span></div><p>'+a.who+'</p></div>';
+    if(a.means) h+='<div class="blk"><div class="bh">What this means for you</div><p>'+a.means+'</p></div>';
+    if(a.take) h+='<div class="blk"><div class="bh">Investor take</div><p>'+a.take+'</p></div>';
+    if(a.gloss) h+='<div class="gloss"><div class="bh">Key terms</div>'+a.gloss.map(function(g){return '<div class="gl"><b>'+g.w+'</b><span>'+g.m+'</span></div>';}).join('')+'</div>';
+    if(a.rel && a.rel.length) h+='<div class="related"><div class="bh" style="color:var(--ink-3);font-family:IBM Plex Mono,monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">Previously &amp; related</div>'+
+        a.rel.map(function(r){return '<div class="rel"><div class="rc">Related</div>'+r+'</div>'}).join('')+'</div>';
+    return h;
+  }
+  function renderReader(id,expanded){
+    var a=byId[id]; if(!a)return;
+    var h=
+      chips(a)+
+      '<h1>'+a.title+'</h1>'+
+      '<p class="rsub"><b>Why it matters</b>'+a.why+'</p>'+
+      '<div class="rmeta"><span>'+a.src+'</span><span>'+a.time+' · IST</span><span>AI-assisted</span></div>'+
+      '<div class="blk"><div class="bh">What happened</div><p>'+a.what+'</p></div>';
+    if(a.simple) h+='<div class="simple"><div class="bh">In simple terms</div><p>'+a.simple+'</p></div>';
+    h+='<div class="blk"><div class="bh">What to watch</div><p>'+a.watch+'</p></div>';
+    if(expanded) h+=fullDetail(a);
+    else h+='<button class="expandbtn" id="expandBtn">Full analysis: numbers, market impact &amp; key terms →</button>';
+    rbody.innerHTML=h;
+    var eb=$("#expandBtn"); if(eb) eb.addEventListener("click",function(){ var st=rbody.scrollTop; renderReader(id,true); rbody.scrollTop=st; });
+  }
+  function openReader(id){ if(!byId[id])return; renderReader(id,false); reader.classList.add("on"); rbody.scrollTop=0; }
+  $("#rback").addEventListener("click",function(){reader.classList.remove("on")});
+
+  /* ---- markets view ---- */
+  var idx=[
+    {n:"Sensex",s:"BSE",p:"76,934",c:"−276 (−0.35%)",d:1},
+    {n:"Nifty 50",s:"NSE",p:"24,091",c:"−117 (−0.48%)",d:1},
+    {n:"Bank Nifty",s:"NSE",p:"57,510",c:"−289 (−0.50%)",d:1},
+    {n:"Nasdaq",s:"US",p:"26,541",c:"+1.57%",d:0},
+    {n:"S&P 500",s:"US",p:"7,731",c:"+0.72%",d:0}
+  ];
+  var ib=$("#indices");
+  idx.forEach(function(m){ ib.appendChild(el("div","mrow",'<div class="nm">'+m.n+'<small>'+m.s+'</small></div><div class="px"><div class="p">'+m.p+'</div><div class="c '+(m.d?'dn':'up')+'">'+m.c+'</div></div>')); });
+  var secs=[{n:"Pharma",p:0.8},{n:"IT",p:-6.3},{n:"FMCG",p:0.4},{n:"Auto",p:-0.2},{n:"Banking",p:-0.5},{n:"Energy",p:-1.1},{n:"Realty",p:0.6}];
+  var sb=$("#sectors-bars"); var mx=6.3;
+  secs.forEach(function(s){
+    var up=s.p>=0, w=Math.max(6,Math.abs(s.p)/mx*50);
+    var bar='<div class="sect"><div class="nm">'+s.n+'</div><div class="track">'+
+      '<i style="'+(up?'left:50%':'right:50%')+';width:'+w+'%;background:'+(up?'var(--bull)':'var(--bear)')+'"></i>'+
+      '<span style="position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--rule-2)"></span></div>'+
+      '<div class="pct '+(up?'up':'dn')+'">'+(up?'+':'')+s.p+'%</div></div>';
+    sb.appendChild(el("div",null,bar).firstChild);
+  });
+
+  /* ---- sectors ---- */
+  var SECTORS=[
+    {slug:"banking",em:"🏦",name:"Banking &amp; Finance",idxN:"Bank Nifty",idxV:"57,510",idxC:"−0.50%",dir:1,
+      take:"Dragged by rate worries — but HDFC Bank's CEO change is the story that matters most.",
+      why:"Banks are the heaviest weight in the index, so as banks go, so goes the Nifty. Two things dominate now: the direction of interest rates, and who runs India's largest private bank next.",
+      movers:[["HDFC Bank","+1.2%",0],["Bank of Baroda","+0.3%",0],["SBI","−0.4%",1],["ICICI Bank","−0.6%",1],["Kotak Mahindra","−0.8%",1]], ids:["hdfc","jandhan","credit"]},
+    {slug:"tech",em:"💻",name:"Technology / IT",idxN:"Nifty IT",idxV:"day",idxC:"−6.3%",dir:1,
+      take:"The rout deepens — Goldman's downgrades and weak global tech spending weigh.",
+      why:"India's IT giants earn most of their money from US and European clients. When global tech spending slows and the AI trade wobbles, these heavyweight stocks fall hard.",
+      movers:[["Wipro","+0.4%",0],["TCS","−1.8%",1],["Tech Mahindra","−1.6%",1],["HCL Tech","−1.2%",1],["Infosys","−2.1%",1]], ids:["itrout","nvda"]},
+    {slug:"pharma",em:"💊",name:"Pharma &amp; Health",idxN:"Nifty Pharma",idxV:"day",idxC:"+0.8%",dir:0,
+      take:"A rare green corner — steady demand and capacity expansion across hospitals.",
+      why:"Healthcare demand rises structurally with incomes and insurance, making pharma and hospitals relatively defensive when the broader market is jittery.",
+      movers:[["Aurobindo","+1.4%",0],["Sun Pharma","+0.7%",0],["Cipla","+0.5%",0],["Divi's Labs","−0.3%",1],["Dr Reddy's","−0.4%",1]], ids:["parkmedi","amrutanjan"]},
+    {slug:"auto",em:"🚗",name:"Auto &amp; EV",idxN:"Nifty Auto",idxV:"day",idxC:"−0.2%",dir:1,
+      take:"Flat overall, but the EV pivot is where the action is — Hero deepens its Ather bet.",
+      why:"Autos track consumer demand and fuel prices, while the electric shift is reshaping who wins long-term — legacy makers are hedging into EV specialists.",
+      movers:[["M&amp;M","+0.6%",0],["Hero MotoCorp","+0.4%",0],["Maruti","−0.2%",1],["Tata Motors","−0.5%",1],["Bajaj Auto","−0.7%",1]], ids:["ather","evmkt"]},
+    {slug:"energy",em:"⚡",name:"Energy &amp; Oil",idxN:"Nifty Energy",idxV:"day",idxC:"−1.1%",dir:1,
+      take:"Soft on crude moves; ONGC pushes for deepwater self-reliance.",
+      why:"India imports most of its oil, so global crude prices swing this sector — and the national push to produce more at home is a long-term theme.",
+      movers:[["BPCL","+0.3%",0],["ONGC","−0.4%",1],["Reliance","−0.9%",1],["NTPC","−0.5%",1],["Power Grid","−0.6%",1]], ids:["ongc"]},
+    {slug:"fmcg",em:"🛒",name:"FMCG / Consumer",idxN:"Nifty FMCG",idxV:"day",idxC:"+0.4%",dir:0,
+      take:"Defensive and steady; brand strategy and startup stress in focus.",
+      why:"Consumer staples are the market's shock-absorber — demand holds up in downturns — while brand plays and startup stress reveal where consumption is heading.",
+      movers:[["HUL","+0.5%",0],["Nestlé India","+0.3%",0],["ITC","+0.2%",0],["Britannia","−0.2%",1],["Dabur","−0.3%",1]], ids:["uniqlo","bira"]},
+    {slug:"infra",em:"🏗️",name:"Infrastructure",idxN:"Nifty Infra",idxV:"day",idxC:"+0.6%",dir:0,
+      take:"Order-book momentum — railway capacity expansion adds to the capex pipeline.",
+      why:"Infrastructure rides the government capex cycle; big project orders flow to construction, engineering and equipment firms.",
+      movers:[["L&amp;T","+1.1%",0],["NBCC","+0.8%",0],["RVNL","+0.6%",0],["Adani Ports","−0.3%",1],["GMR","−0.5%",1]], ids:["rail"]},
+    {slug:"renew",em:"🌱",name:"Renewables",idxN:"Clean energy",idxV:"day",idxC:"+0.9%",dir:0,
+      take:"Financing keeps flowing — ACME Solar locks in project funding.",
+      why:"Renewables are a multi-decade, policy-backed theme; the constraint is capital, so project-financing wins are what turn plans into plants.",
+      movers:[["ACME Solar","+1.5%",0],["Tata Power","+0.7%",0],["Suzlon","+0.4%",0],["Adani Green","−0.4%",1],["JSW Energy","−0.6%",1]], ids:["acme"]},
+    {slug:"ib",em:"🏢",name:"Investment Banking",idxN:"Deal flow",idxV:"this wk",idxC:"Hot",dir:0,
+      take:"A busy pipeline — new IPO mandates and senior banker hires signal deal momentum.",
+      why:"Investment-banking activity (IPOs, M&amp;A, fundraising) is a barometer of market confidence and a fee engine for the whole capital-market ecosystem.",
+      movers:[["360 ONE","+0.9%",0],["Motilal Oswal","+0.5%",0],["JM Financial","+0.3%",0],["Nuvama","−0.2%",1],["ICICI Sec","−0.4%",1]], ids:["i360","countryd"]}
+  ];
+  var sl=$("#sectorlist");
+  SECTORS.forEach(function(s){
+    var card=el("div","sectorcard",'<span class="em">'+s.em+'</span><div><div class="nm">'+s.name+'</div><div class="sub">Pulse, movers &amp; what it means</div></div><span class="ct">'+s.ids.length+' ›</span>');
+    card.addEventListener("click",function(){openSector(s)});
+    sl.appendChild(card);
+  });
+
+  var sector=$("#sector"), sbody=$("#sbody");
+  function openSector(s){
+    $("#stitle").textContent=s.name.replace(/&amp;/g,"&");
+    var dirCls=s.dir?"dn":"up", dirIco=s.dir?"▼":"▲";
+    var h='<div class="shero"><span class="em">'+s.em+'</span><div><h1>'+s.name+'</h1>'+
+      '<div class="idx">'+s.idxN+' · '+s.idxV+' <span class="'+dirCls+'">'+dirIco+' '+s.idxC+'</span></div></div></div>'+
+      '<p class="stake">'+s.take+'</p>'+
+      '<div class="simple"><div class="bh">Why this sector matters</div><p>'+s.why+'</p></div>'+
+      '<div class="blk"><div class="bh">Key movers · Friday close</div><div id="mvbox"></div></div>'+
+      '<button class="followbtn" id="secfollow">+ Follow this sector</button>'+
+      '<div class="blk"><div class="bh">Latest in '+s.name+'</div><div id="secstories"></div></div>';
+    sbody.innerHTML=h;
+    var mv=$("#mvbox",sbody);
+    s.movers.forEach(function(m){ mv.appendChild(el("div","mv",'<span>'+m[0]+'</span><span class="p '+(m[2]?'dn':'up')+'">'+m[1]+'</span>')); });
+    var ss=$("#secstories",sbody);
+    s.ids.forEach(function(id){ if(byId[id]) ss.appendChild(storyRow(byId[id],null)); });
+    var fb=$("#secfollow",sbody);
+    fb.addEventListener("click",function(){ fb.classList.toggle("on"); fb.textContent=fb.classList.contains("on")?"✓ Following this sector":"+ Follow this sector"; });
+    sector.classList.add("on"); sbody.scrollTop=0;
+  }
+  $("#sback").addEventListener("click",function(){sector.classList.remove("on")});
+
+  /* ---- tabs ---- */
+  var tabs=document.querySelectorAll(".tab");
+  tabs.forEach(function(t){ t.addEventListener("click",function(){
+    tabs.forEach(function(x){x.classList.remove("on")}); t.classList.add("on");
+    document.querySelectorAll(".view").forEach(function(v){v.classList.remove("on")});
+    $("#v-"+t.dataset.v).classList.add("on");
+    scroll.scrollTop=0;
+  });});
+
+  /* ---- explore → sectors tab ---- */
+  var gs=$("#goSectors"); if(gs) gs.addEventListener("click",function(){ var t=document.querySelector('.tab[data-v="sectors"]'); if(t)t.click(); });
+
+  /* ---- share the verdict (WhatsApp / copy) — highest-ROI missing element ---- */
+  function toast(msg){ var t=$("#toast"); if(!t)return; t.textContent=msg; t.classList.add("on"); setTimeout(function(){t.classList.remove("on")},1900); }
+  var sv=$("#shareVerdict");
+  if(sv) sv.addEventListener("click",function(){
+    var text="📊 FinanceDigest — Mon 31 Aug morning brief\nMixed open: Sensex −0.35%, Nifty −0.48%. FPIs turned buyers in August (₹30,919 cr). Watch today: Q1 GDP + 7 IPOs.\nfinancedigest.xyz";
+    if(navigator.share){ navigator.share({title:"FinanceDigest — Morning Brief",text:text}).catch(function(){}); }
+    else if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(function(){toast("Copied — paste into WhatsApp ✓");}).catch(function(){toast("Press ⌘/Ctrl+C to copy");}); }
+    else { toast("Sharing isn't supported here"); }
+  });
+
+  /* ---- predict (ship this one; streak & quiz cut) ---- */
+  var pd=$("#predict");
+  if(pd) Array.prototype.forEach.call(pd.querySelectorAll(".btns button"),function(b){
+    b.addEventListener("click",function(){
+      var pick=b.dataset.p==="up"?"higher":"lower";
+      var bt=pd.querySelector(".btns");
+      if(bt) bt.outerHTML='<div class="done">✓ Locked in — you said Nifty closes '+pick+'. Come back tomorrow to see if you were right.</div>';
+    });
+  });
+})();
+</script>
