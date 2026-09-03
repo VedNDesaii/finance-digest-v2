@@ -633,8 +633,42 @@ function mbWhy(a, max = 140) {
   return first.length > max ? first.slice(0, max).replace(/[,;:\s]+\S*$/, '') + '…' : first
 }
 
-function MorningBrief({ articles, dark, isMobile, onRead }) {
+// Reusable scannable story list — the same row treatment for the home brief and
+// for section/sector pages: category, sentiment dot, headline and a visible
+// "why it matters" line. Tapping a row opens the layered reader. Manages its own
+// reader state so it can be dropped in anywhere.
+function StoryList({ articles, dark, isMobile, numbered = false }) {
   const [sel, setSel] = useState(null)
+  const list = articles || []
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      {list.map((a, i) => {
+        const why = mbWhy(a)
+        return (
+          <button key={a.id || i} onClick={() => setSel(a)} style={{
+            display: 'flex', gap: '14px', width: '100%', textAlign: 'left', cursor: 'pointer',
+            background: 'transparent', border: 'none',
+            borderTop: i === 0 ? '1px solid var(--border-main)' : 'none',
+            borderBottom: '1px solid var(--border-main)', padding: '15px 2px',
+          }}>
+            {numbered && <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 600, color: 'var(--accent)', flexShrink: 0, marginTop: '2px', width: '16px' }}>{i + 1}</span>}
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '6px' }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9.5px', letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{MB_CAT[a.category] || 'Markets'}</span>
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: mbSentiColor(a) }} />
+              </div>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: isMobile ? '16px' : '17px', lineHeight: 1.3, letterSpacing: '-0.01em', color: 'var(--text-primary)' }}>{a.title}</div>
+              {why && <div style={{ fontSize: '13.5px', lineHeight: 1.5, color: 'var(--text-secondary)', marginTop: '5px' }}>{why}</div>}
+            </div>
+          </button>
+        )
+      })}
+      <DetailReader article={sel || {}} dark={dark} open={!!sel} onClose={() => setSel(null)} />
+    </div>
+  )
+}
+
+function MorningBrief({ articles, dark, isMobile }) {
   const five = (articles || []).slice(0, 5)
   const dateStr = new Date().toLocaleDateString('en-IN', { weekday: 'long', month: 'long', day: 'numeric' })
 
@@ -657,34 +691,9 @@ function MorningBrief({ articles, dark, isMobile, onRead }) {
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--accent)' }}>Today&rsquo;s 5 · what matters</span>
             <div style={{ height: '1px', flex: 1, background: 'var(--border-main)' }} />
           </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {five.map((a, i) => {
-              const why = mbWhy(a)
-              return (
-                <button key={a.id || i} onClick={() => setSel(a)} style={{
-                  display: 'flex', gap: '14px', width: '100%', textAlign: 'left', cursor: 'pointer',
-                  background: 'transparent', border: 'none',
-                  borderTop: i === 0 ? '1px solid var(--border-main)' : 'none',
-                  borderBottom: '1px solid var(--border-main)', padding: '15px 2px',
-                }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 600, color: 'var(--accent)', flexShrink: 0, marginTop: '2px', width: '16px' }}>{i + 1}</span>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '6px' }}>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9.5px', letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{MB_CAT[a.category] || 'Markets'}</span>
-                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: mbSentiColor(a) }} />
-                    </div>
-                    <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: isMobile ? '16px' : '17px', lineHeight: 1.3, letterSpacing: '-0.01em', color: 'var(--text-primary)' }}>{a.title}</div>
-                    {why && <div style={{ fontSize: '13.5px', lineHeight: 1.5, color: 'var(--text-secondary)', marginTop: '5px' }}>{why}</div>}
-                  </div>
-                </button>
-              )
-            })}
-          </div>
+          <StoryList articles={five} dark={dark} isMobile={isMobile} numbered />
         </>
       )}
-
-      <DetailReader article={sel || {}} dark={dark} open={!!sel} onClose={() => setSel(null)} />
     </div>
   )
 }
@@ -1710,7 +1719,7 @@ export default function Home() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
               <div style={{ height: '1px', flex: 1, background: 'var(--border-main)' }} />
               <span style={{ fontSize: '11px', fontWeight: '600', letterSpacing: '0.1em', color: 'var(--text-muted)', textTransform: 'uppercase', fontFamily: 'var(--font-ui)' }}>
-                {loading ? 'Loading…' : activeSection === 'headlines' ? `Browse all · ${articles.length} stories` : `${articles.length} Stories`}
+                {loading ? 'Loading…' : activeSection === 'headlines' ? `Browse all · ${articles.length} stories` : `${activeSectionLabel} · ${articles.length} ${articles.length === 1 ? 'story' : 'stories'}`}
               </span>
               <div style={{ height: '1px', flex: 1, background: 'var(--border-main)' }} />
             </div>
@@ -1734,9 +1743,12 @@ export default function Home() {
                 <div style={{ fontSize: '40px', marginBottom: '16px' }}>📭</div>
                 <p style={{ fontSize: '15px', fontWeight: '500', color: 'var(--text-muted)' }}>No articles in this section yet.</p>
               </div>
-            ) : (
+            ) : activeSection === 'headlines' ? (
               <SwipeDeck articles={articles} dark={dark} isPro={isPro} isBasic={isBasic}
                 isMobile={isMobile} onArticleView={trackArticleRead} />
+            ) : (
+              // Section & sector pages: scannable story list (tap to read in full)
+              <StoryList articles={articles} dark={dark} isMobile={isMobile} />
             )}
 
             <div style={{ marginTop: '48px', paddingTop: '24px', borderTop: `1px solid var(--border-main)`, textAlign: 'center' }}>
