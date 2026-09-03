@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { supabase } from '../lib/supabase'
 import ArticleCard from '../components/ArticleCard'
+import DetailReader from '../components/DetailReader'
 import SwipeDeck from '../components/SwipeDeck'
 import Tutorial from '../components/Tutorial'
 import { useAuth } from '../hooks/useAuth'
@@ -601,6 +602,89 @@ function MarketSummaryCard({ market, dark, isMobile }) {
           <style>{`@keyframes mrSlideIn { from { transform: translateY(100%) } to { transform: translateY(0) } }`}</style>
         </div>
       )}
+    </div>
+  )
+}
+
+
+// ── MorningBrief ──────────────────────────────────────────────────────────────
+// The scannable top zone of the home landing: verdict-first market read + the
+// day's five stories that matter, each with its "why it matters" line visible
+// (no tap needed). Tapping a row opens the layered reader. The full swipe deck
+// stays below as "browse all", so swiping is optional, not the only way in.
+
+const MB_CAT = {
+  'indian-markets': 'Indian Markets', 'us-markets': 'US Markets', 'global-economy': 'Global',
+  'macro-policy': 'Economy & Policy', 'banking-finance': 'Deals & Banking',
+  'investment-banking': 'Deals & Banking', 'technology-it': 'Technology',
+  'pharma-health': 'Pharma', 'auto-ev': 'Auto & EV', 'energy-oil': 'Energy',
+  'metals-mining': 'Metals', 'infrastructure': 'Infrastructure', 'fmcg-consumer': 'FMCG',
+  'renewables': 'Renewables', 'real-estate': 'Real Estate', 'telecom-media': 'Telecom',
+}
+function mbSentiColor(a) {
+  const s = (a.sentiment || '').toLowerCase()
+  return s === 'bullish' ? 'var(--up)' : s === 'bearish' ? 'var(--down)' : 'var(--text-muted)'
+}
+// One-line "why it matters" — prefer the investor take, trimmed to a headline length.
+function mbWhy(a, max = 140) {
+  const t = (a.investor_take || a.simplified_article || '').replace(/\s*\n+\s*/g, ' ').trim()
+  if (!t) return ''
+  const first = (t.match(/[^.!?]+[.!?]+/) || [t])[0].trim()
+  return first.length > max ? first.slice(0, max).replace(/[,;:\s]+\S*$/, '') + '…' : first
+}
+
+function MorningBrief({ articles, dark, isMobile, onRead }) {
+  const [sel, setSel] = useState(null)
+  const five = (articles || []).slice(0, 5)
+  const dateStr = new Date().toLocaleDateString('en-IN', { weekday: 'long', month: 'long', day: 'numeric' })
+
+  return (
+    <div style={{ marginBottom: '30px' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '10px', marginBottom: '16px' }}>
+        <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: isMobile ? '21px' : '25px', letterSpacing: '-0.02em', color: 'var(--text-primary)', margin: 0, lineHeight: 1.1 }}>
+          The 5-minute brief
+        </h2>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10.5px', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{dateStr}</span>
+      </div>
+
+      {/* Verdict-first market read (reuses the existing summary card) */}
+      <MarketSummaryCard market="indian-markets" dark={dark} isMobile={isMobile} />
+
+      {/* Today's 5 — scannable, "why it matters" visible */}
+      {five.length > 0 && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '4px 0 14px' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--accent)' }}>Today&rsquo;s 5 · what matters</span>
+            <div style={{ height: '1px', flex: 1, background: 'var(--border-main)' }} />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {five.map((a, i) => {
+              const why = mbWhy(a)
+              return (
+                <button key={a.id || i} onClick={() => setSel(a)} style={{
+                  display: 'flex', gap: '14px', width: '100%', textAlign: 'left', cursor: 'pointer',
+                  background: 'transparent', border: 'none',
+                  borderTop: i === 0 ? '1px solid var(--border-main)' : 'none',
+                  borderBottom: '1px solid var(--border-main)', padding: '15px 2px',
+                }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 600, color: 'var(--accent)', flexShrink: 0, marginTop: '2px', width: '16px' }}>{i + 1}</span>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '6px' }}>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9.5px', letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{MB_CAT[a.category] || 'Markets'}</span>
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: mbSentiColor(a) }} />
+                    </div>
+                    <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: isMobile ? '16px' : '17px', lineHeight: 1.3, letterSpacing: '-0.01em', color: 'var(--text-primary)' }}>{a.title}</div>
+                    {why && <div style={{ fontSize: '13.5px', lineHeight: 1.5, color: 'var(--text-secondary)', marginTop: '5px' }}>{why}</div>}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </>
+      )}
+
+      <DetailReader article={sel || {}} dark={dark} open={!!sel} onClose={() => setSel(null)} />
     </div>
   )
 }
@@ -1615,6 +1699,10 @@ export default function Home() {
               </>
             )}
 
+            {activeSection === 'headlines' && (
+              <MorningBrief articles={articles} dark={dark} isMobile={isMobile} />
+            )}
+
             {activeSection === 'headlines' && !loading && (
               <PredictionGame indices={indices} prediction={prediction} predCorrect={predCorrect} afterClose={afterClose} weekend={weekend} dark={dark} isMobile={isMobile} handlePrediction={handlePrediction} />
             )}
@@ -1622,7 +1710,7 @@ export default function Home() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
               <div style={{ height: '1px', flex: 1, background: 'var(--border-main)' }} />
               <span style={{ fontSize: '11px', fontWeight: '600', letterSpacing: '0.1em', color: 'var(--text-muted)', textTransform: 'uppercase', fontFamily: 'var(--font-ui)' }}>
-                {loading ? 'Loading…' : `${articles.length} Stories`}
+                {loading ? 'Loading…' : activeSection === 'headlines' ? `Browse all · ${articles.length} stories` : `${articles.length} Stories`}
               </span>
               <div style={{ height: '1px', flex: 1, background: 'var(--border-main)' }} />
             </div>
