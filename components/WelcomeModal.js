@@ -48,10 +48,18 @@ export default function WelcomeModal({ dark, user, authLoading }) {
                        window.matchMedia('(display-mode: standalone)').matches
     setIsStandalone(standalone)
 
+    // Installed app (standalone): keep the sign-in prompt on open — an installed
+    // user has already opted in, and it enables notifications.
+    if (standalone) { setShow(true); return }
+
+    // Browser: CONTENT-FIRST. Do not wall the page on load — a visitor from
+    // search or social must land straight on the brief. Instead invite a sign-up
+    // once (dismissible), only after they've had a moment with the content.
+    // Bounce visitors leave well before this fires, so they never see a gate.
     const seen = safeGet(STORAGE_KEY)
-    // In standalone mode — always show until logged in (compulsory)
-    // In browser mode — show once, dismissable
-    if (standalone || !seen) setShow(true)
+    if (seen) return
+    const t = setTimeout(() => setShow(true), 30000)
+    return () => clearTimeout(t)
   }, [user, authLoading])
 
   function dismiss() {
