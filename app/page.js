@@ -735,6 +735,17 @@ function Fd2Story({ a, i, onOpen }) {
   )
 }
 
+// Prototype-styled story list (used by section & sector pages) with its reader.
+function Fd2StoryList({ articles, dark }) {
+  const [sel, setSel] = useState(null)
+  return (
+    <div>
+      {(articles || []).map((a, i) => <Fd2Story key={a.id || i} a={a} onOpen={setSel} />)}
+      <DetailReader article={sel || {}} dark={dark} open={!!sel} onClose={() => setSel(null)} />
+    </div>
+  )
+}
+
 function TodayView({ articles, dark, isMobile, prediction, handlePrediction, afterClose, weekend, onGoSectors }) {
   const [sel, setSel] = useState(null)
   const [md, setMd] = useState(null)
@@ -875,6 +886,92 @@ function TodayView({ articles, dark, isMobile, prediction, handlePrediction, aft
 
       <DetailReader article={sel || {}} dark={dark} open={!!sel} onClose={() => setSel(null)} />
       <div className="fd2-toast" id="fd2-toast" />
+    </div>
+  )
+}
+
+
+// ── MarketsView (redesign) ──────────────────────────────────────────────────
+// The Markets tab, matched to the prototype: verdict hero + a merged
+// India/US indices list + India sector-pulse bars, all from market-data.json.
+function MarketsView() {
+  const [j, setJ] = useState(null)
+  useEffect(() => {
+    let ok = true
+    fetch('/market-data.json', { cache: 'no-store' }).then(r => r.json()).then(d => { if (ok) setJ(d) }).catch(() => {})
+    return () => { ok = false }
+  }, [])
+  const ind = (j && j.indian) || {}
+  const us = (j && j.us) || {}
+  const indices = [...((ind.indices) || []), ...((us.indices) || [])]
+  const sectors = (ind.sectors) || []
+  const verdict = ind.verdict || 'mixed'
+  const V = verdict === 'up' ? { c: 'up', a: '▲', l: 'Up day' }
+    : verdict === 'down' ? { c: 'dn', a: '▼', l: 'Down day' }
+    : { c: 'mixed', a: '◑', l: 'Mixed day' }
+  const lead = ind.lead || ind.headline || 'Market summary updates after the next close.'
+  const brief = ind.brief || ''
+  const watch = ind.watch || ''
+  const mx = Math.max(1, ...sectors.map(s => Math.abs(Number(s.pct) || 0)))
+  return (
+    <div>
+      <div className="fd2-eyebrow" style={{ marginTop: '8px' }}>Indian markets · latest close <span className="ln" /></div>
+      <div className="fd2-verdict">
+        <span className={'fd2-vtag ' + V.c}>{V.a} {V.l}</span>
+        <h2>{lead}</h2>
+        {brief && <p>{brief}</p>}
+        {watch && <div className="watch"><span className="w">Watch</span> {watch}</div>}
+      </div>
+
+      <div className="fd2-eyebrow">Indices <span className="ln" /></div>
+      <div>
+        {indices.map((m, i) => (
+          <div className="fd2-mrow" key={i}>
+            <div className="nm">{m.label}</div>
+            <div className="px"><div className="p">{m.value}</div><div className={'c ' + (m.up ? 'fd2-up' : 'fd2-dn')}>{m.pct}</div></div>
+          </div>
+        ))}
+      </div>
+
+      {sectors.length > 0 && (
+        <>
+          <div className="fd2-eyebrow">Sector pulse <span className="ln" /></div>
+          <div>
+            {sectors.map((s, i) => {
+              const p = Number(s.pct) || 0, up = p >= 0, w = Math.max(6, Math.abs(p) / mx * 50)
+              return (
+                <div className="fd2-sect" key={i}>
+                  <div className="nm">{s.name}</div>
+                  <div className="track">
+                    <i style={{ [up ? 'left' : 'right']: '50%', width: w + '%', background: up ? 'var(--up)' : 'var(--down)' }} />
+                    <span style={{ position: 'absolute', left: '50%', top: '-2px', bottom: '-2px', width: '1px', background: 'var(--border-main)' }} />
+                  </div>
+                  <div className={'pct ' + (up ? 'fd2-up' : 'fd2-dn')}>{up ? '+' : ''}{p}%</div>
+                </div>
+              )
+            })}
+          </div>
+        </>
+      )}
+      <div className="fd2-disc">Real NSE/BSE data · as of latest close · AI-assisted commentary.</div>
+    </div>
+  )
+}
+
+// ── SectorsView (redesign) ──────────────────────────────────────────────────
+// The Sectors tab: the prototype's list of sector cards. Tapping one opens that
+// sector's page (its category section, rendered as a hero + scannable stories).
+function SectorsView({ onOpenSector }) {
+  return (
+    <div>
+      <div className="fd2-eyebrow" style={{ marginTop: '8px' }}>Sectors <span className="ln" /></div>
+      {SECTORS_SECTIONS.map(s => (
+        <button className="fd2-sectorcard" key={s.id} onClick={() => onOpenSector(s.id)}>
+          <span className="em">{s.icon}</span>
+          <div><div className="nm">{s.label}</div><div className="sub">Pulse &amp; the latest stories</div></div>
+          <span className="ct">›</span>
+        </button>
+      ))}
     </div>
   )
 }
@@ -1634,6 +1731,12 @@ export default function Home() {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   })
   const activeSectionLabel = ALL_SECTIONS.find(s => s.id === activeSection)?.label || ''
+  const secMeta = SECTORS_SECTIONS.find(s => s.id === activeSection)
+  // Which of the 3 bottom-nav tabs is active (sector detail keeps Sectors lit).
+  const navTab = activeSection === 'headlines' ? 'headlines'
+    : activeSection === 'markets' ? 'markets'
+    : (activeSection === 'sectors' || SECTOR_IDS.includes(activeSection)) ? 'sectors'
+    : ''
   const iqLevel = getIQLevel(iqScore)
 
   const headerH = isMobile ? 72 : 64
@@ -1719,48 +1822,27 @@ export default function Home() {
             <IQChip iq={iqScore} dark={dark} />
             <NotificationBell dark={dark} />
             <ThemeToggle dark={dark} onToggle={toggleTheme} />
+            <button onClick={() => setOverlay(overlay === 'more' ? null : 'more')} aria-label="More"
+              title="Quiz, Portfolio & more"
+              style={{ width: '34px', height: '34px', borderRadius: '10px', border: '1px solid var(--border-main)', background: overlay === 'more' ? 'var(--accent)' : 'var(--bg-card)', color: overlay === 'more' ? '#fff' : 'var(--text-secondary)', cursor: 'pointer', fontSize: '17px', fontWeight: 700, lineHeight: 1, display: 'grid', placeItems: 'center', flexShrink: 0 }}>⋯</button>
             <AccountButton dark={dark} user={user} />
           </div>
         </div>
       </header>
 
-      {/* ── Floating Bottom Nav ── */}
-      <nav
-        onMouseEnter={() => setNavHovered(true)}
-        onMouseLeave={() => setNavHovered(false)}
-        onClick={() => setNavHovered(true)}
-        style={{
-          position: 'fixed',
-          bottom: isMobile ? '16px' : '24px',
-          left: '50%',
-          transform: `translateX(-50%) scale(${navShrunk && !navHovered ? 0.93 : 1})`,
-          transformOrigin: 'bottom center',
-          opacity: 1,
-          display: 'flex', alignItems: 'center',
-          background: dark ? 'rgba(18,18,18,0.95)' : 'rgba(255,255,255,0.95)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          borderRadius: '99px',
-          border: `1px solid ${dark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)'}`,
-          boxShadow: dark
-            ? '0 8px 32px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3)'
-            : '0 8px 32px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.06)',
-          zIndex: 40,
-          padding: '6px 8px',
-          gap: '2px',
-          transition: 'transform 0.35s cubic-bezier(0.34,1.56,0.64,1)',
-        }}>
-        {BOTTOM_TABS.map(tab => {
-          const isActive = activeTab === tab.id || overlay === tab.id
+      {/* ── Flat 3-tab bottom nav (Today / Markets / Sectors) ── */}
+      <nav className="fd2-tabs">
+        {[
+          { id: 'headlines', label: 'Today',   d: 'M3 10.5 12 4l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z' },
+          { id: 'markets',   label: 'Markets', d: 'M4 19V5M4 15l5-5 4 3 7-8' },
+          { id: 'sectors',   label: 'Sectors', d: 'M4 5h16M4 12h16M4 19h10' },
+        ].map(t => {
+          const on = navTab === t.id
           return (
-            <NavTab
-              key={tab.id}
-              tab={tab}
-              isActive={isActive}
-              isMobile={isMobile}
-              dark={dark}
-              onClick={() => handleTabClick(tab.id)}
-            />
+            <button key={t.id} className={'fd2-tab' + (on ? ' on' : '')} onClick={() => handleSectionClick(t.id)}>
+              <svg viewBox="0 0 24 24"><path d={t.d} /></svg>
+              <span>{t.label}</span>
+            </button>
           )
         })}
       </nav>
@@ -1882,7 +1964,11 @@ export default function Home() {
               <TodayView articles={articles} dark={dark} isMobile={isMobile}
                 prediction={prediction} handlePrediction={handlePrediction}
                 afterClose={afterClose} weekend={weekend}
-                onGoSectors={() => setOverlay('sectors')} />
+                onGoSectors={() => handleSectionClick('sectors')} />
+            ) : activeSection === 'markets' ? (
+              <MarketsView />
+            ) : activeSection === 'sectors' ? (
+              <SectorsView onOpenSector={(id) => handleSectionClick(id)} />
             ) : activeSection === 'quiz' ? (
               <>
                 <YesterdayQuiz dark={dark} isMobile={isMobile} addIQ={addIQ} earnedBadges={earnedBadges} awardBadge={awardBadge} />
@@ -1890,17 +1976,27 @@ export default function Home() {
               </>
             ) : (
               <>
-                {(activeSection === 'indian-markets' || activeSection === 'us-markets') && (
+                {secMeta ? (
+                  <div className="fd2-shero">
+                    <span className="em">{secMeta.icon}</span>
+                    <div>
+                      <h1>{secMeta.label}</h1>
+                      <div className="idx">{loading ? 'Loading…' : `${articles.length} ${articles.length === 1 ? 'story' : 'stories'} today`}</div>
+                    </div>
+                  </div>
+                ) : (activeSection === 'indian-markets' || activeSection === 'us-markets') ? (
                   <MarketSummaryCard market={activeSection} dark={dark} isMobile={isMobile} />
-                )}
+                ) : null}
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-                  <div style={{ height: '1px', flex: 1, background: 'var(--border-main)' }} />
-                  <span style={{ fontSize: '11px', fontWeight: '600', letterSpacing: '0.1em', color: 'var(--text-muted)', textTransform: 'uppercase', fontFamily: 'var(--font-ui)' }}>
-                    {loading ? 'Loading…' : `${activeSectionLabel} · ${articles.length} ${articles.length === 1 ? 'story' : 'stories'}`}
-                  </span>
-                  <div style={{ height: '1px', flex: 1, background: 'var(--border-main)' }} />
-                </div>
+                {!secMeta && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                    <div style={{ height: '1px', flex: 1, background: 'var(--border-main)' }} />
+                    <span style={{ fontSize: '11px', fontWeight: '600', letterSpacing: '0.1em', color: 'var(--text-muted)', textTransform: 'uppercase', fontFamily: 'var(--font-ui)' }}>
+                      {loading ? 'Loading…' : `${activeSectionLabel} · ${articles.length} ${articles.length === 1 ? 'story' : 'stories'}`}
+                    </span>
+                    <div style={{ height: '1px', flex: 1, background: 'var(--border-main)' }} />
+                  </div>
+                )}
 
                 {fetchError && (
                   <div style={{ background: dark ? '#2D1B00' : '#FFF3CD', border: `1px solid ${dark ? '#7C4A00' : '#FFC107'}`, borderRadius: '12px', padding: '14px 18px', marginBottom: '24px', fontSize: '13px', color: dark ? '#FFC107' : '#856404', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
@@ -1922,7 +2018,7 @@ export default function Home() {
                     <p style={{ fontSize: '15px', fontWeight: '500', color: 'var(--text-muted)' }}>No articles in this section yet.</p>
                   </div>
                 ) : (
-                  <StoryList articles={articles} dark={dark} isMobile={isMobile} />
+                  <Fd2StoryList articles={articles} dark={dark} />
                 )}
 
                 <div style={{ marginTop: '48px', paddingTop: '24px', borderTop: `1px solid var(--border-main)`, textAlign: 'center' }}>

@@ -325,3 +325,11 @@ aside {
 /* share toast */
 .fd2-toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%) translateY(20px);background:var(--text-primary);color:var(--bg-page);font-family:var(--font-mono);font-size:12px;font-weight:600;padding:10px 16px;border-radius:10px;opacity:0;pointer-events:none;transition:.25s;z-index:4000;max-width:80%;text-align:center}
 .fd2-toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* flat 3-tab bottom nav */
+.fd2-tabs{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:space-around;padding:8px 6px calc(8px + env(safe-area-inset-bottom));background:color-mix(in srgb,var(--bg-page) 85%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--border-main);z-index:40}
+.fd2-tab{flex:1;background:none;border:none;color:var(--text-muted);display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;cursor:pointer;font-family:var(--font-mono);font-size:9.5px;letter-spacing:.04em;text-transform:uppercase}
+.fd2-tab svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.7}
+.fd2-tab.on{color:var(--accent)}
+.fd2-followbtn{width:100%;background:var(--bg-gist);border:1px solid var(--border-main);color:var(--text-primary);font-family:var(--font-mono);font-weight:600;font-size:12px;letter-spacing:.05em;text-transform:uppercase;padding:12px;border-radius:12px;cursor:pointer;margin:2px 0 20px}
+.fd2-followbtn.on{background:var(--accent);border-color:var(--accent);color:#fff}
