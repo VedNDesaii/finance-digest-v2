@@ -307,9 +307,10 @@ aside {
 .fd2-stat .num{font-family:var(--font-display);font-weight:900;font-size:30px;color:var(--accent);letter-spacing:-.02em}
 .fd2-stat .lb{font-family:var(--font-mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-secondary)}
 .fd2-blk{margin-bottom:18px}
-.fd2-blk .bh{font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.fd2-blk .bh,.fd2-simple .bh,.fd2-gloss .bh{font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:6px;display:flex;align-items:center;gap:8px}
 .fd2-blk .impact{font-family:var(--font-mono);font-size:9.5px;padding:2px 7px;border-radius:6px}
-.fd2-blk p{margin:0;font-size:15px;line-height:1.62;color:var(--text-primary)}
+.fd2-blk p{margin:0 0 12px;font-size:15px;line-height:1.62;color:var(--text-primary)}
+.fd2-blk p:last-child{margin-bottom:0}
 .fd2-simple{background:var(--bg-gist);border-radius:14px;padding:14px 16px;margin-bottom:18px}
 .fd2-simple .bh{color:var(--watch)}
 .fd2-gloss{background:var(--bg-gist);border-radius:14px;padding:14px 16px;margin-bottom:18px}
