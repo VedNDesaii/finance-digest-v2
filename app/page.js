@@ -699,6 +699,187 @@ function MorningBrief({ articles, dark, isMobile }) {
 }
 
 
+// ── TodayView (redesign) ────────────────────────────────────────────────────
+// The Today screen, matched 1:1 to the approved prototype and wired to real
+// data: ticker + as-of stamp, verdict hero + share, "5 things to know", the
+// caught-up line, "Today's term" (from a story's glossary), grouped "more top
+// stories", explore-sectors, and the predict card. Uses fd2-* classes.
+
+function fd2Src(a) { return ((a.source || '').split('|').pop() || '').trim() || 'Finance Digest' }
+function fd2Time(a) { try { return new Date(a.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) } catch { return '' } }
+
+function Fd2Chips({ a }) {
+  const s = (a.sentiment || '').toLowerCase()
+  const cls = s === 'bullish' ? 'bull' : s === 'bearish' ? 'bear' : 'neutral'
+  const lbl = s === 'bullish' ? 'Positive' : s === 'bearish' ? 'Negative' : 'Neutral'
+  return (
+    <div className="fd2-chips">
+      <span className="fd2-chip sec">{MB_CAT[a.category] || 'Markets'}</span>
+      <span className={'fd2-chip ' + cls}>{lbl}</span>
+    </div>
+  )
+}
+
+function Fd2Story({ a, i, onOpen }) {
+  const why = mbWhy(a)
+  return (
+    <button className="fd2-story" onClick={() => onOpen(a)}>
+      {i != null && <span className="idx">{i}</span>}
+      <div className="body">
+        <Fd2Chips a={a} />
+        <h3>{a.title}</h3>
+        {why && <p className="why"><b>Why it matters</b>{why}</p>}
+        <div className="meta"><span>{fd2Src(a)}</span><span>·</span><span>{fd2Time(a)}</span></div>
+      </div>
+    </button>
+  )
+}
+
+function TodayView({ articles, dark, isMobile, prediction, handlePrediction, afterClose, weekend, onGoSectors }) {
+  const [sel, setSel] = useState(null)
+  const [md, setMd] = useState(null)
+  useEffect(() => {
+    let ok = true
+    fetch('/market-data.json', { cache: 'no-store' })
+      .then(r => r.json()).then(j => { if (ok) setMd(j.indian || null) }).catch(() => {})
+    return () => { ok = false }
+  }, [])
+
+  const list = articles || []
+  const five = list.slice(0, 5)
+  const more = list.slice(5, 11)
+  const dateStr = new Date().toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' })
+
+  const d = md || {}
+  const indices = (d.indices && d.indices.length) ? d.indices : []
+  const verdict = d.verdict || 'mixed'
+  const V = verdict === 'up' ? { c: 'up', a: '▲', l: 'Up day' }
+    : verdict === 'down' ? { c: 'dn', a: '▼', l: 'Down day' }
+    : { c: 'mixed', a: '◑', l: 'Mixed day' }
+  const lead = d.lead || d.headline || 'Market summary updates after the next close.'
+  const brief = d.brief || ''
+  const watch = d.watch || ''
+  const updatedAt = d.updated_at
+    ? new Date(d.updated_at).toLocaleString('en-IN', { weekday: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) + ' IST'
+    : ''
+
+  // Today's term — first glossary term among today's stories.
+  let term = null
+  for (const a of list) {
+    const g = Array.isArray(a.glossary) ? a.glossary : []
+    if (g.length && (g[0].word || g[0].term)) { term = { w: g[0].word || g[0].term, m: g[0].meaning || g[0].definition }; break }
+  }
+
+  // "More top stories" grouped by sector.
+  const groups = []
+  let lastCat = null
+  more.forEach(a => {
+    const c = MB_CAT[a.category] || 'Markets'
+    if (c !== lastCat) { groups.push({ cat: c, items: [] }); lastCat = c }
+    groups[groups.length - 1].items.push(a)
+  })
+
+  function share() {
+    const t = document.getElementById('fd2-toast')
+    const text = `📊 FinanceDigest morning brief\n${lead}\nfinancedigest.xyz`
+    const done = msg => { if (t) { t.textContent = msg; t.classList.add('on'); setTimeout(() => t.classList.remove('on'), 1900) } }
+    if (navigator.share) navigator.share({ title: 'FinanceDigest — Morning Brief', text }).catch(() => {})
+    else if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(() => done('Copied — paste into WhatsApp ✓')).catch(() => done('Press ⌘/Ctrl+C to copy'))
+  }
+
+  return (
+    <div>
+      {indices.length > 0 && (
+        <div className="fd2-ticker">
+          {indices.map((ix, k) => (
+            <div className="fd2-tk" key={k}>
+              <div className="n">{ix.label}</div>
+              <div className="v">{ix.value}</div>
+              <div className={'c ' + (ix.up ? 'fd2-up' : 'fd2-dn')}>{ix.pct}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {updatedAt && <div className="fd2-asof" style={{ marginBottom: '16px' }}>Prices as of {updatedAt} · AI-assisted</div>}
+
+      <div className="fd2-zone"><span className="z-lbl">The 5-minute brief</span><span className="z-date">{dateStr}</span></div>
+
+      <div className="fd2-verdict">
+        <span className={'fd2-vtag ' + V.c}>{V.a} {V.l}</span>
+        <h2>{lead}</h2>
+        {brief && <p>{brief}</p>}
+        {watch && <div className="watch"><span className="w">Watch</span> {watch}</div>}
+        <div className="fd2-vsrc">Cross-checked across ET · Mint · Bloomberg · Reuters · CNBC</div>
+        <button className="fd2-sharebtn" onClick={share}>↗ Share this brief</button>
+      </div>
+
+      <div className="fd2-sublbl">5 things to know</div>
+      <div className="fd2-fivelist">
+        {five.length
+          ? five.map((a, i) => <Fd2Story key={a.id || i} a={a} i={i + 1} onOpen={setSel} />)
+          : <p style={{ color: 'var(--text-muted)', fontSize: '13px', padding: '8px 2px' }}>Loading today&rsquo;s stories…</p>}
+      </div>
+
+      {five.length > 0 && (
+        <div className="fd2-caughtline">
+          <span className="tick">✓</span>
+          <div><b>That&rsquo;s your 5 minutes — you&rsquo;re caught up.</b><span>Swept the morning&rsquo;s sources · nothing important missed.</span></div>
+        </div>
+      )}
+
+      <div className="fd2-zone dim"><span className="z-lbl">More, if you have time</span><span className="z-date">optional</span></div>
+
+      {term && (
+        <>
+          <div className="fd2-sublbl">Today&rsquo;s term</div>
+          <div className="fd2-term"><div className="k">In today&rsquo;s news</div><div className="w">{term.w}</div><p>{term.m}</p></div>
+        </>
+      )}
+
+      {groups.length > 0 && (
+        <>
+          <div className="fd2-sublbl">More top stories</div>
+          <div>
+            {groups.map((g, gi) => (
+              <div key={gi}>
+                <div className="fd2-grplbl">{g.cat}</div>
+                {g.items.map((a, i) => <Fd2Story key={a.id || i} a={a} onOpen={setSel} />)}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      <button className="fd2-explore" onClick={onGoSectors}>Explore all sectors →</button>
+
+      <div className="fd2-sublbl">Form a view</div>
+      <div className="fd2-predict">
+        <div className="ph"><span className="em">🎯</span><span className="t">Predict today&rsquo;s close</span></div>
+        {weekend ? (
+          <div className="q">Markets are closed this weekend — come back Monday to make your call.</div>
+        ) : prediction ? (
+          <div className="done">✓ Locked in — you said Nifty closes {prediction === 'up' ? 'higher' : 'lower'}. Come back after close to see if you were right.</div>
+        ) : (
+          <>
+            <div className="q">Will the Nifty finish <b>higher</b> today?</div>
+            <div className="btns">
+              <button onClick={() => handlePrediction && handlePrediction('up')}>Yes, green</button>
+              <button onClick={() => handlePrediction && handlePrediction('down')}>No, red</button>
+            </div>
+            <div className="dis">A game to sharpen your view — not investment advice. Result after close.</div>
+          </>
+        )}
+      </div>
+
+      <div className="fd2-disc">AI-assisted summaries, sourced from Mint, Economic Times, Business Standard, CNBC &amp; Reuters. Not investment advice.</div>
+
+      <DetailReader article={sel || {}} dark={dark} open={!!sel} onClose={() => setSel(null)} />
+      <div className="fd2-toast" id="fd2-toast" />
+    </div>
+  )
+}
+
+
 // ── PredictionGame ────────────────────────────────────────────────────────────
 
 function PredictionGame({ indices, prediction, predCorrect, afterClose, weekend, dark, isMobile, handlePrediction }) {
@@ -1697,65 +1878,60 @@ export default function Home() {
         ) : (
           <div style={{ maxWidth: '820px', margin: '0 auto', padding: isMobile ? '16px 14px 20px' : '32px 24px 72px' }}>
 
-            {(activeSection === 'indian-markets' || activeSection === 'us-markets') && (
-              <MarketSummaryCard market={activeSection} dark={dark} isMobile={isMobile} />
-            )}
-
-            {activeSection === 'quiz' && (
+            {activeSection === 'headlines' ? (
+              <TodayView articles={articles} dark={dark} isMobile={isMobile}
+                prediction={prediction} handlePrediction={handlePrediction}
+                afterClose={afterClose} weekend={weekend}
+                onGoSectors={() => setOverlay('sectors')} />
+            ) : activeSection === 'quiz' ? (
               <>
                 <YesterdayQuiz dark={dark} isMobile={isMobile} addIQ={addIQ} earnedBadges={earnedBadges} awardBadge={awardBadge} />
                 <FinanceWordle dark={dark} isMobile={isMobile} addIQ={addIQ} />
               </>
-            )}
-
-            {activeSection === 'headlines' && (
-              <MorningBrief articles={articles} dark={dark} isMobile={isMobile} />
-            )}
-
-            {activeSection === 'headlines' && !loading && (
-              <PredictionGame indices={indices} prediction={prediction} predCorrect={predCorrect} afterClose={afterClose} weekend={weekend} dark={dark} isMobile={isMobile} handlePrediction={handlePrediction} />
-            )}
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-              <div style={{ height: '1px', flex: 1, background: 'var(--border-main)' }} />
-              <span style={{ fontSize: '11px', fontWeight: '600', letterSpacing: '0.1em', color: 'var(--text-muted)', textTransform: 'uppercase', fontFamily: 'var(--font-ui)' }}>
-                {loading ? 'Loading…' : activeSection === 'headlines' ? `Browse all · ${articles.length} stories` : `${activeSectionLabel} · ${articles.length} ${articles.length === 1 ? 'story' : 'stories'}`}
-              </span>
-              <div style={{ height: '1px', flex: 1, background: 'var(--border-main)' }} />
-            </div>
-
-            {fetchError && (
-              <div style={{ background: dark ? '#2D1B00' : '#FFF3CD', border: `1px solid ${dark ? '#7C4A00' : '#FFC107'}`, borderRadius: '12px', padding: '14px 18px', marginBottom: '24px', fontSize: '13px', color: dark ? '#FFC107' : '#856404', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-                <span><strong>Couldn't load:</strong> {fetchError}</span>
-                <button onClick={() => window.location.reload()}
-                  style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                  Retry
-                </button>
-              </div>
-            )}
-
-            {loading ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                {[0,1,2].map(i => <SkeletonCard key={i} />)}
-              </div>
-            ) : articles.length === 0 && !fetchError ? (
-              <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-                <div style={{ fontSize: '40px', marginBottom: '16px' }}>📭</div>
-                <p style={{ fontSize: '15px', fontWeight: '500', color: 'var(--text-muted)' }}>No articles in this section yet.</p>
-              </div>
-            ) : activeSection === 'headlines' ? (
-              <SwipeDeck articles={articles} dark={dark} isPro={isPro} isBasic={isBasic}
-                isMobile={isMobile} onArticleView={trackArticleRead} />
             ) : (
-              // Section & sector pages: scannable story list (tap to read in full)
-              <StoryList articles={articles} dark={dark} isMobile={isMobile} />
-            )}
+              <>
+                {(activeSection === 'indian-markets' || activeSection === 'us-markets') && (
+                  <MarketSummaryCard market={activeSection} dark={dark} isMobile={isMobile} />
+                )}
 
-            <div style={{ marginTop: '48px', paddingTop: '24px', borderTop: `1px solid var(--border-main)`, textAlign: 'center' }}>
-              <p style={{ fontSize: '12px', color: dark ? '#3C3530' : '#C4B9AE', letterSpacing: '0.05em' }}>
-                Finance Digest · Powered by AI · News simplified for everyone
-              </p>
-            </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                  <div style={{ height: '1px', flex: 1, background: 'var(--border-main)' }} />
+                  <span style={{ fontSize: '11px', fontWeight: '600', letterSpacing: '0.1em', color: 'var(--text-muted)', textTransform: 'uppercase', fontFamily: 'var(--font-ui)' }}>
+                    {loading ? 'Loading…' : `${activeSectionLabel} · ${articles.length} ${articles.length === 1 ? 'story' : 'stories'}`}
+                  </span>
+                  <div style={{ height: '1px', flex: 1, background: 'var(--border-main)' }} />
+                </div>
+
+                {fetchError && (
+                  <div style={{ background: dark ? '#2D1B00' : '#FFF3CD', border: `1px solid ${dark ? '#7C4A00' : '#FFC107'}`, borderRadius: '12px', padding: '14px 18px', marginBottom: '24px', fontSize: '13px', color: dark ? '#FFC107' : '#856404', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                    <span><strong>Couldn't load:</strong> {fetchError}</span>
+                    <button onClick={() => window.location.reload()}
+                      style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                      Retry
+                    </button>
+                  </div>
+                )}
+
+                {loading ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    {[0,1,2].map(i => <SkeletonCard key={i} />)}
+                  </div>
+                ) : articles.length === 0 && !fetchError ? (
+                  <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+                    <div style={{ fontSize: '40px', marginBottom: '16px' }}>📭</div>
+                    <p style={{ fontSize: '15px', fontWeight: '500', color: 'var(--text-muted)' }}>No articles in this section yet.</p>
+                  </div>
+                ) : (
+                  <StoryList articles={articles} dark={dark} isMobile={isMobile} />
+                )}
+
+                <div style={{ marginTop: '48px', paddingTop: '24px', borderTop: `1px solid var(--border-main)`, textAlign: 'center' }}>
+                  <p style={{ fontSize: '12px', color: dark ? '#3C3530' : '#C4B9AE', letterSpacing: '0.05em' }}>
+                    Finance Digest · Powered by AI · News simplified for everyone
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         )}
       </main>
