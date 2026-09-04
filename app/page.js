@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic'
 import { supabase } from '../lib/supabase'
 import ArticleCard from '../components/ArticleCard'
 import SwipeDeck from '../components/SwipeDeck'
+import TodayBriefing from '../components/TodayBriefing'
 import Tutorial from '../components/Tutorial'
 import { useAuth } from '../hooks/useAuth'
 import WelcomeModal from '../components/WelcomeModal'
@@ -1615,18 +1616,6 @@ export default function Home() {
               </>
             )}
 
-            {activeSection === 'headlines' && !loading && (
-              <PredictionGame indices={indices} prediction={prediction} predCorrect={predCorrect} afterClose={afterClose} weekend={weekend} dark={dark} isMobile={isMobile} handlePrediction={handlePrediction} />
-            )}
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-              <div style={{ height: '1px', flex: 1, background: 'var(--border-main)' }} />
-              <span style={{ fontSize: '11px', fontWeight: '600', letterSpacing: '0.1em', color: 'var(--text-muted)', textTransform: 'uppercase', fontFamily: 'var(--font-ui)' }}>
-                {loading ? 'Loading…' : `${articles.length} Stories`}
-              </span>
-              <div style={{ height: '1px', flex: 1, background: 'var(--border-main)' }} />
-            </div>
-
             {fetchError && (
               <div style={{ background: dark ? '#2D1B00' : '#FFF3CD', border: `1px solid ${dark ? '#7C4A00' : '#FFC107'}`, borderRadius: '12px', padding: '14px 18px', marginBottom: '24px', fontSize: '13px', color: dark ? '#FFC107' : '#856404', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
                 <span><strong>Couldn't load:</strong> {fetchError}</span>
@@ -1637,18 +1626,53 @@ export default function Home() {
               </div>
             )}
 
-            {loading ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                {[0,1,2].map(i => <SkeletonCard key={i} />)}
-              </div>
-            ) : articles.length === 0 && !fetchError ? (
-              <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-                <div style={{ fontSize: '40px', marginBottom: '16px' }}>📭</div>
-                <p style={{ fontSize: '15px', fontWeight: '500', color: 'var(--text-muted)' }}>No articles in this section yet.</p>
-              </div>
+            {activeSection === 'headlines' ? (
+              /* ── Today / Briefing: redesigned two-zone brief ── */
+              loading ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  {[0,1,2].map(i => <SkeletonCard key={i} />)}
+                </div>
+              ) : articles.length === 0 && !fetchError ? (
+                <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+                  <div style={{ fontSize: '40px', marginBottom: '16px' }}>📭</div>
+                  <p style={{ fontSize: '15px', fontWeight: '500', color: 'var(--text-muted)' }}>No stories yet this morning.</p>
+                </div>
+              ) : (
+                <TodayBriefing
+                  articles={articles}
+                  dark={dark}
+                  isMobile={isMobile}
+                  onArticleView={trackArticleRead}
+                  onExploreSectors={() => setOverlay('sectors')}
+                  predictionGame={
+                    <PredictionGame indices={indices} prediction={prediction} predCorrect={predCorrect} afterClose={afterClose} weekend={weekend} dark={dark} isMobile={isMobile} handlePrediction={handlePrediction} />
+                  }
+                />
+              )
             ) : (
-              <SwipeDeck articles={articles} dark={dark} isPro={isPro} isBasic={isBasic}
-                isMobile={isMobile} onArticleView={trackArticleRead} />
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                  <div style={{ height: '1px', flex: 1, background: 'var(--border-main)' }} />
+                  <span style={{ fontSize: '11px', fontWeight: '600', letterSpacing: '0.1em', color: 'var(--text-muted)', textTransform: 'uppercase', fontFamily: 'var(--font-ui)' }}>
+                    {loading ? 'Loading…' : `${articles.length} Stories`}
+                  </span>
+                  <div style={{ height: '1px', flex: 1, background: 'var(--border-main)' }} />
+                </div>
+
+                {loading ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    {[0,1,2].map(i => <SkeletonCard key={i} />)}
+                  </div>
+                ) : articles.length === 0 && !fetchError ? (
+                  <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+                    <div style={{ fontSize: '40px', marginBottom: '16px' }}>📭</div>
+                    <p style={{ fontSize: '15px', fontWeight: '500', color: 'var(--text-muted)' }}>No articles in this section yet.</p>
+                  </div>
+                ) : (
+                  <SwipeDeck articles={articles} dark={dark} isPro={isPro} isBasic={isBasic}
+                    isMobile={isMobile} onArticleView={trackArticleRead} />
+                )}
+              </>
             )}
 
             <div style={{ marginTop: '48px', paddingTop: '24px', borderTop: `1px solid var(--border-main)`, textAlign: 'center' }}>
