@@ -66,6 +66,23 @@ const SECTORS_SECTIONS = [
   { id: 'telecom-media',  label: 'Telecom',     icon: '📡' },
 ]
 
+// The Sectors tab lists every browsable topic — markets & economy, finance,
+// and the industry sectors — grouped. (Indian Markets lives on the Markets tab.)
+const BROWSE_GROUPS = [
+  { label: 'Markets & Economy', items: [
+    { id: 'us-markets',     label: 'US Markets',          icon: '🇺🇸' },
+    { id: 'global-economy', label: 'Global Economy',      icon: '🌐' },
+    { id: 'macro-policy',   label: 'Macro, Tax & Budget', icon: '🏛️' },
+  ] },
+  { label: 'Deals & Banking', items: [
+    { id: 'banking-finance',    label: 'Banking & Finance',  icon: '🏦' },
+    { id: 'investment-banking', label: 'Investment Banking', icon: '💼' },
+  ] },
+  { label: 'Sectors', items: SECTORS_SECTIONS },
+]
+const BROWSE_META = {}
+BROWSE_GROUPS.forEach(g => g.items.forEach(it => { BROWSE_META[it.id] = it }))
+
 const ALL_SECTIONS = [
   { id: 'headlines',       label: 'Daily Briefing'   },
   { id: 'quiz',            label: 'Daily Quiz'        },
@@ -905,13 +922,17 @@ function MarketsView() {
 function SectorsView({ onOpenSector }) {
   return (
     <div>
-      <div className="fd2-eyebrow" style={{ marginTop: '8px' }}>Sectors <span className="ln" /></div>
-      {SECTORS_SECTIONS.map(s => (
-        <button className="fd2-sectorcard" key={s.id} onClick={() => onOpenSector(s.id)}>
-          <span className="em">{s.icon}</span>
-          <div><div className="nm">{s.label}</div><div className="sub">Pulse &amp; the latest stories</div></div>
-          <span className="ct">›</span>
-        </button>
+      {BROWSE_GROUPS.map((g, gi) => (
+        <div key={g.label}>
+          <div className="fd2-eyebrow" style={{ marginTop: gi === 0 ? '8px' : '24px' }}>{g.label} <span className="ln" /></div>
+          {g.items.map(s => (
+            <button className="fd2-sectorcard" key={s.id} onClick={() => onOpenSector(s.id)}>
+              <span className="em">{s.icon}</span>
+              <div><div className="nm">{s.label}</div><div className="sub">Pulse &amp; the latest stories</div></div>
+              <span className="ct">›</span>
+            </button>
+          ))}
+        </div>
       ))}
     </div>
   )
@@ -1539,11 +1560,11 @@ export default function Home() {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   })
   const activeSectionLabel = ALL_SECTIONS.find(s => s.id === activeSection)?.label || ''
-  const secMeta = SECTORS_SECTIONS.find(s => s.id === activeSection)
+  const secMeta = BROWSE_META[activeSection]
   // Which of the 3 bottom-nav tabs is active (sector detail keeps Sectors lit).
   const navTab = activeSection === 'headlines' ? 'headlines'
     : activeSection === 'markets' ? 'markets'
-    : (activeSection === 'sectors' || SECTOR_IDS.includes(activeSection)) ? 'sectors'
+    : (activeSection === 'sectors' || BROWSE_META[activeSection]) ? 'sectors'
     : ''
   const iqLevel = getIQLevel(iqScore)
 
