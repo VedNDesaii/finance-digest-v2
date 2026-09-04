@@ -2,9 +2,7 @@
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { supabase } from '../lib/supabase'
-import ArticleCard from '../components/ArticleCard'
 import DetailReader from '../components/DetailReader'
-import SwipeDeck from '../components/SwipeDeck'
 import Tutorial from '../components/Tutorial'
 import { useAuth } from '../hooks/useAuth'
 import WelcomeModal from '../components/WelcomeModal'
@@ -625,79 +623,22 @@ function mbSentiColor(a) {
   const s = (a.sentiment || '').toLowerCase()
   return s === 'bullish' ? 'var(--up)' : s === 'bearish' ? 'var(--down)' : 'var(--text-muted)'
 }
+// Some feed-sourced titles arrive HTML-encoded (e.g. "&amp;"); decode for display.
+function decodeEntities(str) {
+  return (str || '')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'")
+    .replace(/&rsquo;/g, '’').replace(/&lsquo;/g, '‘')
+    .replace(/&nbsp;/g, ' ').replace(/&#0?39;/g, "'")
+}
+
 // One-line "why it matters" — prefer the investor take, trimmed to a headline length.
 function mbWhy(a, max = 140) {
-  const t = (a.investor_take || a.simplified_article || '').replace(/\s*\n+\s*/g, ' ').trim()
+  const t = decodeEntities((a.investor_take || a.simplified_article || '').replace(/\s*\n+\s*/g, ' ').trim())
   if (!t) return ''
   const first = (t.match(/[^.!?]+[.!?]+/) || [t])[0].trim()
   return first.length > max ? first.slice(0, max).replace(/[,;:\s]+\S*$/, '') + '…' : first
 }
-
-// Reusable scannable story list — the same row treatment for the home brief and
-// for section/sector pages: category, sentiment dot, headline and a visible
-// "why it matters" line. Tapping a row opens the layered reader. Manages its own
-// reader state so it can be dropped in anywhere.
-function StoryList({ articles, dark, isMobile, numbered = false }) {
-  const [sel, setSel] = useState(null)
-  const list = articles || []
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
-      {list.map((a, i) => {
-        const why = mbWhy(a)
-        return (
-          <button key={a.id || i} onClick={() => setSel(a)} style={{
-            display: 'flex', gap: '14px', width: '100%', textAlign: 'left', cursor: 'pointer',
-            background: 'transparent', border: 'none',
-            borderTop: i === 0 ? '1px solid var(--border-main)' : 'none',
-            borderBottom: '1px solid var(--border-main)', padding: '15px 2px',
-          }}>
-            {numbered && <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 600, color: 'var(--accent)', flexShrink: 0, marginTop: '2px', width: '16px' }}>{i + 1}</span>}
-            <div style={{ minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '6px' }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9.5px', letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{MB_CAT[a.category] || 'Markets'}</span>
-                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: mbSentiColor(a) }} />
-              </div>
-              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: isMobile ? '16px' : '17px', lineHeight: 1.3, letterSpacing: '-0.01em', color: 'var(--text-primary)' }}>{a.title}</div>
-              {why && <div style={{ fontSize: '13.5px', lineHeight: 1.5, color: 'var(--text-secondary)', marginTop: '5px' }}>{why}</div>}
-            </div>
-          </button>
-        )
-      })}
-      <DetailReader article={sel || {}} dark={dark} open={!!sel} onClose={() => setSel(null)} />
-    </div>
-  )
-}
-
-function MorningBrief({ articles, dark, isMobile }) {
-  const five = (articles || []).slice(0, 5)
-  const dateStr = new Date().toLocaleDateString('en-IN', { weekday: 'long', month: 'long', day: 'numeric' })
-
-  return (
-    <div style={{ marginBottom: '30px' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '10px', marginBottom: '16px' }}>
-        <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: isMobile ? '21px' : '25px', letterSpacing: '-0.02em', color: 'var(--text-primary)', margin: 0, lineHeight: 1.1 }}>
-          The 5-minute brief
-        </h2>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10.5px', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{dateStr}</span>
-      </div>
-
-      {/* Verdict-first market read (reuses the existing summary card) */}
-      <MarketSummaryCard market="indian-markets" dark={dark} isMobile={isMobile} />
-
-      {/* Today's 5 — scannable, "why it matters" visible */}
-      {five.length > 0 && (
-        <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '4px 0 14px' }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--accent)' }}>Today&rsquo;s 5 · what matters</span>
-            <div style={{ height: '1px', flex: 1, background: 'var(--border-main)' }} />
-          </div>
-          <StoryList articles={five} dark={dark} isMobile={isMobile} numbered />
-        </>
-      )}
-    </div>
-  )
-}
-
 
 // ── TodayView (redesign) ────────────────────────────────────────────────────
 // The Today screen, matched 1:1 to the approved prototype and wired to real
@@ -727,7 +668,7 @@ function Fd2Story({ a, i, onOpen }) {
       {i != null && <span className="idx">{i}</span>}
       <div className="body">
         <Fd2Chips a={a} />
-        <h3>{a.title}</h3>
+        <h3>{decodeEntities(a.title)}</h3>
         {why && <p className="why"><b>Why it matters</b>{why}</p>}
         <div className="meta"><span>{fd2Src(a)}</span><span>·</span><span>{fd2Time(a)}</span></div>
       </div>
@@ -976,85 +917,6 @@ function SectorsView({ onOpenSector }) {
   )
 }
 
-
-// ── PredictionGame ────────────────────────────────────────────────────────────
-
-function PredictionGame({ indices, prediction, predCorrect, afterClose, weekend, dark, isMobile, handlePrediction }) {
-  const niftyPct    = parseFloat(indices.nifty?.pct || 0)
-  const niftyWentUp = niftyPct >= 0
-
-  if (weekend) return (
-    <div style={{ borderRadius: '14px', marginBottom: '16px', overflow: 'hidden',
-      border: `1px solid var(--border-main)`, background: 'var(--bg-card)' }}>
-      <div style={{ padding: '12px 16px', background: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <span style={{ fontSize: '16px' }}>🎯</span>
-        <span style={{ fontSize: '11px', fontWeight: '700', color: '#1A1410', letterSpacing: '0.1em', fontFamily: 'var(--font-ui)' }}>MARKET PREDICTION</span>
-      </div>
-      <div style={{ padding: '16px', textAlign: 'center' }}>
-        <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-muted)', fontFamily: 'var(--font-ui)' }}>📅 Markets are closed on weekends. Come back Monday!</p>
-      </div>
-    </div>
-  )
-
-  return (
-    <div style={{ borderRadius: '14px', marginBottom: '16px', overflow: 'hidden',
-      border: `1px solid var(--border-main)`, background: 'var(--bg-card)' }}>
-      <div style={{ padding: '12px 16px', background: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <span style={{ fontSize: '16px' }}>🎯</span>
-        <span style={{ fontSize: '11px', fontWeight: '700', color: '#1A1410', letterSpacing: '0.1em', fontFamily: 'var(--font-ui)' }}>DAILY MARKET PREDICTION</span>
-        <span style={{ marginLeft: 'auto', fontSize: '10px', color: '#1A1410', fontFamily: 'var(--font-ui)', opacity: 0.7 }}>+30 IQ if correct</span>
-      </div>
-      <div style={{ padding: '16px' }}>
-        {!afterClose && !prediction && (
-          <>
-            <p style={{ margin: '0 0 14px', fontSize: isMobile ? '14px' : '15px', fontWeight: '600',
-              color: 'var(--text-primary)', fontFamily: 'var(--font-display)', lineHeight: 1.4 }}>
-              Will Nifty 50 close UP or DOWN today?
-            </p>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button onClick={() => handlePrediction('up')} style={{ flex: 1, padding: '14px', borderRadius: '12px', border: '1px solid rgba(74,222,128,0.3)', background: 'rgba(74,222,128,0.08)', cursor: 'pointer', transition: 'all 0.15s' }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(74,222,128,0.18)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'rgba(74,222,128,0.08)'}>
-                <div style={{ fontSize: '28px', marginBottom: '4px' }}>📈</div>
-                <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--up)', fontFamily: 'var(--font-ui)' }}>UP</div>
-              </button>
-              <button onClick={() => handlePrediction('down')} style={{ flex: 1, padding: '14px', borderRadius: '12px', border: '1px solid rgba(248,113,113,0.3)', background: 'rgba(248,113,113,0.08)', cursor: 'pointer', transition: 'all 0.15s' }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(248,113,113,0.18)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'rgba(248,113,113,0.08)'}>
-                <div style={{ fontSize: '28px', marginBottom: '4px' }}>📉</div>
-                <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--down)', fontFamily: 'var(--font-ui)' }}>DOWN</div>
-              </button>
-            </div>
-          </>
-        )}
-        {!afterClose && prediction && (
-          <div style={{ textAlign: 'center', padding: '8px 0' }}>
-            <div style={{ fontSize: '32px', marginBottom: '8px' }}>{prediction === 'up' ? '📈' : '📉'}</div>
-            <p style={{ margin: '0 0 6px', fontSize: '15px', fontWeight: '700', color: prediction === 'up' ? 'var(--up)' : 'var(--down)', fontFamily: 'var(--font-display)' }}>You predicted {prediction === 'up' ? 'UP' : 'DOWN'}!</p>
-            <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-ui)' }}>⏰ Result revealed at 3:30 PM IST</p>
-          </div>
-        )}
-        {afterClose && prediction && (
-          <div style={{ textAlign: 'center', padding: '4px 0' }}>
-            <div style={{ fontSize: '36px', marginBottom: '8px' }}>{predCorrect === null ? '⏳' : predCorrect ? '🎉' : '😅'}</div>
-            <p style={{ margin: '0 0 6px', fontSize: '16px', fontWeight: '700', fontFamily: 'var(--font-display)', color: predCorrect ? 'var(--up)' : 'var(--down)' }}>
-              {predCorrect === null ? 'Checking result...' : predCorrect ? 'You got it right! +30 IQ' : 'Wrong this time!'}
-            </p>
-            <p style={{ margin: '0 0 10px', fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-ui)' }}>
-              Nifty closed {niftyWentUp ? '▲' : '▼'} {Math.abs(niftyPct).toFixed(2)}% · You predicted {prediction === 'up' ? 'UP' : 'DOWN'}
-            </p>
-            <p style={{ margin: 0, fontSize: '11px', color: 'var(--accent)', fontFamily: 'var(--font-ui)', fontWeight: '600' }}>Come back tomorrow for a new prediction!</p>
-          </div>
-        )}
-        {afterClose && !prediction && (
-          <div style={{ textAlign: 'center', padding: '8px 0' }}>
-            <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-muted)', fontFamily: 'var(--font-ui)' }}>Market has closed. Come back tomorrow to predict! 🌙</p>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
 
 // ── Yesterday's News Quiz ──────────────────────────────────────────────────────
 
@@ -1362,60 +1224,6 @@ function YesterdayQuiz({ dark, isMobile, addIQ, earnedBadges, awardBadge }) {
   )
 }
 
-// ── NavTab component ──────────────────────────────────────────────────────────
-// Line icons for the nav (from the approved prototype), keyed by tab id.
-const _sv = { viewBox: '0 0 24 24', width: 22, height: 22, fill: 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round' }
-const NAV_ICONS = {
-  top:       (<svg {..._sv}><path d="M3 11l9-8 9 8" /><path d="M5 10v10h14V10" /></svg>),
-  markets:   (<svg {..._sv}><path d="M3 17l6-6 4 4 8-8" /><path d="M17 7h4v4" /></svg>),
-  sectors:   (<svg {..._sv}><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>),
-  quiz:      (<svg {..._sv}><path d="M9 18h6" /><path d="M10 22h4" /><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V17h6v-.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z" /></svg>),
-  portfolio: (<svg {..._sv}><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>),
-}
-
-function NavTab({ tab, isActive, isMobile, dark, onClick }) {
-  const [hovered, setHovered] = useState(false)
-  const expanded = isActive || hovered
-  return (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-        gap: expanded ? '7px' : '0px',
-        border: 'none', cursor: 'pointer',
-        height: '50px',
-        minWidth: expanded ? '116px' : '56px',
-        padding: expanded ? '0 20px' : '0 8px',
-        borderRadius: '99px',
-        background: isActive
-          ? 'var(--accent)'
-          : hovered
-            ? (dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)')
-            : 'transparent',
-        transition: 'all 0.35s cubic-bezier(0.34,1.56,0.64,1)',
-        overflow: 'hidden',
-      }}>
-      <span style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        lineHeight: 1, flexShrink: 0,
-        color: isActive ? '#fff' : 'var(--text-primary)',
-        transition: 'color 0.3s ease',
-      }}>{NAV_ICONS[tab.id] || tab.icon}</span>
-      <span style={{
-        fontSize: '11px', fontWeight: '600',
-        color: isActive ? '#fff' : 'var(--text-primary)',
-        fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
-        whiteSpace: 'nowrap',
-        maxWidth: expanded ? '92px' : '0px',
-        opacity: expanded ? 1 : 0, overflow: 'hidden',
-        transition: 'all 0.35s cubic-bezier(0.34,1.56,0.64,1)',
-        letterSpacing: '0.04em',
-      }}>{tab.label}</span>
-    </button>
-  )
-}
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function Home() {

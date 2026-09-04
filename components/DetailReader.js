@@ -18,6 +18,13 @@ function senti(a) {
   if (s === 'bearish') return { cls: 'bear', lbl: 'Negative' }
   return { cls: 'neutral', lbl: 'Neutral' }
 }
+// Feed-sourced text can arrive HTML-encoded; decode for display.
+function decodeEntities(str) {
+  return (str || '')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'")
+    .replace(/&rsquo;/g, '’').replace(/&lsquo;/g, '‘').replace(/&nbsp;/g, ' ')
+}
 // Split "**Label.** text\n\n**Label.** text" into {label, body} blocks.
 function fmtDetailed(raw) {
   return (raw || '').trim().split(/\n\n+/).filter(Boolean).map(p => {
@@ -46,11 +53,11 @@ export default function DetailReader({ article, dark, open, onClose }) {
   const cat = CAT_LABEL[article.category] || 'Markets'
   const s = senti(article)
   const time = (() => { try { return new Date(article.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) } catch { return '' } })()
-  const why = (article.investor_take || '').trim()
-  const simple = (article.simplified_article || '').trim()
-  const picture = (article.detailed_article || '').trim()
-  const impact = (article.market_impact || '').trim()
-  const means = (article.what_this_means || '').trim()
+  const why = decodeEntities((article.investor_take || '').trim())
+  const simple = decodeEntities((article.simplified_article || '').trim())
+  const picture = decodeEntities((article.detailed_article || '').trim())
+  const impact = decodeEntities((article.market_impact || '').trim())
+  const means = decodeEntities((article.what_this_means || '').trim())
   const glossary = Array.isArray(article.glossary) ? article.glossary : []
   const stat = (article.stat || '').trim()
   const statLbl = (article.stat_label || '').trim()
@@ -74,7 +81,7 @@ export default function DetailReader({ article, dark, open, onClose }) {
             <span className="fd2-chip sec">{cat}</span>
             <span className={'fd2-chip ' + s.cls}>{s.lbl}</span>
           </div>
-          <h1>{article.title}</h1>
+          <h1>{decodeEntities(article.title)}</h1>
 
           {why && <p className="fd2-rsub"><b>Why it matters</b>{why}</p>}
 
@@ -123,7 +130,7 @@ export default function DetailReader({ article, dark, open, onClose }) {
                 <div className="fd2-gloss">
                   <div className="bh">Key terms</div>
                   {glossary.map((g, i) => (
-                    <div className="gl" key={i}><b>{g.word || g.term}</b><span>{g.meaning || g.definition}</span></div>
+                    <div className="gl" key={i}><b>{decodeEntities(g.word || g.term)}</b><span>{decodeEntities(g.meaning || g.definition)}</span></div>
                   ))}
                 </div>
               )}
