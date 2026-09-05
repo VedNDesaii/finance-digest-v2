@@ -657,6 +657,33 @@ function mbWhy(a, max = 140) {
   return first.length > max ? first.slice(0, max).replace(/[,;:\s]+\S*$/, '') + '…' : first
 }
 
+// ── Importance ranking for the brief's "5 things" ──────────────────────────
+// The five stories that lead the brief should be the ones that matter most —
+// biggest market impact, or the most famous / highest brand-value names — not
+// just the newest. We score each story on signals available in its data.
+const IMP_CAT = {
+  'indian-markets': 10, 'macro-policy': 9, 'banking-finance': 8, 'us-markets': 7,
+  'global-economy': 7, 'investment-banking': 6, 'technology-it': 6, 'energy-oil': 5,
+  'auto-ev': 5, 'pharma-health': 5, 'metals-mining': 4, 'fmcg-consumer': 4,
+  'infrastructure': 4, 'renewables': 4, 'telecom-media': 4, 'real-estate': 3,
+}
+// High brand-value / famous names — fame & brand weight.
+const IMP_FAME = /reliance|\bril\b|hdfc|icici|\bsbi\b|state bank|kotak|axis bank|bajaj|\btcs\b|infosys|wipro|hcl|tech mahindra|adani|\btata\b|\bjio\b|airtel|vodafone|\bvi\b|maruti|mahindra|hero motocorp|\bola\b|zomato|swiggy|paytm|nykaa|\bitc\b|hindustan unilever|\bhul\b|nestl|asian paints|larsen|\bl&t\b|\blic\b|\bntpc\b|\bongc\b|coal india|vedanta|\bjsw\b|nvidia|\bapple\b|microsoft|amazon|tesla|\bmeta\b|goldman|morgan/gi
+// Market-moving events / concepts.
+const IMP_KW = /\bgdp\b|inflation|\bcpi\b|\bwpi\b|repo rate|rate cut|rate hike|\brbi\b|\bsebi\b|federal reserve|\bus fed\b|budget|\bipo\b|\bfpi\b|\bfii\b|\bdii\b|acquisition|merger|\bm&a\b|earnings|results|profit|crash|rally|surge|plunge|sensex|nifty|tariff|crude|rupee|recession|layoff|stake|fundrais|bond yield/gi
+function importanceScore(a) {
+  const title = decodeEntities(a.title || '')
+  let s = IMP_CAT[a.category] || 4
+  s += Math.min(((title.match(IMP_FAME) || []).length) * 3, 9)      // fame / brand value
+  s += Math.min(((title.match(IMP_KW) || []).length) * 2, 6)        // market-moving
+  if ((a.stat || '').trim()) s += 2                                  // a concrete headline number
+  const sent = (a.sentiment || '').toLowerCase()
+  if (sent === 'bullish' || sent === 'bearish') s += 2              // a clear market read
+  const ageH = (Date.now() - new Date(a.created_at).getTime()) / 3.6e6
+  s += ageH < 6 ? 2 : ageH < 12 ? 1 : 0                             // freshness tiebreaker
+  return s
+}
+
 // ── TodayView (redesign) ────────────────────────────────────────────────────
 // The Today screen, matched 1:1 to the approved prototype and wired to real
 // data: ticker + as-of stamp, verdict hero + share, "5 things to know", the
@@ -715,8 +742,11 @@ function TodayView({ articles, dark, isMobile, prediction, handlePrediction, aft
   }, [])
 
   const list = articles || []
-  const five = list.slice(0, 5)
-  const more = list.slice(5, 11)
+  // Lead with the 5 most important stories (market impact + fame/brand value),
+  // not merely the newest; the rest flow into "more top stories".
+  const ranked = [...list].sort((a, b) => importanceScore(b) - importanceScore(a))
+  const five = ranked.slice(0, 5)
+  const more = ranked.slice(5, 11)
   const dateStr = new Date().toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' })
 
   const d = md || {}
