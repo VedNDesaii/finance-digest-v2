@@ -746,7 +746,7 @@ function Fd2StoryList({ articles, dark }) {
   )
 }
 
-function TodayView({ articles, dark, isMobile, prediction, handlePrediction, afterClose, weekend, dayOffset = 0, loading, onOlder, onNewer, onGoSectors }) {
+function TodayView({ articles, dark, isMobile, prediction, handlePrediction, afterClose, weekend, dayOffset = 0, loading, onOlder, onNewer, onGoSectors, onReview }) {
   const isToday = dayOffset === 0
   const { label: dayLabel } = istDayBounds(dayOffset)
   const [sel, setSel] = useState(null)
@@ -877,6 +877,7 @@ function TodayView({ articles, dark, isMobile, prediction, handlePrediction, aft
       )}
 
       <button className="fd2-explore" onClick={onGoSectors}>Explore all sectors →</button>
+      {isToday && <button className="fd2-explore" onClick={onReview} style={{ marginTop: '10px' }}>Catch up — the week in review →</button>}
 
       {isToday && (<>
       <div className="fd2-sublbl">Form a view</div>
@@ -907,6 +908,59 @@ function TodayView({ articles, dark, isMobile, prediction, handlePrediction, aft
   )
 }
 
+
+// ── ReviewView (redesign) ───────────────────────────────────────────────────
+// "The week / month in review" — the biggest stories of the last 7 or 30 days,
+// ranked by importance (market impact + fame/brand). Fills in as the 30-day
+// archive accrues. Self-contained fetch by date range.
+function ReviewView({ mode, setMode, dark, isMobile }) {
+  const [sel, setSel] = useState(null)
+  const [rows, setRows] = useState(null)  // null = loading, [] = empty
+  useEffect(() => {
+    let ok = true
+    setRows(null)
+    const days = mode === 'month' ? 30 : 7
+    const since = new Date(Date.now() - days * 86400000).toISOString()
+    supabase.from('processed_articles').select('*').gte('created_at', since)
+      .order('created_at', { ascending: false }).limit(400)
+      .then(({ data }) => { if (ok) setRows([...(data || [])].sort((a, b) => importanceScore(b) - importanceScore(a)).slice(0, 12)) })
+      .catch(() => { if (ok) setRows([]) })
+    return () => { ok = false }
+  }, [mode])
+
+  const seg = (m, label) => (
+    <button onClick={() => setMode(m)} style={{
+      flex: 1, padding: '9px', borderRadius: '9px', border: 'none', cursor: 'pointer',
+      fontFamily: 'var(--font-mono)', fontWeight: 600, fontSize: '11px', letterSpacing: '0.05em', textTransform: 'uppercase',
+      background: mode === m ? 'var(--accent)' : 'transparent', color: mode === m ? '#fff' : 'var(--text-secondary)',
+    }}>{label}</button>
+  )
+
+  return (
+    <div>
+      <div className="fd2-eyebrow" style={{ marginTop: '8px' }}>In review <span className="ln" /></div>
+      <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: isMobile ? '22px' : '26px', letterSpacing: '-0.02em', margin: '0 0 4px', color: 'var(--text-primary)', lineHeight: 1.1 }}>
+        {mode === 'month' ? 'The month in review' : 'The week in review'}
+      </h2>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '13.5px', margin: '0 0 14px', lineHeight: 1.5 }}>
+        The biggest stories of the last {mode === 'month' ? '30' : '7'} days, ranked by market impact and brand value.
+      </p>
+      <div style={{ display: 'flex', gap: '4px', padding: '4px', border: '1px solid var(--border-main)', borderRadius: '12px', background: 'var(--bg-card)', marginBottom: '18px' }}>
+        {seg('week', 'This week')}{seg('month', 'This month')}
+      </div>
+      {rows === null ? (
+        <p style={{ color: 'var(--text-muted)', fontSize: '13px', padding: '8px 2px' }}>Loading…</p>
+      ) : rows.length === 0 ? (
+        <p style={{ color: 'var(--text-muted)', fontSize: '13px', padding: '8px 2px', lineHeight: 1.5 }}>Not enough history yet — this fills in as the archive builds over the coming days.</p>
+      ) : (
+        <div className="fd2-fivelist">
+          {rows.map((a, i) => <Fd2Story key={a.id || i} a={a} i={i + 1} onOpen={setSel} />)}
+        </div>
+      )}
+      <DetailReader article={sel || {}} dark={dark} open={!!sel} onClose={() => setSel(null)} />
+    </div>
+  )
+}
 
 // ── MarketsView (redesign) ──────────────────────────────────────────────────
 // The Markets tab, matched to the prototype: verdict hero + a merged
@@ -1311,6 +1365,7 @@ export default function Home() {
   const [loading, setLoading]             = useState(true)
   const [activeSection, setActiveSection] = useState('headlines')
   const [dayOffset, setDayOffset] = useState(0)  // 0 = today; up to MAX_DAY_OFFSET back
+  const [reviewMode, setReviewMode] = useState('week')  // 'week' | 'month' for the In-review view
   const [currentIndex, setCurrentIndex]   = useState(0)
   const [fetchError, setFetchError]       = useState(null)
   const [dark, setDark]                   = useState(true)  // True Black default
@@ -1833,6 +1888,14 @@ export default function Home() {
             </div>
             <BadgeWall compact={true} />
           </div>
+          <button onClick={() => { setReviewMode('week'); handleSectionClick('review') }} style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '13px 14px', marginBottom: '8px', borderRadius: '12px', border: 'none', cursor: 'pointer', background: (dark ? 'rgba(255,255,255,0.03)' : '#FAFAF8'), textAlign: 'left' }}>
+            <span style={{ fontSize: '22px' }}>🗓️</span>
+            <span style={{ fontSize: '15px', fontWeight: '500', color: 'var(--text-primary)', fontFamily: 'var(--font-ui)' }}>This week in review</span>
+          </button>
+          <button onClick={() => { setReviewMode('month'); handleSectionClick('review') }} style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '13px 14px', marginBottom: '8px', borderRadius: '12px', border: 'none', cursor: 'pointer', background: (dark ? 'rgba(255,255,255,0.03)' : '#FAFAF8'), textAlign: 'left' }}>
+            <span style={{ fontSize: '22px' }}>📆</span>
+            <span style={{ fontSize: '15px', fontWeight: '500', color: 'var(--text-primary)', fontFamily: 'var(--font-ui)' }}>This month in review</span>
+          </button>
           <button onClick={() => handleSectionClick('quiz')} style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '13px 14px', marginBottom: '8px', borderRadius: '12px', border: 'none', cursor: 'pointer', background: activeSection === 'quiz' ? (dark ? 'rgba(255,75,43,0.12)' : 'rgba(232,67,31,0.08)') : (dark ? 'rgba(255,255,255,0.03)' : '#FAFAF8'), textAlign: 'left' }}>
             <span style={{ fontSize: '22px' }}>🧩</span>
             <span style={{ fontSize: '15px', fontWeight: '500', color: 'var(--text-primary)', fontFamily: 'var(--font-ui)' }}>Quiz &amp; Wordle</span>
@@ -1862,11 +1925,14 @@ export default function Home() {
                 dayOffset={dayOffset} loading={loading}
                 onOlder={() => setDayOffset(o => Math.min(MAX_DAY_OFFSET, o + 1))}
                 onNewer={() => setDayOffset(o => Math.max(0, o - 1))}
-                onGoSectors={() => handleSectionClick('sectors')} />
+                onGoSectors={() => handleSectionClick('sectors')}
+                onReview={() => { setReviewMode('week'); handleSectionClick('review') }} />
             ) : activeSection === 'markets' ? (
               <MarketsView />
             ) : activeSection === 'sectors' ? (
               <SectorsView onOpenSector={(id) => handleSectionClick(id)} />
+            ) : activeSection === 'review' ? (
+              <ReviewView mode={reviewMode} setMode={setReviewMode} dark={dark} isMobile={isMobile} />
             ) : activeSection === 'quiz' ? (
               <>
                 <YesterdayQuiz dark={dark} isMobile={isMobile} addIQ={addIQ} earnedBadges={earnedBadges} awardBadge={awardBadge} />
