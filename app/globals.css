@@ -327,6 +327,12 @@ aside {
 .fd2-toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%) translateY(20px);background:var(--text-primary);color:var(--bg-page);font-family:var(--font-mono);font-size:12px;font-weight:600;padding:10px 16px;border-radius:10px;opacity:0;pointer-events:none;transition:.25s;z-index:4000;max-width:80%;text-align:center}
 .fd2-toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 
+/* date navigation (browse previous days) */
+.fd2-datenav{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:2px 0 16px;padding:8px 10px;border:1px solid var(--border-main);border-radius:12px;background:var(--bg-card)}
+.fd2-datenav .nb{background:none;border:none;color:var(--accent);font-family:var(--font-mono);font-weight:600;font-size:11px;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;padding:4px 6px}
+.fd2-datenav .nb:disabled{color:var(--text-muted);opacity:.45;cursor:default}
+.fd2-datenav .d{font-family:var(--font-mono);font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-primary)}
+
 /* flat 3-tab bottom nav */
 .fd2-tabs{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:space-around;padding:8px 6px calc(8px + env(safe-area-inset-bottom));background:color-mix(in srgb,var(--bg-page) 85%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--border-main);z-index:40}
 .fd2-tab{flex:1;background:none;border:none;color:var(--text-muted);display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;cursor:pointer;font-family:var(--font-mono);font-size:9.5px;letter-spacing:.04em;text-transform:uppercase}

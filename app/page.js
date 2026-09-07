@@ -34,6 +34,21 @@ function safeParse(str, fallback) {
   try { return JSON.parse(str) } catch { return fallback }
 }
 
+// IST calendar-day window [start,end) as UTC ISO strings, plus a short label,
+// for a day `offset` back from today (0 = today). Used to scope the brief to a
+// chosen date so "previous days" can be browsed.
+const IST_MIN = 330 * 60000
+function istDayBounds(offset) {
+  const istMidnightToday = Math.floor((Date.now() + IST_MIN) / 86400000) * 86400000
+  const startMs = istMidnightToday - offset * 86400000 - IST_MIN
+  return {
+    start: new Date(startMs).toISOString(),
+    end: new Date(startMs + 86400000).toISOString(),
+    label: new Date(startMs).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' }),
+  }
+}
+const MAX_DAY_OFFSET = 29  // 30 days of retained history (0..29)
+
 // Finance IQ points. Bump POINTS_VERSION to reset every user's score to 0 on
 // their next visit (points live in localStorage, so there's no server wipe).
 const POINTS_VERSION    = 'v2-2026-08'
@@ -731,7 +746,9 @@ function Fd2StoryList({ articles, dark }) {
   )
 }
 
-function TodayView({ articles, dark, isMobile, prediction, handlePrediction, afterClose, weekend, onGoSectors }) {
+function TodayView({ articles, dark, isMobile, prediction, handlePrediction, afterClose, weekend, dayOffset = 0, loading, onOlder, onNewer, onGoSectors }) {
+  const isToday = dayOffset === 0
+  const { label: dayLabel } = istDayBounds(dayOffset)
   const [sel, setSel] = useState(null)
   const [md, setMd] = useState(null)
   useEffect(() => {
@@ -747,7 +764,6 @@ function TodayView({ articles, dark, isMobile, prediction, handlePrediction, aft
   const ranked = [...list].sort((a, b) => importanceScore(b) - importanceScore(a))
   const five = ranked.slice(0, 5)
   const more = ranked.slice(5, 11)
-  const dateStr = new Date().toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' })
 
   const d = md || {}
   const indices = (d.indices && d.indices.length) ? d.indices : []
@@ -788,7 +804,14 @@ function TodayView({ articles, dark, isMobile, prediction, handlePrediction, aft
 
   return (
     <div>
-      {indices.length > 0 && (
+      {/* Date navigation — browse previous days (up to 30 days of history). */}
+      <div className="fd2-datenav">
+        <button className="nb" onClick={onOlder} disabled={dayOffset >= MAX_DAY_OFFSET} aria-label="Previous day">‹ Older</button>
+        <span className="d">{isToday ? 'Today' : dayLabel}</span>
+        <button className="nb" onClick={onNewer} disabled={isToday} aria-label="Next day">Newer ›</button>
+      </div>
+
+      {isToday && indices.length > 0 && (
         <div className="fd2-ticker">
           {indices.map((ix, k) => (
             <div className="fd2-tk" key={k}>
@@ -799,24 +822,28 @@ function TodayView({ articles, dark, isMobile, prediction, handlePrediction, aft
           ))}
         </div>
       )}
-      {updatedAt && <div className="fd2-asof" style={{ marginBottom: '16px' }}>Prices as of {updatedAt} · AI-assisted</div>}
+      {isToday && updatedAt && <div className="fd2-asof" style={{ marginBottom: '16px' }}>Prices as of {updatedAt} · AI-assisted</div>}
 
-      <div className="fd2-zone"><span className="z-lbl">The 5-minute brief</span><span className="z-date">{dateStr}</span></div>
+      <div className="fd2-zone"><span className="z-lbl">{isToday ? 'The 5-minute brief' : 'The brief'}</span><span className="z-date">{dayLabel}</span></div>
 
-      <div className="fd2-verdict">
-        <span className={'fd2-vtag ' + V.c}>{V.a} {V.l}</span>
-        <h2>{lead}</h2>
-        {brief && <p>{brief}</p>}
-        {watch && <div className="watch"><span className="w">Watch</span> {watch}</div>}
-        <div className="fd2-vsrc">Cross-checked across ET · Mint · Bloomberg · Reuters · CNBC</div>
-        <button className="fd2-sharebtn" onClick={share}>↗ Share this brief</button>
-      </div>
+      {isToday ? (
+        <div className="fd2-verdict">
+          <span className={'fd2-vtag ' + V.c}>{V.a} {V.l}</span>
+          <h2>{lead}</h2>
+          {brief && <p>{brief}</p>}
+          {watch && <div className="watch"><span className="w">Watch</span> {watch}</div>}
+          <div className="fd2-vsrc">Cross-checked across ET · Mint · Bloomberg · Reuters · CNBC</div>
+          <button className="fd2-sharebtn" onClick={share}>↗ Share this brief</button>
+        </div>
+      ) : (
+        <div className="fd2-asof" style={{ border: '1px solid var(--border-main)', borderRadius: '12px', marginBottom: '4px' }}>Archive · viewing {dayLabel} — the market summary is kept for today only</div>
+      )}
 
-      <div className="fd2-sublbl">5 things to know</div>
+      <div className="fd2-sublbl">{isToday ? '5 things to know' : 'What mattered that day'}</div>
       <div className="fd2-fivelist">
         {five.length
           ? five.map((a, i) => <Fd2Story key={a.id || i} a={a} i={i + 1} onOpen={setSel} />)
-          : <p style={{ color: 'var(--text-muted)', fontSize: '13px', padding: '8px 2px' }}>Loading today&rsquo;s stories…</p>}
+          : <p style={{ color: 'var(--text-muted)', fontSize: '13px', padding: '8px 2px' }}>{loading ? 'Loading…' : isToday ? 'Today’s brief publishes by 8:30 AM — tap ‹ Older for the latest day.' : 'No stories archived for this day.'}</p>}
       </div>
 
       {five.length > 0 && (
@@ -851,6 +878,7 @@ function TodayView({ articles, dark, isMobile, prediction, handlePrediction, aft
 
       <button className="fd2-explore" onClick={onGoSectors}>Explore all sectors →</button>
 
+      {isToday && (<>
       <div className="fd2-sublbl">Form a view</div>
       <div className="fd2-predict">
         <div className="ph"><span className="em">🎯</span><span className="t">Predict today&rsquo;s close</span></div>
@@ -869,6 +897,7 @@ function TodayView({ articles, dark, isMobile, prediction, handlePrediction, aft
           </>
         )}
       </div>
+      </>)}
 
       <div className="fd2-disc">AI-assisted summaries, sourced from Mint, Economic Times, Business Standard, CNBC &amp; Reuters. Not investment advice.</div>
 
@@ -1281,6 +1310,7 @@ export default function Home() {
   const [articles, setArticles]           = useState([])
   const [loading, setLoading]             = useState(true)
   const [activeSection, setActiveSection] = useState('headlines')
+  const [dayOffset, setDayOffset] = useState(0)  // 0 = today; up to MAX_DAY_OFFSET back
   const [currentIndex, setCurrentIndex]   = useState(0)
   const [fetchError, setFetchError]       = useState(null)
   const [dark, setDark]                   = useState(true)  // True Black default
@@ -1473,6 +1503,8 @@ export default function Home() {
   }, [])
 
   useEffect(() => { if (!isPortfolio) fetchArticles(activeSection) }, [activeSection])
+  // Re-fetch the brief when the browsed day changes (Today view only).
+  useEffect(() => { if (activeSection === 'headlines') fetchArticles('headlines') }, [dayOffset])
 
   useEffect(() => {
     async function fetchIndices() {
@@ -1494,10 +1526,13 @@ export default function Home() {
 
     try {
       if (section === 'headlines') {
+        const { start, end } = istDayBounds(dayOffset)
         const { data, error } = await Promise.race([
           supabase
             .from('processed_articles')
             .select('*')
+            .gte('created_at', start)
+            .lt('created_at', end)
             .order('created_at', { ascending: false })
             .limit(300),
           new Promise((_, rej) => setTimeout(() => rej(new Error('Request timed out — check your connection and retry.')), 15000)),
@@ -1574,6 +1609,7 @@ export default function Home() {
   }
 
   function handleSectionClick(id) {
+    if (id === 'headlines') setDayOffset(0)  // Tapping "Today" always returns to today
     setActiveSection(id)
     setOverlay(null)
   }
@@ -1823,6 +1859,9 @@ export default function Home() {
               <TodayView articles={articles} dark={dark} isMobile={isMobile}
                 prediction={prediction} handlePrediction={handlePrediction}
                 afterClose={afterClose} weekend={weekend}
+                dayOffset={dayOffset} loading={loading}
+                onOlder={() => setDayOffset(o => Math.min(MAX_DAY_OFFSET, o + 1))}
+                onNewer={() => setDayOffset(o => Math.max(0, o - 1))}
                 onGoSectors={() => handleSectionClick('sectors')} />
             ) : activeSection === 'markets' ? (
               <MarketsView />

@@ -138,9 +138,13 @@ def delete_in_chunks(table, id_list):
         supabase.table(table).delete().in_("id", chunk).execute()
 
 
+# Days of history to retain so the app can browse "previous days". Past this
+# window articles are pruned to stay well within the Supabase free tier.
+RETENTION_DAYS = 30
+
 def cleanup_old_articles():
-    cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
-    print(f"\n🧹 Cleaning up articles older than 24 hours...")
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=RETENTION_DAYS)).isoformat()
+    print(f"\n🧹 Cleaning up articles older than {RETENTION_DAYS} days...")
     old_raw = supabase.table("raw_articles").select("id").lt("created_at", cutoff).execute()
     old_raw_ids = [r["id"] for r in old_raw.data]
     if not old_raw_ids:
