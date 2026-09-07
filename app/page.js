@@ -727,7 +727,7 @@ function Fd2Story({ a, i, onOpen }) {
       {i != null && <span className="idx">{i}</span>}
       <div className="body">
         <Fd2Chips a={a} />
-        <h3>{decodeEntities(a.title)}</h3>
+        <h3>{decodeEntities(a.headline || a.title)}</h3>
         {why && <p className="why"><b>Why it matters</b>{why}</p>}
         <div className="meta"><span>{fd2Src(a)}</span><span>·</span><span>{fd2Time(a)}</span></div>
       </div>

@@ -119,7 +119,7 @@ def add_cost(message):
 # insert, so a missing column never breaks the run or wastes an API call.
 OPTIONAL_COLS = [
     "detailed_article", "market_impact", "what_this_means",
-    "sentiment", "difficulty", "stat", "stat_label",
+    "sentiment", "difficulty", "stat", "stat_label", "headline",
 ]
 AVAILABLE_OPT_COLS = set(OPTIONAL_COLS)   # narrowed at startup by detect_optional_columns()
 
@@ -744,6 +744,7 @@ If the story is foreign/global with no Indian company or market involved, prefer
 Set is_headline: false for all articles.
 
 ━━━ STEP 4: WRITE ━━━
+HEADLINE: a short, punchy, plain-English headline for the card — 4 to 9 words, ideally under 55 characters. Hook the reader's curiosity in everyday language (a crisp claim or a "why/how" angle), like a smart explainer newsletter (think Finshots). NO source names, NO ticker symbols or jargon dumps, NO ALL-CAPS, and NO clickbait or overpromising — it must be fully accurate to the story. Examples: "Why banks just cut NRI deposit rates", "Foreign investors are back — and buying", "India's GDP test lands today".
 PART 1: 1 sentence, max 25 words. WHO+WHAT+number+impact.
 PART 2: 4 sentences, max 110 words. Before/What/Effect/Watch.
 PART 3 (MANDATORY): 2 sentences, max 40 words. Explain the likely implication for investors and why, in neutral analytical language (avoid "good/bad" verdicts). One thing to watch.
@@ -769,7 +770,7 @@ stat_label: a 2-4 word label for that number (e.g. "repo rate held"). "" if no s
 
 Return ONLY valid JSON:
 REJECT: {{"verdict":"reject"}}
-ACCEPT: {{"verdict":"accept","category":"<str>","is_headline":false,"simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}],"detailed_article":"**What happened.** ...\\n\\n**The numbers.** ...\\n\\n**Why it happened.** ...\\n\\n**The outlook.** ...","market_impact":"PARA1\\n\\nPARA2","what_this_means":"...","sentiment":"bullish|bearish|neutral","difficulty":"Easy|Medium|Hard","stat":"","stat_label":""}}
+ACCEPT: {{"verdict":"accept","category":"<str>","is_headline":false,"headline":"<short punchy plain-English headline>","simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}],"detailed_article":"**What happened.** ...\\n\\n**The numbers.** ...\\n\\n**Why it happened.** ...\\n\\n**The outlook.** ...","market_impact":"PARA1\\n\\nPARA2","what_this_means":"...","sentiment":"bullish|bearish|neutral","difficulty":"Easy|Medium|Hard","stat":"","stat_label":""}}
 
 Title: {title}
 Content: {content[:3500]}"""
@@ -801,6 +802,7 @@ CATEGORY — classify by the article's ACTUAL content; never force a category to
 Rules: "banking-finance" = bank/NBFC news, deposit & lending rates, insurance, AND investment-banking deals (IPO/QIP/block deal/OFS/PE/VC/M&A). "real-estate" = ONLY property, housing, REITs, home loans — never personal-finance or deposits. "renewables" = ONLY solar/wind/green-hydrogen/clean energy — EV and car news is "auto-ev". "fmcg-consumer" = consumer goods (HUL, ITC, Nestle) — pharma is "pharma-health".
 
 WRITE:
+HEADLINE: a short, punchy, plain-English headline — 4 to 9 words, under ~55 chars. Curiosity-hooking everyday language (like a smart explainer newsletter), accurate, NO source names/jargon/ALL-CAPS/clickbait.
 PART 1: 1 sentence, max 25 words. WHO+WHAT+number+impact.
 PART 2: 4 sentences, max 110 words. Before/What/Effect/Watch.
 PART 3 (MANDATORY): 2 sentences, max 40 words. Explain the likely implication for investors and why, in neutral analytical language (avoid "good/bad" verdicts). One thing to watch.
@@ -812,7 +814,7 @@ CARD METADATA: sentiment ("bullish"|"bearish"|"neutral"), difficulty ("Easy"|"Me
 
 Return ONLY valid JSON:
 REJECT: {{"verdict":"reject"}}
-ACCEPT: {{"verdict":"accept","category":"<one of the categories listed above>","is_headline":false,"simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}],"detailed_article":"**What happened.** ...\\n\\n**Why it happened.** ...\\n\\n**The outlook.** ...","market_impact":"PARA1\\n\\nPARA2","what_this_means":"...","sentiment":"bullish|bearish|neutral","difficulty":"Easy|Medium|Hard","stat":"","stat_label":""}}
+ACCEPT: {{"verdict":"accept","category":"<one of the categories listed above>","is_headline":false,"headline":"<short punchy plain-English headline>","simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}],"detailed_article":"**What happened.** ...\\n\\n**Why it happened.** ...\\n\\n**The outlook.** ...","market_impact":"PARA1\\n\\nPARA2","what_this_means":"...","sentiment":"bullish|bearish|neutral","difficulty":"Easy|Medium|Hard","stat":"","stat_label":""}}
 
 Title: {title}
 Content: {content[:3500]}"""
@@ -864,6 +866,7 @@ def save_processed_article(raw_article, processed_data):
         "difficulty":       difficulty,
         "stat":             (processed_data.get("stat") or "").strip(),
         "stat_label":       (processed_data.get("stat_label") or "").strip(),
+        "headline":         (processed_data.get("headline") or "").strip(),
     }
     for col in OPTIONAL_COLS:
         if col in AVAILABLE_OPT_COLS:

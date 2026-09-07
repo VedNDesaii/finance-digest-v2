@@ -81,7 +81,7 @@ export default function DetailReader({ article, dark, open, onClose }) {
             <span className="fd2-chip sec">{cat}</span>
             <span className={'fd2-chip ' + s.cls}>{s.lbl}</span>
           </div>
-          <h1>{decodeEntities(article.title)}</h1>
+          <h1>{decodeEntities(article.headline || article.title)}</h1>
 
           {why && <p className="fd2-rsub"><b>Why it matters</b>{why}</p>}
 
