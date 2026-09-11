@@ -983,6 +983,7 @@ function MarketsView() {
   const lead = ind.lead || ind.headline || 'Market summary updates after the next close.'
   const brief = ind.brief || ''
   const watch = ind.watch || ''
+  const why = Array.isArray(ind.why) ? ind.why : []
   const narrative = ind.narrative || ''
   const tiles = Array.isArray(ind.tiles) ? ind.tiles : []
   const mx = Math.max(1, ...sectors.map(s => Math.abs(Number(s.pct) || 0)))
@@ -995,6 +996,20 @@ function MarketsView() {
         {brief && <p>{brief}</p>}
         {watch && <div className="watch"><span className="w">Watch</span> {watch}</div>}
       </div>
+
+      {why.length > 0 && (
+        <>
+          <div className="fd2-eyebrow">Why it moved <span className="ln" /></div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '11px' }}>
+            {why.map((r, i) => (
+              <div key={i} style={{ display: 'flex', gap: '11px', alignItems: 'flex-start' }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', fontWeight: 600, color: 'var(--accent)', flexShrink: 0, marginTop: '3px' }}>{i + 1}</span>
+                <p style={{ margin: 0, fontSize: '14.5px', lineHeight: 1.55, color: 'var(--text-primary)' }}>{r}</p>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       <div className="fd2-eyebrow">Indices <span className="ln" /></div>
       <div>
@@ -1040,7 +1055,7 @@ function MarketsView() {
 
       {tiles.length > 0 && (
         <>
-          <div className="fd2-eyebrow">Why today <span className="ln" /></div>
+          <div className="fd2-eyebrow">The bigger picture <span className="ln" /></div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '11px' }}>
             {tiles.map((t, i) => (
               <div key={i} style={{ display: 'flex', gap: '11px' }}>

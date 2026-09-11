@@ -172,6 +172,7 @@ Write a market summary. Return ONLY this JSON:
 {{
   "lead": "<ONE short sentence, max 22 words: the day's verdict + the single biggest driver, plain English>",
   "brief": "<1 sentence with the key index moves in words, e.g. 'Sensex rose 0.8% and Nifty 0.6% on ...'>",
+  "why": ["<2 to 4 short cause→effect reasons the market moved TODAY. Each names a concrete driver AND its effect on the index, in that order, plain English. Ground every one in the data/news above; NEVER invent numbers. e.g. 'A closing-auction recovery lifted the Sensex in the final hour', 'The rupee's slide on costlier oil pressured import-heavy sectors', 'Banking gains offset weakness in IT'>"],
   "narrative": "PARA1\\n\\nPARA2 — 2 short paragraphs telling the day in full (open→close, the main driver, the undercurrents). Use ONLY facts from the data and news above; never invent figures.",
   "tiles": [
     {{"icon":"🌍","label":"Global cues",  "value":"<Weak/Mixed/Strong>","sub":"<1 line context>","subUp":false}},
@@ -181,12 +182,13 @@ Write a market summary. Return ONLY this JSON:
   "watch": "<one sentence, max 22 words, the key thing to watch tomorrow>"
 }}"""
 
-    ai = call_claude_cached(prompt, max_tokens=700)
+    ai = call_claude_cached(prompt, max_tokens=800)
     return {
         "verdict":  verdict,
         "headline": ai.get("lead", ""),          # kept for backward compat
         "lead":     ai.get("lead", ""),
         "brief":    ai.get("brief", ""),
+        "why":      ai.get("why", []),
         "narrative": ai.get("narrative", ""),
         "indices":  indices,
         "sectors":  sectors,                      # REAL data
@@ -225,6 +227,7 @@ Write a market summary. Return ONLY this JSON:
 {{
   "lead": "<ONE short sentence, max 22 words: the verdict + biggest driver, plain English>",
   "brief": "<1 sentence with the key index moves in words>",
+  "why": ["<2 to 4 short cause→effect reasons the market moved TODAY. Each names a concrete driver AND its effect, plain English, grounded in the data/news above; NEVER invent numbers>"],
   "narrative": "PARA1\\n\\nPARA2 — 2 short paragraphs telling the day in full. Use ONLY facts above; never invent figures.",
   "tiles": [
     {{"icon":"📈","label":"Big mover",  "value":"<name/move if in news, else 'Mixed'>","sub":"<1 line>","subUp":true}},
@@ -234,12 +237,13 @@ Write a market summary. Return ONLY this JSON:
   "watch": "<one sentence, max 22 words, key thing to watch tomorrow>"
 }}"""
 
-    ai = call_claude_cached(prompt, max_tokens=700)
+    ai = call_claude_cached(prompt, max_tokens=800)
     return {
         "verdict":  verdict,
         "headline": ai.get("lead", ""),
         "lead":     ai.get("lead", ""),
         "brief":    ai.get("brief", ""),
+        "why":      ai.get("why", []),
         "narrative": ai.get("narrative", ""),
         "indices":  indices,
         "sectors":  sectors,
