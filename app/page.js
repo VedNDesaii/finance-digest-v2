@@ -1962,7 +1962,16 @@ export default function Home() {
         {isPortfolio ? (
           <MyPortfolio />
         ) : (
-          <div style={{ maxWidth: '820px', margin: '0 auto', padding: isMobile ? '16px 14px 20px' : '32px 24px 72px' }}>
+          <div style={{
+            maxWidth: isMobile ? '100%' : '600px',
+            margin: '0 auto',
+            padding: isMobile ? '16px 14px 20px' : '28px 30px 72px',
+            ...(isMobile ? {} : {
+              borderLeft: '1px solid var(--border-main)',
+              borderRight: '1px solid var(--border-main)',
+              minHeight: `calc(100vh - ${headerH}px)`,
+            }),
+          }}>
 
             {activeSection === 'headlines' ? (
               <TodayView articles={articles} dark={dark} isMobile={isMobile}
