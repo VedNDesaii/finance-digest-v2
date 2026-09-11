@@ -983,6 +983,8 @@ function MarketsView() {
   const lead = ind.lead || ind.headline || 'Market summary updates after the next close.'
   const brief = ind.brief || ''
   const watch = ind.watch || ''
+  const narrative = ind.narrative || ''
+  const tiles = Array.isArray(ind.tiles) ? ind.tiles : []
   const mx = Math.max(1, ...sectors.map(s => Math.abs(Number(s.pct) || 0)))
   return (
     <div>
@@ -1024,6 +1026,35 @@ function MarketsView() {
           </div>
         </>
       )}
+
+      {narrative && (
+        <>
+          <div className="fd2-eyebrow">The day in full <span className="ln" /></div>
+          <div>
+            {narrative.split(/\n\n+/).filter(Boolean).map((p, i) => (
+              <p key={i} style={{ fontSize: '14px', lineHeight: 1.65, color: 'var(--text-secondary)', margin: '0 0 10px' }}>{p}</p>
+            ))}
+          </div>
+        </>
+      )}
+
+      {tiles.length > 0 && (
+        <>
+          <div className="fd2-eyebrow">Why today <span className="ln" /></div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '11px' }}>
+            {tiles.map((t, i) => (
+              <div key={i} style={{ display: 'flex', gap: '11px' }}>
+                <span style={{ fontSize: '17px', flexShrink: 0 }}>{t.icon}</span>
+                <div>
+                  <b style={{ color: 'var(--text-primary)', fontSize: '13.5px' }}>{t.label}{t.value ? `: ${t.value}` : ''}</b>
+                  {t.sub && <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: '12.5px', marginTop: '2px', lineHeight: 1.5 }}>{t.sub}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
       <div className="fd2-disc">Real NSE/BSE data · as of latest close · AI-assisted commentary.</div>
     </div>
   )
