@@ -671,6 +671,15 @@ function mbWhy(a, max = 140) {
   const first = (t.match(/[^.!?]+[.!?]+/) || [t])[0].trim()
   return first.length > max ? first.slice(0, max).replace(/[,;:\s]+\S*$/, '') + '…' : first
 }
+// A short plain-English explanation OF THE NEWS itself (not "why it matters") for
+// the card — the first part of the simplified summary, trimmed.
+function mbSummary(a, max = 150) {
+  let t = decodeEntities((a.simplified_article || a.investor_take || '').trim())
+  t = (t.split(/\n\n+/)[0] || '').replace(/^\s*PART\s*\d+\s*[:.\-]?\s*/i, '').replace(/\s*\n+\s*/g, ' ').trim()
+  if (!t) return ''
+  if (t.length <= max) return t
+  return (t.slice(0, max).replace(/[,;:\s]+\S*$/, '') || t.slice(0, max)) + '…'
+}
 
 // ── Importance ranking for the brief's "5 things" ──────────────────────────
 // The five stories that lead the brief should be the ones that matter most —
@@ -721,14 +730,14 @@ function Fd2Chips({ a }) {
 }
 
 function Fd2Story({ a, i, onOpen }) {
-  const why = mbWhy(a)
+  const blurb = mbSummary(a)
   return (
     <button className="fd2-story" onClick={() => onOpen(a)}>
       {i != null && <span className="idx">{i}</span>}
       <div className="body">
         <Fd2Chips a={a} />
         <h3>{decodeEntities(a.headline || a.title)}</h3>
-        {why && <p className="why"><b>Why it matters</b>{why}</p>}
+        {blurb && <p className="why">{blurb}</p>}
         <div className="meta"><span>{fd2Src(a)}</span><span>·</span><span>{fd2Time(a)}</span></div>
       </div>
     </button>
