@@ -119,7 +119,7 @@ def add_cost(message):
 # insert, so a missing column never breaks the run or wastes an API call.
 OPTIONAL_COLS = [
     "detailed_article", "market_impact", "what_this_means",
-    "sentiment", "difficulty", "stat", "stat_label", "headline",
+    "sentiment", "difficulty", "stat", "stat_label", "headline", "concepts",
 ]
 AVAILABLE_OPT_COLS = set(OPTIONAL_COLS)   # narrowed at startup by detect_optional_columns()
 
@@ -749,6 +749,7 @@ PART 1: 1 sentence, max 25 words. WHO+WHAT+number+impact.
 PART 2: 4 sentences, max 110 words. Before/What/Effect/Watch.
 PART 3 (MANDATORY): 2 sentences, max 40 words. Explain the likely implication for investors and why, in neutral analytical language (avoid "good/bad" verdicts). One thing to watch.
 GLOSSARY: 2-3 unfamiliar terms, max 20 words each.
+CONCEPTS: 1-3 finance/economics CONCEPTS this story touches, each explained in 2-3 plain-English sentences a beginner can follow — what the concept is AND why it matters in this story. Go deeper than the glossary (which is just short term definitions). Only include concepts genuinely relevant to the story; if none, use []. Format each as {{"name":"...","explanation":"..."}}.
 
 ━━━ STEP 5: THE FULL PICTURE (deep dive for the "Read in full" view) ━━━
 Write a detailed, structured explainer in the SAME simple 16-year-old-friendly voice, as several short paragraphs, each beginning with its own bold label. Use the labels that fit the story — for example:
@@ -770,14 +771,14 @@ stat_label: a 2-4 word label for that number (e.g. "repo rate held"). "" if no s
 
 Return ONLY valid JSON:
 REJECT: {{"verdict":"reject"}}
-ACCEPT: {{"verdict":"accept","category":"<str>","is_headline":false,"headline":"<short punchy plain-English headline>","simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}],"detailed_article":"**What happened.** ...\\n\\n**The numbers.** ...\\n\\n**Why it happened.** ...\\n\\n**The outlook.** ...","market_impact":"PARA1\\n\\nPARA2","what_this_means":"...","sentiment":"bullish|bearish|neutral","difficulty":"Easy|Medium|Hard","stat":"","stat_label":""}}
+ACCEPT: {{"verdict":"accept","category":"<str>","is_headline":false,"headline":"<short punchy plain-English headline>","simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}],"concepts":[{{"name":"","explanation":""}}],"detailed_article":"**What happened.** ...\\n\\n**The numbers.** ...\\n\\n**Why it happened.** ...\\n\\n**The outlook.** ...","market_impact":"PARA1\\n\\nPARA2","what_this_means":"...","sentiment":"bullish|bearish|neutral","difficulty":"Easy|Medium|Hard","stat":"","stat_label":""}}
 
 Title: {title}
 Content: {content[:3500]}"""
 
     message = client.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=2200,
+        max_tokens=2500,
         messages=[{"role": "user", "content": prompt}]
     )
     add_cost(message)
@@ -807,6 +808,7 @@ PART 1: 1 sentence, max 25 words. WHO+WHAT+number+impact.
 PART 2: 4 sentences, max 110 words. Before/What/Effect/Watch.
 PART 3 (MANDATORY): 2 sentences, max 40 words. Explain the likely implication for investors and why, in neutral analytical language (avoid "good/bad" verdicts). One thing to watch.
 GLOSSARY: 1-2 terms max.
+CONCEPTS: 1-3 finance/economics concepts the story touches, each explained in 2-3 plain-English sentences (what it is + why it matters here); deeper than the glossary. If none are relevant, use []. Format {{"name":"...","explanation":"..."}}.
 THE FULL PICTURE (deep dive): several short paragraphs, each with a bold label ("**What happened.** ...", "**The numbers.** ...", "**Why it happened.** ...", "**The outlook.** ..."). Go as deep as the source supports; use ONLY facts in the content; never pad or invent — a short true deep dive beats a padded one.
 MARKET IMPACT (in words): 2 short paragraphs on what could happen to markets/sectors and WHY, as reasoning — NO specific figures unless in the content, never fabricated.
 WHAT THIS MEANS FOR YOU: 1 short paragraph, the practical retail-investor/saver angle.
@@ -814,14 +816,14 @@ CARD METADATA: sentiment ("bullish"|"bearish"|"neutral"), difficulty ("Easy"|"Me
 
 Return ONLY valid JSON:
 REJECT: {{"verdict":"reject"}}
-ACCEPT: {{"verdict":"accept","category":"<one of the categories listed above>","is_headline":false,"headline":"<short punchy plain-English headline>","simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}],"detailed_article":"**What happened.** ...\\n\\n**Why it happened.** ...\\n\\n**The outlook.** ...","market_impact":"PARA1\\n\\nPARA2","what_this_means":"...","sentiment":"bullish|bearish|neutral","difficulty":"Easy|Medium|Hard","stat":"","stat_label":""}}
+ACCEPT: {{"verdict":"accept","category":"<one of the categories listed above>","is_headline":false,"headline":"<short punchy plain-English headline>","simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}],"concepts":[{{"name":"","explanation":""}}],"detailed_article":"**What happened.** ...\\n\\n**Why it happened.** ...\\n\\n**The outlook.** ...","market_impact":"PARA1\\n\\nPARA2","what_this_means":"...","sentiment":"bullish|bearish|neutral","difficulty":"Easy|Medium|Hard","stat":"","stat_label":""}}
 
 Title: {title}
 Content: {content[:3500]}"""
 
     message = client.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=2000,
+        max_tokens=2300,
         messages=[{"role": "user", "content": prompt}]
     )
     add_cost(message)
@@ -867,6 +869,7 @@ def save_processed_article(raw_article, processed_data):
         "stat":             (processed_data.get("stat") or "").strip(),
         "stat_label":       (processed_data.get("stat_label") or "").strip(),
         "headline":         (processed_data.get("headline") or "").strip(),
+        "concepts":         processed_data["concepts"] if isinstance(processed_data.get("concepts"), list) else [],
     }
     for col in OPTIONAL_COLS:
         if col in AVAILABLE_OPT_COLS:
