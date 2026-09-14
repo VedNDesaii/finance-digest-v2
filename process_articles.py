@@ -544,12 +544,12 @@ COST_PER_M_OUTPUT = 4.00
 
 # TRUE total cap for the whole run (pre-pass searches + scoring + processing),
 # now that RUN_COST tracks everything. Kept under $1.00 with margin.
-DAILY_BUDGET      = 0.90
+DAILY_BUDGET      = 1.00   # user's hard cap of $1/day; headroom to reach the ~66-article minimums
 
 # Realistic look-ahead ONLY (a safety buffer for the budget pre-check).
 # Actual spend is measured from each response's usage via add_cost().
 AVG_INPUT_TOKENS  = 2000   # instructions + up to 3500 chars of article content
-AVG_OUTPUT_TOKENS = 1300   # summary + investor + glossary + full picture + impact + meta
+AVG_OUTPUT_TOKENS = 1650   # summary + investor + glossary + concepts + full picture + impact + headline + meta
 COST_PER_ARTICLE  = (
     (AVG_INPUT_TOKENS  / 1_000_000) * COST_PER_M_INPUT +
     (AVG_OUTPUT_TOKENS / 1_000_000) * COST_PER_M_OUTPUT
@@ -661,7 +661,16 @@ def get_title_fingerprint(title):
 
 
 def get_existing_titles():
-    result = supabase.table("processed_articles").select("title").execute()
+    # Only look back ~48h for duplicates. We now RETAIN 30 days for the archive,
+    # but dedup must stay a short window — otherwise recurring daily topics
+    # (Sensex/Nifty/RBI/GDP moves) get fuzzy-matched against weeks of past
+    # titles and rejected, starving the run. Same-story reposts appear within a
+    # day or two, which this window still catches.
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=48)).isoformat()
+    result = (supabase.table("processed_articles")
+              .select("title")
+              .gte("created_at", cutoff)
+              .execute())
     titles = [r["title"] for r in result.data if r.get("title")]
     return [(t, get_title_fingerprint(t)) for t in titles]
 

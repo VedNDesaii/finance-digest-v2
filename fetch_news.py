@@ -164,9 +164,15 @@ def cleanup_old_articles():
 
 
 def get_existing_links():
-    result = supabase.table("raw_articles").select("link, title").execute()
-    links  = {r["link"] for r in result.data if r.get("link")}
-    titles = {r["title"][:60].lower().strip() for r in result.data if r.get("title")}
+    # Exact-URL dedup stays broad (never re-ingest the same link across the whole
+    # 30-day archive). But the title-prefix dedup is scoped to ~48h — otherwise
+    # recurring daily headline formats collide with weeks of old titles and block
+    # fresh news from being fetched at all.
+    all_rows = supabase.table("raw_articles").select("link").execute()
+    links = {r["link"] for r in all_rows.data if r.get("link")}
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=48)).isoformat()
+    recent = supabase.table("raw_articles").select("title").gte("created_at", cutoff).execute()
+    titles = {r["title"][:60].lower().strip() for r in recent.data if r.get("title")}
     return links, titles
 
 
