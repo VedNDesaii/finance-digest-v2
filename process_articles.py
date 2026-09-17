@@ -631,13 +631,19 @@ def get_category_counts():
 
 
 def enforce_per_category_limit():
-    print("\n🔢 Enforcing per-category limits...")
+    # Trim ONLY today's articles to the per-category display limit. Older days are
+    # left untouched so the 30-day "previous days" archive survives. (Previously
+    # this trimmed across all time, deleting the whole archive down to ~one day.)
+    ist_midnight = (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).replace(hour=0, minute=0, second=0, microsecond=0)
+    cutoff = (ist_midnight - timedelta(hours=5, minutes=30)).isoformat()
+    print("\n🔢 Enforcing per-category limits (today only)...")
     for category in CATEGORIES:
         limit = CATEGORY_LIMITS[category]
         articles = (
             supabase.table("processed_articles")
             .select("id")
             .eq("category", category)
+            .gte("created_at", cutoff)
             .order("created_at", desc=True)
             .execute()
         )
@@ -645,9 +651,9 @@ def enforce_per_category_limit():
             ids_to_delete = [r["id"] for r in articles.data[limit:]]
             for aid in ids_to_delete:
                 supabase.table("processed_articles").delete().eq("id", aid).execute()
-            print(f"  🗑️  [{category}] Trimmed → kept {limit}")
+            print(f"  🗑️  [{category}] Trimmed today → kept {limit}")
         else:
-            print(f"  ✅ [{category}] {len(articles.data)}/{limit} — OK")
+            print(f"  ✅ [{category}] {len(articles.data)}/{limit} today — OK")
 
 
 def get_title_fingerprint(title):

@@ -1612,9 +1612,9 @@ export default function Home() {
     fetchCounts()
   }, [])
 
-  useEffect(() => { if (!isPortfolio) fetchArticles(activeSection) }, [activeSection])
-  // Re-fetch the brief when the browsed day changes (Today view only).
-  useEffect(() => { if (activeSection === 'headlines') fetchArticles('headlines') }, [dayOffset])
+  // Re-fetch whenever the section OR the browsed day changes — so the brief and
+  // sector pages both reflect the day you're viewing.
+  useEffect(() => { if (!isPortfolio) fetchArticles(activeSection) }, [activeSection, dayOffset])
 
   useEffect(() => {
     async function fetchIndices() {
@@ -1701,6 +1701,13 @@ export default function Home() {
         q = isCombinedIB
           ? q.in('category', ['investment-banking', 'banking-finance'])
           : q.eq('category', section)
+        // On a past day, scope the sector to that day's stories so you can read
+        // each sector's news for the day you're browsing. On "today" (offset 0),
+        // show the latest so a section is never needlessly empty.
+        if (dayOffset > 0) {
+          const { start, end } = istDayBounds(dayOffset)
+          q = q.gte('created_at', start).lt('created_at', end)
+        }
         const { data, error } = await Promise.race([
           q.order('created_at', { ascending: false }).limit(isCombinedIB ? 24 : 12),
           new Promise((_, rej) => setTimeout(() => rej(new Error('Request timed out — check your connection and retry.')), 15000)),
@@ -2005,13 +2012,20 @@ export default function Home() {
             ) : (
               <>
                 {secMeta ? (
-                  <div className="fd2-shero">
-                    <span className="em">{secMeta.icon}</span>
-                    <div>
-                      <h1>{secMeta.label}</h1>
-                      <div className="idx">{loading ? 'Loading…' : `${articles.length} ${articles.length === 1 ? 'story' : 'stories'} today`}</div>
+                  <>
+                    <div className="fd2-datenav">
+                      <button className="nb" onClick={() => setDayOffset(o => Math.min(MAX_DAY_OFFSET, o + 1))} disabled={dayOffset >= MAX_DAY_OFFSET} aria-label="Previous day">‹ Older</button>
+                      <span className="d">{dayOffset === 0 ? 'Today' : istDayBounds(dayOffset).label}</span>
+                      <button className="nb" onClick={() => setDayOffset(o => Math.max(0, o - 1))} disabled={dayOffset === 0} aria-label="Next day">Newer ›</button>
                     </div>
-                  </div>
+                    <div className="fd2-shero">
+                      <span className="em">{secMeta.icon}</span>
+                      <div>
+                        <h1>{secMeta.label}</h1>
+                        <div className="idx">{loading ? 'Loading…' : `${articles.length} ${articles.length === 1 ? 'story' : 'stories'} · ${dayOffset === 0 ? 'today' : istDayBounds(dayOffset).label}`}</div>
+                      </div>
+                    </div>
+                  </>
                 ) : (activeSection === 'indian-markets' || activeSection === 'us-markets') ? (
                   <MarketSummaryCard market={activeSection} dark={dark} isMobile={isMobile} />
                 ) : null}
