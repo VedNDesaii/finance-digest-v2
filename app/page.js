@@ -864,6 +864,14 @@ function TodayView({ articles, dark, isMobile, prediction, handlePrediction, aft
 
       <div className="fd2-zone dim"><span className="z-lbl">More, if you have time</span><span className="z-date">optional</span></div>
 
+      <div className="fd2-review">
+        <div className="rl">📆 In review — catch up on what you missed</div>
+        <div className="rb">
+          <button onClick={() => onReview('week')}>This week</button>
+          <button onClick={() => onReview('month')}>This month</button>
+        </div>
+      </div>
+
       {term && (
         <>
           <div className="fd2-sublbl">Today&rsquo;s term</div>
@@ -886,7 +894,6 @@ function TodayView({ articles, dark, isMobile, prediction, handlePrediction, aft
       )}
 
       <button className="fd2-explore" onClick={onGoSectors}>Explore all sectors →</button>
-      {isToday && <button className="fd2-explore" onClick={onReview} style={{ marginTop: '10px' }}>Catch up — the week in review →</button>}
 
       {isToday && (<>
       <div className="fd2-sublbl">Form a view</div>
@@ -1087,12 +1094,19 @@ function MarketsView() {
 // ── SectorsView (redesign) ──────────────────────────────────────────────────
 // The Sectors tab: the prototype's list of sector cards. Tapping one opens that
 // sector's page (its category section, rendered as a hero + scannable stories).
-function SectorsView({ onOpenSector }) {
+function SectorsView({ onOpenSector, dayOffset = 0, onOlder, onNewer }) {
   return (
     <div>
+      {dayOffset > 0 && (
+        <div className="fd2-datenav">
+          <button className="nb" onClick={onOlder} disabled={dayOffset >= MAX_DAY_OFFSET} aria-label="Previous day">‹ Older</button>
+          <span className="d">Viewing {istDayBounds(dayOffset).label}</span>
+          <button className="nb" onClick={onNewer} aria-label="Next day">Newer ›</button>
+        </div>
+      )}
       {BROWSE_GROUPS.map((g, gi) => (
         <div key={g.label}>
-          <div className="fd2-eyebrow" style={{ marginTop: gi === 0 ? '8px' : '24px' }}>{g.label} <span className="ln" /></div>
+          <div className="fd2-eyebrow" style={{ marginTop: gi === 0 && dayOffset === 0 ? '8px' : '18px' }}>{g.label} <span className="ln" /></div>
           {g.items.map(s => (
             <button className="fd2-sectorcard" key={s.id} onClick={() => onOpenSector(s.id)}>
               <span className="em">{s.icon}</span>
@@ -1997,11 +2011,14 @@ export default function Home() {
                 onOlder={() => setDayOffset(o => Math.min(MAX_DAY_OFFSET, o + 1))}
                 onNewer={() => setDayOffset(o => Math.max(0, o - 1))}
                 onGoSectors={() => handleSectionClick('sectors')}
-                onReview={() => { setReviewMode('week'); handleSectionClick('review') }} />
+                onReview={(m) => { setReviewMode(m || 'week'); handleSectionClick('review') }} />
             ) : activeSection === 'markets' ? (
               <MarketsView />
             ) : activeSection === 'sectors' ? (
-              <SectorsView onOpenSector={(id) => handleSectionClick(id)} />
+              <SectorsView onOpenSector={(id) => handleSectionClick(id)}
+                dayOffset={dayOffset}
+                onOlder={() => setDayOffset(o => Math.min(MAX_DAY_OFFSET, o + 1))}
+                onNewer={() => setDayOffset(o => Math.max(0, o - 1))} />
             ) : activeSection === 'review' ? (
               <ReviewView mode={reviewMode} setMode={setReviewMode} dark={dark} isMobile={isMobile} />
             ) : activeSection === 'quiz' ? (
