@@ -182,7 +182,7 @@ Write a market summary. Return ONLY this JSON:
   "watch": "<one sentence, max 22 words, the key thing to watch tomorrow>"
 }}"""
 
-    ai = call_claude_cached(prompt, max_tokens=800)
+    ai = call_claude_cached(prompt, max_tokens=1400)
     return {
         "verdict":  verdict,
         "headline": ai.get("lead", ""),          # kept for backward compat
@@ -237,7 +237,7 @@ Write a market summary. Return ONLY this JSON:
   "watch": "<one sentence, max 22 words, key thing to watch tomorrow>"
 }}"""
 
-    ai = call_claude_cached(prompt, max_tokens=800)
+    ai = call_claude_cached(prompt, max_tokens=1400)
     return {
         "verdict":  verdict,
         "headline": ai.get("lead", ""),
