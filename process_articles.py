@@ -119,7 +119,7 @@ def add_cost(message):
 # insert, so a missing column never breaks the run or wastes an API call.
 OPTIONAL_COLS = [
     "detailed_article", "market_impact", "what_this_means",
-    "sentiment", "difficulty", "stat", "stat_label", "headline", "concepts",
+    "sentiment", "difficulty", "stat", "stat_label", "headline", "concepts", "key_numbers",
 ]
 AVAILABLE_OPT_COLS = set(OPTIONAL_COLS)   # narrowed at startup by detect_optional_columns()
 
@@ -765,11 +765,13 @@ PART 2: 4 sentences, max 110 words. Before/What/Effect/Watch.
 PART 3 (MANDATORY): 2 sentences, max 40 words. Explain the likely implication for investors and why, in neutral analytical language (avoid "good/bad" verdicts). One thing to watch.
 GLOSSARY: 2-3 unfamiliar terms, max 20 words each.
 CONCEPTS: 1-3 finance/economics CONCEPTS this story touches, each explained in 2-3 plain-English sentences a beginner can follow — what the concept is AND why it matters in this story. Go deeper than the glossary (which is just short term definitions). Only include concepts genuinely relevant to the story; if none, use []. Format each as {{"name":"...","explanation":"..."}}.
+KEY NUMBERS (a visual stat display): pull 2-4 of the most important figures FROM THIS STORY. Each tile = {{"label":"2-3 word label","value":"the figure exactly as stated, with ₹/%/units","change":"the move if any, e.g. '+0.4%' / '+15 bps' / '₹1,200 cr' / 'Unchanged' — else ''","dir":"up|down|flat"}}. Use ONLY real figures in the content; NEVER invent. Order by importance. If the story has no meaningful numbers, use [].
 
 ━━━ STEP 5: THE FULL PICTURE (deep dive for the "Read in full" view) ━━━
 Write a detailed, structured explainer in the SAME simple 16-year-old-friendly voice, as several short paragraphs, each beginning with its own bold label. Use the labels that fit the story — for example:
-  "**What happened.** ..."  "**The numbers.** ..."  "**Why it happened.** ..."
-  "**The bigger picture.** ..."  "**What it means for borrowers/investors.** ..."  "**The outlook / what to watch.** ..."
+  "**What happened.** ..."  "**Why it happened.** ..."  "**The bigger picture.** ..."
+  "**What it means for borrowers/investors.** ..."  "**The outlook / what to watch.** ..."
+Do NOT write a "**The numbers.**" paragraph — the key figures already appear as KEY NUMBERS tiles, so don't re-list them here (weave only essential context).
 GO AS DEEP AS THE SOURCE ACTUALLY SUPPORTS — pull in every relevant figure, name, decision split and driver that is present in the content. CRITICAL: use ONLY facts in the content. Do NOT pad, repeat, or invent to fill length. If the source is thin, write fewer paragraphs — a short, true deep dive beats a long, padded one.
 
 ━━━ STEP 6: MARKET IMPACT (in words — NO invented numbers) ━━━
@@ -786,7 +788,7 @@ stat_label: a 2-4 word label for that number (e.g. "repo rate held"). "" if no s
 
 Return ONLY valid JSON:
 REJECT: {{"verdict":"reject"}}
-ACCEPT: {{"verdict":"accept","category":"<str>","is_headline":false,"headline":"<short punchy plain-English headline>","simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}],"concepts":[{{"name":"","explanation":""}}],"detailed_article":"**What happened.** ...\\n\\n**The numbers.** ...\\n\\n**Why it happened.** ...\\n\\n**The outlook.** ...","market_impact":"PARA1\\n\\nPARA2","what_this_means":"...","sentiment":"bullish|bearish|neutral","difficulty":"Easy|Medium|Hard","stat":"","stat_label":""}}
+ACCEPT: {{"verdict":"accept","category":"<str>","is_headline":false,"headline":"<short punchy plain-English headline>","simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}],"concepts":[{{"name":"","explanation":""}}],"key_numbers":[{{"label":"","value":"","change":"","dir":"up|down|flat"}}],"detailed_article":"**What happened.** ...\\n\\n**Why it happened.** ...\\n\\n**The outlook.** ...","market_impact":"PARA1\\n\\nPARA2","what_this_means":"...","sentiment":"bullish|bearish|neutral","difficulty":"Easy|Medium|Hard","stat":"","stat_label":""}}
 
 Title: {title}
 Content: {content[:3500]}"""
@@ -824,14 +826,15 @@ PART 2: 4 sentences, max 110 words. Before/What/Effect/Watch.
 PART 3 (MANDATORY): 2 sentences, max 40 words. Explain the likely implication for investors and why, in neutral analytical language (avoid "good/bad" verdicts). One thing to watch.
 GLOSSARY: 1-2 terms max.
 CONCEPTS: 1-3 finance/economics concepts the story touches, each explained in 2-3 plain-English sentences (what it is + why it matters here); deeper than the glossary. If none are relevant, use []. Format {{"name":"...","explanation":"..."}}.
-THE FULL PICTURE (deep dive): several short paragraphs, each with a bold label ("**What happened.** ...", "**The numbers.** ...", "**Why it happened.** ...", "**The outlook.** ..."). Go as deep as the source supports; use ONLY facts in the content; never pad or invent — a short true deep dive beats a padded one.
+KEY NUMBERS: 2-4 of the most important figures FROM THIS STORY as tiles {{"label":"2-3 words","value":"figure with ₹/%/units","change":"the move e.g. '+0.4%'/'₹1,200 cr'/'Unchanged' or ''","dir":"up|down|flat"}}. ONLY real figures in the content; never invent. If none, use [].
+THE FULL PICTURE (deep dive): several short paragraphs, each with a bold label ("**What happened.** ...", "**Why it happened.** ...", "**The outlook.** ..."). Do NOT write a "**The numbers.**" paragraph — figures show as KEY NUMBERS tiles. Go as deep as the source supports; use ONLY facts in the content; never pad or invent — a short true deep dive beats a padded one.
 MARKET IMPACT (in words): 2 short paragraphs on what could happen to markets/sectors and WHY, as reasoning — NO specific figures unless in the content, never fabricated.
 WHAT THIS MEANS FOR YOU: 1 short paragraph, the practical retail-investor/saver angle.
 CARD METADATA: sentiment ("bullish"|"bearish"|"neutral"), difficulty ("Easy"|"Medium"|"Hard"), stat (key number from the article or ""), stat_label (2-4 words or "").
 
 Return ONLY valid JSON:
 REJECT: {{"verdict":"reject"}}
-ACCEPT: {{"verdict":"accept","category":"<one of the categories listed above>","is_headline":false,"headline":"<short punchy plain-English headline>","simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}],"concepts":[{{"name":"","explanation":""}}],"detailed_article":"**What happened.** ...\\n\\n**Why it happened.** ...\\n\\n**The outlook.** ...","market_impact":"PARA1\\n\\nPARA2","what_this_means":"...","sentiment":"bullish|bearish|neutral","difficulty":"Easy|Medium|Hard","stat":"","stat_label":""}}
+ACCEPT: {{"verdict":"accept","category":"<one of the categories listed above>","is_headline":false,"headline":"<short punchy plain-English headline>","simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}],"concepts":[{{"name":"","explanation":""}}],"key_numbers":[{{"label":"","value":"","change":"","dir":"up|down|flat"}}],"detailed_article":"**What happened.** ...\\n\\n**Why it happened.** ...\\n\\n**The outlook.** ...","market_impact":"PARA1\\n\\nPARA2","what_this_means":"...","sentiment":"bullish|bearish|neutral","difficulty":"Easy|Medium|Hard","stat":"","stat_label":""}}
 
 Title: {title}
 Content: {content[:3500]}"""
@@ -885,6 +888,7 @@ def save_processed_article(raw_article, processed_data):
         "stat_label":       (processed_data.get("stat_label") or "").strip(),
         "headline":         (processed_data.get("headline") or "").strip(),
         "concepts":         processed_data["concepts"] if isinstance(processed_data.get("concepts"), list) else [],
+        "key_numbers":      processed_data["key_numbers"] if isinstance(processed_data.get("key_numbers"), list) else [],
     }
     for col in OPTIONAL_COLS:
         if col in AVAILABLE_OPT_COLS:

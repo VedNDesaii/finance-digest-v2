@@ -304,6 +304,13 @@ aside {
 .fd2-rsub b{color:var(--accent);font-family:var(--font-mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:3px}
 .fd2-rmeta{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.03em;color:var(--text-muted);display:flex;flex-wrap:wrap;gap:6px 12px;padding:12px 0;border-top:1px solid var(--border-main);border-bottom:1px solid var(--border-main);margin-bottom:18px}
 .fd2-stat{border:1px solid var(--border-main);background:var(--bg-card);border-radius:14px;padding:14px 16px;margin:0 0 18px;display:flex;align-items:baseline;gap:12px}
+/* key numbers — simple visual stat tiles (MoneyControl-style, kept minimal) */
+.fd2-keynums{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:0 0 18px}
+.fd2-keynums .kn{border:1px solid var(--border-main);background:var(--bg-card);border-radius:12px;padding:11px 13px}
+.fd2-keynums .kl{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);line-height:1.35}
+.fd2-keynums .kv{font-family:var(--font-mono);font-weight:600;font-size:18px;color:var(--text-primary);margin-top:5px;letter-spacing:-.01em}
+.fd2-keynums .kc{font-family:var(--font-mono);font-size:11px;font-weight:600;margin-top:3px;color:var(--text-muted)}
+.fd2-keynums .kc.up{color:var(--up)} .fd2-keynums .kc.down{color:var(--down)}
 .fd2-stat .num{font-family:var(--font-display);font-weight:900;font-size:30px;color:var(--accent);letter-spacing:-.02em}
 .fd2-stat .lb{font-family:var(--font-mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-secondary)}
 .fd2-blk{margin-bottom:18px}

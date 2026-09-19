@@ -59,6 +59,7 @@ export default function DetailReader({ article, dark, open, onClose }) {
   const concepts = Array.isArray(article.concepts) ? article.concepts : []
   const stat = (article.stat || '').trim()
   const statLbl = (article.stat_label || '').trim()
+  const keyNumbers = (Array.isArray(article.key_numbers) ? article.key_numbers : []).slice(0, 4)
   const impColor = s.cls === 'bull' ? 'var(--up)' : s.cls === 'bear' ? 'var(--down)' : 'var(--neutral)'
   const impBg = s.cls === 'bull' ? 'var(--up-bg)' : s.cls === 'bear' ? 'var(--down-bg)' : 'var(--bg-gist)'
 
@@ -84,8 +85,25 @@ export default function DetailReader({ article, dark, open, onClose }) {
             <span>{source}</span>{time && <span>{time} · IST</span>}<span>AI-assisted</span>
           </div>
 
-          {stat && (
+          {stat && keyNumbers.length === 0 && (
             <div className="fd2-stat"><span className="num">{stat}</span>{statLbl && <span className="lb">{statLbl}</span>}</div>
+          )}
+
+          {keyNumbers.length > 0 && (
+            <div className="fd2-keynums">
+              {keyNumbers.map((k, i) => {
+                const d = (k.dir || '').toLowerCase()
+                const dc = d === 'up' ? 'up' : d === 'down' ? 'down' : ''
+                const arrow = d === 'up' ? '▲' : d === 'down' ? '▼' : ''
+                return (
+                  <div className="kn" key={i}>
+                    <div className="kl">{decodeEntities(k.label || '')}</div>
+                    <div className="kv">{decodeEntities(k.value || '')}</div>
+                    {k.change && <div className={'kc ' + dc}>{arrow ? arrow + ' ' : ''}{decodeEntities(k.change)}</div>}
+                  </div>
+                )
+              })}
+            </div>
           )}
 
           {picture && (
