@@ -60,6 +60,7 @@ export default function DetailReader({ article, dark, open, onClose }) {
   const stat = (article.stat || '').trim()
   const statLbl = (article.stat_label || '').trim()
   const keyNumbers = (Array.isArray(article.key_numbers) ? article.key_numbers : []).slice(0, 4)
+  const howItWorks = Array.isArray(article.how_it_works) ? article.how_it_works : []
   const impColor = s.cls === 'bull' ? 'var(--up)' : s.cls === 'bear' ? 'var(--down)' : 'var(--neutral)'
   const impBg = s.cls === 'bull' ? 'var(--up-bg)' : s.cls === 'bear' ? 'var(--down-bg)' : 'var(--bg-gist)'
 
@@ -115,6 +116,17 @@ export default function DetailReader({ article, dark, open, onClose }) {
             </div>
           )}
 
+          {howItWorks.length > 0 && (
+            <div className="fd2-how">
+              <div className="bh">How it works</div>
+              <ol>
+                {howItWorks.map((step, i) => (
+                  <li key={i}><span className="n">{i + 1}</span><p>{decodeEntities(typeof step === 'string' ? step : (step.text || step.step || ''))}</p></li>
+                ))}
+              </ol>
+            </div>
+          )}
+
           {impact && (
             <div className="fd2-blk">
               <div className="bh">Market impact — what could happen <span className="impact" style={{ color: impColor, background: impBg }}>{s.lbl}</span></div>
@@ -142,12 +154,16 @@ export default function DetailReader({ article, dark, open, onClose }) {
           {concepts.length > 0 && (
             <div className="fd2-concepts">
               <div className="bh">Concepts explained</div>
-              {concepts.map((c, i) => (
-                <div className="cc" key={i}>
-                  <b>{decodeEntities(c.name || c.concept || c.word || '')}</b>
-                  <p>{decodeEntities(c.explanation || c.meaning || c.definition || '')}</p>
-                </div>
-              ))}
+              {concepts.map((c, i) => {
+                const use = decodeEntities(c.in_news || c.usage || c.example || c.applied || '')
+                return (
+                  <div className="cc" key={i}>
+                    <b>{decodeEntities(c.name || c.concept || c.word || '')}</b>
+                    <p>{decodeEntities(c.explanation || c.meaning || c.definition || '')}</p>
+                    {use && <p className="use"><span className="ul">In this news</span>{use}</p>}
+                  </div>
+                )
+              })}
             </div>
           )}
 

@@ -120,6 +120,7 @@ def add_cost(message):
 OPTIONAL_COLS = [
     "detailed_article", "market_impact", "what_this_means",
     "sentiment", "difficulty", "stat", "stat_label", "headline", "concepts", "key_numbers",
+    "how_it_works",
 ]
 AVAILABLE_OPT_COLS = set(OPTIONAL_COLS)   # narrowed at startup by detect_optional_columns()
 
@@ -544,12 +545,12 @@ COST_PER_M_OUTPUT = 4.00
 
 # TRUE total cap for the whole run (pre-pass searches + scoring + processing),
 # now that RUN_COST tracks everything. Kept under $1.00 with margin.
-DAILY_BUDGET      = 1.00   # user's hard cap of $1/day; headroom to reach the ~66-article minimums
+DAILY_BUDGET      = 1.20   # hard cap/day; raised for the deeper "how it works" + applied-concepts output
 
 # Realistic look-ahead ONLY (a safety buffer for the budget pre-check).
 # Actual spend is measured from each response's usage via add_cost().
 AVG_INPUT_TOKENS  = 2000   # instructions + up to 3500 chars of article content
-AVG_OUTPUT_TOKENS = 1650   # summary + investor + glossary + concepts + full picture + impact + headline + meta
+AVG_OUTPUT_TOKENS = 1900   # + how_it_works chain + applied concepts (in_news) on top of the earlier fields
 COST_PER_ARTICLE  = (
     (AVG_INPUT_TOKENS  / 1_000_000) * COST_PER_M_INPUT +
     (AVG_OUTPUT_TOKENS / 1_000_000) * COST_PER_M_OUTPUT
@@ -737,7 +738,7 @@ Category keyword reference:
 {chr(10).join(f'  • {k}: {v}' for k, v in CATEGORY_KEYWORDS.items())}
 """
 
-    prompt = f"""You are a financial news editor for an India-based financial news platform. Your reader is a curious 16-year-old who knows what a stock market is and reads the news, but has never studied finance. Your job: filter weak articles, then write the good ones clearly.
+    prompt = f"""You are a financial news editor for an India-based financial news platform. Your reader has ZERO finance knowledge — assume they've never heard terms like OEM, repo rate, FII, EBITDA, margin or yield. Your job: filter weak articles, then explain the good ones so this reader FULLY understands what happened and how it works. Two rules in EVERY section: (1) the first time a technical or industry term appears, define it in plain everyday words right there (e.g. "OEM — a company that makes products another brand sells under its own name"); (2) always explain HOW and WHY something happened — the cause-and-effect chain (A led to B because…) — never just state the fact.
 
 ━━━ STEP 1: FILTER ━━━
 REJECT if: celebrity gossip, sports money, product ads, opinion columns, tick-by-tick intraday updates, property listings, personal lifestyle articles.
@@ -764,8 +765,9 @@ PART 1: 1 sentence, max 25 words. WHO+WHAT+number+impact.
 PART 2: 4 sentences, max 110 words. Before/What/Effect/Watch.
 PART 3 (MANDATORY): 2 sentences, max 40 words. Explain the likely implication for investors and why, in neutral analytical language (avoid "good/bad" verdicts). One thing to watch.
 GLOSSARY: 2-3 unfamiliar terms, max 20 words each.
-CONCEPTS: 1-3 finance/economics CONCEPTS this story touches, each explained in 2-3 plain-English sentences a beginner can follow — what the concept is AND why it matters in this story. Go deeper than the glossary (which is just short term definitions). Only include concepts genuinely relevant to the story; if none, use []. Format each as {{"name":"...","explanation":"..."}}.
+CONCEPTS: 1-3 finance/economics CONCEPTS this story touches. For each, write TWO things: (1) "explanation" — what the concept is, in 2-3 plain-English sentences a total beginner can follow (deeper than the glossary's short definitions); (2) "in_news" — 1-2 sentences on how this exact concept plays out in THIS specific story (name the companies/numbers/events from the article, e.g. "The Fed's 0.25% cut is what makes car loans cheaper — the first domino behind Sona's new order"). Only include concepts genuinely relevant to the story; if none, use []. Format each as {{"name":"...","explanation":"...","in_news":"..."}}.
 KEY NUMBERS (a visual stat display): pull 2-4 of the most important figures FROM THIS STORY. Each tile = {{"label":"2-3 word label","value":"the figure exactly as stated, with ₹/%/units","change":"the move if any, e.g. '+0.4%' / '+15 bps' / '₹1,200 cr' / 'Unchanged' — else ''","dir":"up|down|flat"}}. Use ONLY real figures in the content; NEVER invent. Order by importance. If the story has no meaningful numbers, use [].
+HOW IT WORKS: 3-6 short steps that walk a reader with ZERO finance knowledge through the cause-and-effect chain of this story — how one thing led to the next (A → B → C). The FIRST time a technical or industry term appears (OEM, repo rate, FII, yield, EBITDA, margin, etc.), define it in plain everyday words right inside that step. Each step is one plain sentence; each should follow logically from the last, ending with the outcome in the story. Use ONLY facts in the content; never invent. If the story is too simple to have a chain, use []. Format as a JSON array of strings: ["step 1 ...","step 2 ...",...].
 
 ━━━ STEP 5: THE FULL PICTURE (deep dive for the "Read in full" view) ━━━
 Write a detailed, structured explainer in the SAME simple 16-year-old-friendly voice, as several short paragraphs, each beginning with its own bold label. Use the labels that fit the story — for example:
@@ -788,14 +790,14 @@ stat_label: a 2-4 word label for that number (e.g. "repo rate held"). "" if no s
 
 Return ONLY valid JSON:
 REJECT: {{"verdict":"reject"}}
-ACCEPT: {{"verdict":"accept","category":"<str>","is_headline":false,"headline":"<short punchy plain-English headline>","simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}],"concepts":[{{"name":"","explanation":""}}],"key_numbers":[{{"label":"","value":"","change":"","dir":"up|down|flat"}}],"detailed_article":"**What happened.** ...\\n\\n**Why it happened.** ...\\n\\n**The outlook.** ...","market_impact":"PARA1\\n\\nPARA2","what_this_means":"...","sentiment":"bullish|bearish|neutral","difficulty":"Easy|Medium|Hard","stat":"","stat_label":""}}
+ACCEPT: {{"verdict":"accept","category":"<str>","is_headline":false,"headline":"<short punchy plain-English headline>","simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}],"concepts":[{{"name":"","explanation":"","in_news":""}}],"key_numbers":[{{"label":"","value":"","change":"","dir":"up|down|flat"}}],"how_it_works":["step 1","step 2"],"detailed_article":"**What happened.** ...\\n\\n**Why it happened.** ...\\n\\n**The outlook.** ...","market_impact":"PARA1\\n\\nPARA2","what_this_means":"...","sentiment":"bullish|bearish|neutral","difficulty":"Easy|Medium|Hard","stat":"","stat_label":""}}
 
 Title: {title}
 Content: {content[:3500]}"""
 
     message = client.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=2500,
+        max_tokens=2800,
         messages=[{"role": "user", "content": prompt}]
     )
     add_cost(message)
@@ -825,8 +827,9 @@ PART 1: 1 sentence, max 25 words. WHO+WHAT+number+impact.
 PART 2: 4 sentences, max 110 words. Before/What/Effect/Watch.
 PART 3 (MANDATORY): 2 sentences, max 40 words. Explain the likely implication for investors and why, in neutral analytical language (avoid "good/bad" verdicts). One thing to watch.
 GLOSSARY: 1-2 terms max.
-CONCEPTS: 1-3 finance/economics concepts the story touches, each explained in 2-3 plain-English sentences (what it is + why it matters here); deeper than the glossary. If none are relevant, use []. Format {{"name":"...","explanation":"..."}}.
+CONCEPTS: 1-3 finance/economics concepts the story touches. For each: "explanation" (what it is, 2-3 plain sentences, deeper than the glossary) AND "in_news" (1-2 sentences on how this concept plays out in THIS story, naming its companies/numbers/events). If none are relevant, use []. Format {{"name":"...","explanation":"...","in_news":"..."}}.
 KEY NUMBERS: 2-4 of the most important figures FROM THIS STORY as tiles {{"label":"2-3 words","value":"figure with ₹/%/units","change":"the move e.g. '+0.4%'/'₹1,200 cr'/'Unchanged' or ''","dir":"up|down|flat"}}. ONLY real figures in the content; never invent. If none, use [].
+HOW IT WORKS: 3-6 short steps walking a ZERO-knowledge reader through this story's cause-and-effect chain (A → B → C). Define any technical/industry term (OEM, repo rate, FII, yield…) in plain words the first time it appears. One plain sentence per step, each following from the last, ending at the story's outcome. ONLY facts in the content; never invent. If too simple for a chain, use []. Format as a JSON array of strings.
 THE FULL PICTURE (deep dive): several short paragraphs, each with a bold label ("**What happened.** ...", "**Why it happened.** ...", "**The outlook.** ..."). Do NOT write a "**The numbers.**" paragraph — figures show as KEY NUMBERS tiles. Go as deep as the source supports; use ONLY facts in the content; never pad or invent — a short true deep dive beats a padded one.
 MARKET IMPACT (in words): 2 short paragraphs on what could happen to markets/sectors and WHY, as reasoning — NO specific figures unless in the content, never fabricated.
 WHAT THIS MEANS FOR YOU: 1 short paragraph, the practical retail-investor/saver angle.
@@ -834,14 +837,14 @@ CARD METADATA: sentiment ("bullish"|"bearish"|"neutral"), difficulty ("Easy"|"Me
 
 Return ONLY valid JSON:
 REJECT: {{"verdict":"reject"}}
-ACCEPT: {{"verdict":"accept","category":"<one of the categories listed above>","is_headline":false,"headline":"<short punchy plain-English headline>","simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}],"concepts":[{{"name":"","explanation":""}}],"key_numbers":[{{"label":"","value":"","change":"","dir":"up|down|flat"}}],"detailed_article":"**What happened.** ...\\n\\n**Why it happened.** ...\\n\\n**The outlook.** ...","market_impact":"PARA1\\n\\nPARA2","what_this_means":"...","sentiment":"bullish|bearish|neutral","difficulty":"Easy|Medium|Hard","stat":"","stat_label":""}}
+ACCEPT: {{"verdict":"accept","category":"<one of the categories listed above>","is_headline":false,"headline":"<short punchy plain-English headline>","simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}],"concepts":[{{"name":"","explanation":"","in_news":""}}],"key_numbers":[{{"label":"","value":"","change":"","dir":"up|down|flat"}}],"how_it_works":["step 1","step 2"],"detailed_article":"**What happened.** ...\\n\\n**Why it happened.** ...\\n\\n**The outlook.** ...","market_impact":"PARA1\\n\\nPARA2","what_this_means":"...","sentiment":"bullish|bearish|neutral","difficulty":"Easy|Medium|Hard","stat":"","stat_label":""}}
 
 Title: {title}
 Content: {content[:3500]}"""
 
     message = client.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=2300,
+        max_tokens=2600,
         messages=[{"role": "user", "content": prompt}]
     )
     add_cost(message)
@@ -889,6 +892,7 @@ def save_processed_article(raw_article, processed_data):
         "headline":         (processed_data.get("headline") or "").strip(),
         "concepts":         processed_data["concepts"] if isinstance(processed_data.get("concepts"), list) else [],
         "key_numbers":      processed_data["key_numbers"] if isinstance(processed_data.get("key_numbers"), list) else [],
+        "how_it_works":     processed_data["how_it_works"] if isinstance(processed_data.get("how_it_works"), list) else [],
     }
     for col in OPTIONAL_COLS:
         if col in AVAILABLE_OPT_COLS:
