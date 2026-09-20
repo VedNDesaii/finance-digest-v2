@@ -45,3 +45,25 @@ export function useAuth() {
     isFree:  plan === 'free',
   }
 }
+
+// Counts TRUE unique visitors per day. The id lives in localStorage, so it
+// persists across sessions and days on the same browser — the same person
+// visiting many times in a week is written once per day and counts once over
+// any range (distinct visitor_id). Fires once per app load; the API upserts
+// (visitor_id, day) so repeat visits the same day are a no-op.
+export function useVisitorTracking() {
+  useEffect(() => {
+    try {
+      let vid = localStorage.getItem('fd-visitor-id')
+      if (!vid) {
+        vid = (crypto?.randomUUID?.() || String(Date.now()) + Math.random().toString(36).slice(2))
+        localStorage.setItem('fd-visitor-id', vid)
+      }
+      fetch('/api/visitors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ visitorId: vid }),
+      }).catch(() => {})
+    } catch { /* private mode / no storage — skip silently */ }
+  }, [])
+}

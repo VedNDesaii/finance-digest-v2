@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic'
 import { supabase } from '../lib/supabase'
 import DetailReader from '../components/DetailReader'
 import Tutorial from '../components/Tutorial'
-import { useAuth } from '../hooks/useAuth'
+import { useAuth, useVisitorTracking } from '../hooks/useAuth'
 import WelcomeModal from '../components/WelcomeModal'
 import { registerPushNotification, touchLastSeen } from '../lib/pushNotifications'
 
@@ -1451,6 +1451,7 @@ export default function Home() {
   const [navHovered, setNavHovered] = useState(false)
 
   const { user, plan, loading: authLoading } = useAuth()
+  useVisitorTracking()   // records a unique visitor per day for weekly-unique stats
   const isPro   = true
   const isBasic = true
   const isFree  = false
