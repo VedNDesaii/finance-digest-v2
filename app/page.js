@@ -929,10 +929,12 @@ function ReviewView({ mode, setMode, dark, isMobile }) {
     let ok = true
     setRows(null)
     const days = mode === 'month' ? 30 : 7
+    // Cap how many stories show under each view (week is a tighter list than month).
+    const cap  = mode === 'month' ? 15 : 7
     const since = new Date(Date.now() - days * 86400000).toISOString()
     supabase.from('processed_articles').select('*').gte('created_at', since)
       .order('created_at', { ascending: false }).limit(400)
-      .then(({ data }) => { if (ok) setRows([...(data || [])].sort((a, b) => importanceScore(b) - importanceScore(a)).slice(0, 12)) })
+      .then(({ data }) => { if (ok) setRows([...(data || [])].sort((a, b) => importanceScore(b) - importanceScore(a)).slice(0, cap)) })
       .catch(() => { if (ok) setRows([]) })
     return () => { ok = false }
   }, [mode])
