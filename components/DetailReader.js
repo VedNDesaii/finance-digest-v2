@@ -134,10 +134,6 @@ export default function DetailReader({ article, dark, open, onClose }) {
             </div>
           )}
 
-          {why && (
-            <div className="fd2-blk"><div className="bh">Why it matters</div><p>{why}</p></div>
-          )}
-
           {means && (
             <div className="fd2-blk"><div className="bh">What this means for you</div><p>{means}</p></div>
           )}

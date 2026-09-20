@@ -771,8 +771,9 @@ HOW IT WORKS: 3-6 short steps that walk a reader with ZERO finance knowledge thr
 
 ━━━ STEP 5: THE FULL PICTURE (deep dive for the "Read in full" view) ━━━
 Write a detailed, structured explainer in the SAME simple 16-year-old-friendly voice, as several short paragraphs, each beginning with its own bold label. Use the labels that fit the story — for example:
-  "**What happened.** ..."  "**Why it happened.** ..."  "**The bigger picture.** ..."
+  "**What happened.** ..."  "**The bigger picture.** ..."
   "**What it means for borrowers/investors.** ..."  "**The outlook / what to watch.** ..."
+Do NOT write a "**Why it happened.**" paragraph — the cause-and-effect chain is already covered by HOW IT WORKS above, so don't repeat it here; focus on WHAT happened, the bigger picture and the outlook.
 Do NOT write a "**The numbers.**" paragraph — the key figures already appear as KEY NUMBERS tiles, so don't re-list them here (weave only essential context).
 GO AS DEEP AS THE SOURCE ACTUALLY SUPPORTS — pull in every relevant figure, name, decision split and driver that is present in the content. CRITICAL: use ONLY facts in the content. Do NOT pad, repeat, or invent to fill length. If the source is thin, write fewer paragraphs — a short, true deep dive beats a long, padded one.
 
@@ -790,7 +791,7 @@ stat_label: a 2-4 word label for that number (e.g. "repo rate held"). "" if no s
 
 Return ONLY valid JSON:
 REJECT: {{"verdict":"reject"}}
-ACCEPT: {{"verdict":"accept","category":"<str>","is_headline":false,"headline":"<short punchy plain-English headline>","simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}],"concepts":[{{"name":"","explanation":"","in_news":""}}],"key_numbers":[{{"label":"","value":"","change":"","dir":"up|down|flat"}}],"how_it_works":["step 1","step 2"],"detailed_article":"**What happened.** ...\\n\\n**Why it happened.** ...\\n\\n**The outlook.** ...","market_impact":"PARA1\\n\\nPARA2","what_this_means":"...","sentiment":"bullish|bearish|neutral","difficulty":"Easy|Medium|Hard","stat":"","stat_label":""}}
+ACCEPT: {{"verdict":"accept","category":"<str>","is_headline":false,"headline":"<short punchy plain-English headline>","simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}],"concepts":[{{"name":"","explanation":"","in_news":""}}],"key_numbers":[{{"label":"","value":"","change":"","dir":"up|down|flat"}}],"how_it_works":["step 1","step 2"],"detailed_article":"**What happened.** ...\\n\\n**The bigger picture.** ...\\n\\n**The outlook.** ...","market_impact":"PARA1\\n\\nPARA2","what_this_means":"...","sentiment":"bullish|bearish|neutral","difficulty":"Easy|Medium|Hard","stat":"","stat_label":""}}
 
 Title: {title}
 Content: {content[:3500]}"""
@@ -830,14 +831,14 @@ GLOSSARY: 1-2 terms max.
 CONCEPTS: 1-3 finance/economics concepts the story touches. For each: "explanation" (what it is, 2-3 plain sentences, deeper than the glossary) AND "in_news" (1-2 sentences on how this concept plays out in THIS story, naming its companies/numbers/events). If none are relevant, use []. Format {{"name":"...","explanation":"...","in_news":"..."}}.
 KEY NUMBERS: 2-4 of the most important figures FROM THIS STORY as tiles {{"label":"2-3 words","value":"figure with ₹/%/units","change":"the move e.g. '+0.4%'/'₹1,200 cr'/'Unchanged' or ''","dir":"up|down|flat"}}. ONLY real figures in the content; never invent. If none, use [].
 HOW IT WORKS: 3-6 short steps walking a ZERO-knowledge reader through this story's cause-and-effect chain (A → B → C). Define any technical/industry term (OEM, repo rate, FII, yield…) in plain words the first time it appears. One plain sentence per step, each following from the last, ending at the story's outcome. ONLY facts in the content; never invent. If too simple for a chain, use []. Format as a JSON array of strings.
-THE FULL PICTURE (deep dive): several short paragraphs, each with a bold label ("**What happened.** ...", "**Why it happened.** ...", "**The outlook.** ..."). Do NOT write a "**The numbers.**" paragraph — figures show as KEY NUMBERS tiles. Go as deep as the source supports; use ONLY facts in the content; never pad or invent — a short true deep dive beats a padded one.
+THE FULL PICTURE (deep dive): several short paragraphs, each with a bold label ("**What happened.** ...", "**The bigger picture.** ...", "**The outlook.** ..."). Do NOT write a "**Why it happened.**" paragraph — the cause is already covered by HOW IT WORKS; don't repeat it. Do NOT write a "**The numbers.**" paragraph — figures show as KEY NUMBERS tiles. Go as deep as the source supports; use ONLY facts in the content; never pad or invent — a short true deep dive beats a padded one.
 MARKET IMPACT (in words): 2 short paragraphs on what could happen to markets/sectors and WHY, as reasoning — NO specific figures unless in the content, never fabricated.
 WHAT THIS MEANS FOR YOU: 1 short paragraph, the practical retail-investor/saver angle.
 CARD METADATA: sentiment ("bullish"|"bearish"|"neutral"), difficulty ("Easy"|"Medium"|"Hard"), stat (key number from the article or ""), stat_label (2-4 words or "").
 
 Return ONLY valid JSON:
 REJECT: {{"verdict":"reject"}}
-ACCEPT: {{"verdict":"accept","category":"<one of the categories listed above>","is_headline":false,"headline":"<short punchy plain-English headline>","simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}],"concepts":[{{"name":"","explanation":"","in_news":""}}],"key_numbers":[{{"label":"","value":"","change":"","dir":"up|down|flat"}}],"how_it_works":["step 1","step 2"],"detailed_article":"**What happened.** ...\\n\\n**Why it happened.** ...\\n\\n**The outlook.** ...","market_impact":"PARA1\\n\\nPARA2","what_this_means":"...","sentiment":"bullish|bearish|neutral","difficulty":"Easy|Medium|Hard","stat":"","stat_label":""}}
+ACCEPT: {{"verdict":"accept","category":"<one of the categories listed above>","is_headline":false,"headline":"<short punchy plain-English headline>","simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}],"concepts":[{{"name":"","explanation":"","in_news":""}}],"key_numbers":[{{"label":"","value":"","change":"","dir":"up|down|flat"}}],"how_it_works":["step 1","step 2"],"detailed_article":"**What happened.** ...\\n\\n**The bigger picture.** ...\\n\\n**The outlook.** ...","market_impact":"PARA1\\n\\nPARA2","what_this_means":"...","sentiment":"bullish|bearish|neutral","difficulty":"Easy|Medium|Hard","stat":"","stat_label":""}}
 
 Title: {title}
 Content: {content[:3500]}"""
