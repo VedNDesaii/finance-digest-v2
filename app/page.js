@@ -52,7 +52,8 @@ const MAX_DAY_OFFSET = 29  // 30 days of retained history (0..29)
 // Finance IQ points. Bump POINTS_VERSION to reset every user's score to 0 on
 // their next visit (points live in localStorage, so there's no server wipe).
 const POINTS_VERSION    = 'v2-2026-08'
-const PREDICTION_POINTS = 30   // awarded once per day for a correct market prediction
+const PREDICTION_POINTS = 40   // awarded once per day for a correct market prediction
+const STREAK_BONUS      = 70   // extra IQ for 7 correct predictions in a row (every completed week)
 
 const BOTTOM_TABS = [
   { id: 'top',       icon: '📰', label: 'Briefing' },
@@ -864,14 +865,6 @@ function TodayView({ articles, dark, isMobile, prediction, handlePrediction, aft
 
       <div className="fd2-zone dim"><span className="z-lbl">More, if you have time</span><span className="z-date">optional</span></div>
 
-      <div className="fd2-review">
-        <div className="rl">📆 In review — catch up on what you missed</div>
-        <div className="rb">
-          <button onClick={() => onReview('week')}>This week</button>
-          <button onClick={() => onReview('month')}>This month</button>
-        </div>
-      </div>
-
       {term && (
         <>
           <div className="fd2-sublbl">Today&rsquo;s term</div>
@@ -1526,6 +1519,8 @@ export default function Home() {
       const predStreak = parseInt(safeLS.getItem('fd-pred-streak') || '0') + 1
       safeLS.setItem('fd-pred-streak', predStreak)
       if (predStreak >= 3) awardBadge('predict3', earnedBadges)
+      // Weekly streak reward: 7 correct calls in a row = +70 bonus (repeats each further week).
+      if (predStreak % 7 === 0) addIQ(STREAK_BONUS, `🔥 7-day streak! +${STREAK_BONUS} bonus IQ`)
     } else {
       safeLS.setItem('fd-pred-streak', '0')
     }
@@ -1846,7 +1841,6 @@ export default function Home() {
             <IndexChip label="SENSEX" data={indices.sensex} dark={dark} />
             <IndexChip label="NIFTY" data={indices.nifty} dark={dark} />
             <IQChip iq={iqScore} dark={dark} />
-            <NotificationBell dark={dark} />
             <ThemeToggle dark={dark} onToggle={toggleTheme} />
             <button onClick={() => setOverlay(overlay === 'more' ? null : 'more')} aria-label="More"
               title="Quiz, Portfolio & more"
@@ -1862,10 +1856,18 @@ export default function Home() {
           { id: 'headlines', label: 'Today',   d: 'M3 10.5 12 4l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z' },
           { id: 'markets',   label: 'Markets', d: 'M4 19V5M4 15l5-5 4 3 7-8' },
           { id: 'sectors',   label: 'Sectors', d: 'M4 5h16M4 12h16M4 19h10' },
+          { id: 'week',      label: 'Week',    d: 'M8 2v3M16 2v3M5 5h14v15H5zM4 9h16M8 13h3' },
+          { id: 'month',     label: 'Month',   d: 'M8 2v3M16 2v3M5 5h14v15H5zM4 9h16M8 13h2M14 13h2M8 17h2M14 17h2' },
         ].map(t => {
-          const on = navTab === t.id
+          const isReview = t.id === 'week' || t.id === 'month'
+          const on = isReview
+            ? (activeSection === 'review' && reviewMode === t.id)
+            : navTab === t.id
+          const go = isReview
+            ? () => { setReviewMode(t.id); handleSectionClick('review') }
+            : () => handleSectionClick(t.id)
           return (
-            <button key={t.id} className={'fd2-tab' + (on ? ' on' : '')} onClick={() => handleSectionClick(t.id)}>
+            <button key={t.id} className={'fd2-tab' + (on ? ' on' : '')} onClick={go}>
               <svg viewBox="0 0 24 24"><path d={t.d} /></svg>
               <span>{t.label}</span>
             </button>
@@ -1964,22 +1966,6 @@ export default function Home() {
             </div>
             <BadgeWall compact={true} />
           </div>
-          <button onClick={() => { setReviewMode('week'); handleSectionClick('review') }} style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '13px 14px', marginBottom: '8px', borderRadius: '12px', border: 'none', cursor: 'pointer', background: (dark ? 'rgba(255,255,255,0.03)' : '#FAFAF8'), textAlign: 'left' }}>
-            <span style={{ fontSize: '22px' }}>🗓️</span>
-            <span style={{ fontSize: '15px', fontWeight: '500', color: 'var(--text-primary)', fontFamily: 'var(--font-ui)' }}>This week in review</span>
-          </button>
-          <button onClick={() => { setReviewMode('month'); handleSectionClick('review') }} style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '13px 14px', marginBottom: '8px', borderRadius: '12px', border: 'none', cursor: 'pointer', background: (dark ? 'rgba(255,255,255,0.03)' : '#FAFAF8'), textAlign: 'left' }}>
-            <span style={{ fontSize: '22px' }}>📆</span>
-            <span style={{ fontSize: '15px', fontWeight: '500', color: 'var(--text-primary)', fontFamily: 'var(--font-ui)' }}>This month in review</span>
-          </button>
-          <button onClick={() => handleSectionClick('quiz')} style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '13px 14px', marginBottom: '8px', borderRadius: '12px', border: 'none', cursor: 'pointer', background: activeSection === 'quiz' ? (dark ? 'rgba(255,75,43,0.12)' : 'rgba(232,67,31,0.08)') : (dark ? 'rgba(255,255,255,0.03)' : '#FAFAF8'), textAlign: 'left' }}>
-            <span style={{ fontSize: '22px' }}>🧩</span>
-            <span style={{ fontSize: '15px', fontWeight: '500', color: 'var(--text-primary)', fontFamily: 'var(--font-ui)' }}>Quiz &amp; Wordle</span>
-          </button>
-          <button onClick={() => handleSectionClick('portfolio')} style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '13px 14px', borderRadius: '12px', border: 'none', cursor: 'pointer', background: activeSection === 'portfolio' ? (dark ? 'rgba(255,75,43,0.12)' : 'rgba(232,67,31,0.08)') : (dark ? 'rgba(255,255,255,0.03)' : '#FAFAF8'), textAlign: 'left' }}>
-            <span style={{ fontSize: '22px' }}>💰</span>
-            <span style={{ fontSize: '15px', fontWeight: '500', color: 'var(--text-primary)', fontFamily: 'var(--font-ui)' }}>My Portfolio</span>
-          </button>
         </div>
       )}
 
@@ -1989,9 +1975,7 @@ export default function Home() {
         paddingBottom: `${NAV_BAR_H + 40}px`,
         minHeight: '100vh',
       }}>
-        {isPortfolio ? (
-          <MyPortfolio />
-        ) : (
+        {(
           <div style={{
             maxWidth: isMobile ? '100%' : '600px',
             margin: '0 auto',
@@ -2021,11 +2005,6 @@ export default function Home() {
                 onNewer={() => setDayOffset(o => Math.max(0, o - 1))} />
             ) : activeSection === 'review' ? (
               <ReviewView mode={reviewMode} setMode={setReviewMode} dark={dark} isMobile={isMobile} />
-            ) : activeSection === 'quiz' ? (
-              <>
-                <YesterdayQuiz dark={dark} isMobile={isMobile} addIQ={addIQ} earnedBadges={earnedBadges} awardBadge={awardBadge} />
-                <FinanceWordle dark={dark} isMobile={isMobile} addIQ={addIQ} />
-              </>
             ) : (
               <>
                 {secMeta ? (
