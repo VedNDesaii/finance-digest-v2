@@ -181,15 +181,15 @@ const WORDLE_WORDS = [
 // for a good player): fast early ranks, a ~5-month chase for Harshad Mehta.
 const RANKS = [
   { min: 0,     title: 'Beginner',             emoji: '🌱', color: '#9A8E7E', gated: false },
-  { min: 40,    title: 'Amateur',              emoji: '📖', color: '#9A8E7E', gated: false },
-  { min: 120,   title: 'Analyst',              emoji: '🔍', color: '#60A5FA', gated: false },
-  { min: 250,   title: 'Senior Analyst',       emoji: '📊', color: '#60A5FA', gated: false },
-  { min: 450,   title: 'Portfolio Manager',    emoji: '💼', color: 'var(--up)', gated: false },
-  { min: 700,   title: 'Fund Manager',         emoji: '🏦', color: 'var(--up)', gated: false },
-  { min: 1050,  title: 'Dalal Street Trader',  emoji: '📈', color: 'var(--accent)', gated: false },
-  { min: 1500,  title: 'Dalal Street Tycoon',  emoji: '🏛️', color: 'var(--accent)', gated: true },
-  { min: 2100,  title: 'Bull of Dalal Street', emoji: '🐂', color: 'var(--accent)', gated: true },
-  { min: 3000,  title: 'Harshad Mehta',        emoji: '👑', color: 'var(--accent)', gated: true },
+  { min: 80,    title: 'Amateur',              emoji: '📖', color: '#9A8E7E', gated: false },
+  { min: 250,   title: 'Analyst',              emoji: '🔍', color: '#60A5FA', gated: false },
+  { min: 550,   title: 'Senior Analyst',       emoji: '📊', color: '#60A5FA', gated: false },
+  { min: 1000,  title: 'Portfolio Manager',    emoji: '💼', color: 'var(--up)', gated: false },
+  { min: 1700,  title: 'Fund Manager',         emoji: '🏦', color: 'var(--up)', gated: false },
+  { min: 2700,  title: 'Dalal Street Trader',  emoji: '📈', color: 'var(--accent)', gated: false },
+  { min: 3900,  title: 'Dalal Street Tycoon',  emoji: '🏛️', color: 'var(--accent)', gated: true },
+  { min: 5400,  title: 'Bull of Dalal Street', emoji: '🐂', color: 'var(--accent)', gated: true },
+  { min: 7500,  title: 'Harshad Mehta',        emoji: '👑', color: 'var(--accent)', gated: true },
 ]
 // Gate for the legend tier (ranks 8-10): at least 10 predictions made AND
 // >=55% correct over the rolling window. Keeps the top ranks skill-only.
