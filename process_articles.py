@@ -5,6 +5,7 @@ from supabase import create_client
 from datetime import datetime, date, timedelta, timezone
 from dotenv import load_dotenv
 import os
+import time
 
 load_dotenv()
 
@@ -631,30 +632,50 @@ def get_category_counts():
     return counts
 
 
+def _sb_retry(fn, tries=3, delay=3, what="Supabase call"):
+    # Supabase/Postgrest occasionally read-times-out on flaky networks. Retry a
+    # few times with a short backoff before giving up.
+    for i in range(tries):
+        try:
+            return fn()
+        except Exception as e:
+            if i == tries - 1:
+                raise
+            print(f"  ⏳ {what} timed out ({type(e).__name__}); retry {i + 1}/{tries - 1} in {delay}s…")
+            time.sleep(delay)
+
+
 def enforce_per_category_limit():
     # Trim ONLY today's articles to the per-category display limit. Older days are
     # left untouched so the 30-day "previous days" archive survives. (Previously
     # this trimmed across all time, deleting the whole archive down to ~one day.)
+    # This is a best-effort cleanup step: articles are ALREADY saved by the time it
+    # runs, so a transient DB timeout here must never fail the whole run.
     ist_midnight = (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).replace(hour=0, minute=0, second=0, microsecond=0)
     cutoff = (ist_midnight - timedelta(hours=5, minutes=30)).isoformat()
     print("\n🔢 Enforcing per-category limits (today only)...")
     for category in CATEGORIES:
         limit = CATEGORY_LIMITS[category]
-        articles = (
-            supabase.table("processed_articles")
-            .select("id")
-            .eq("category", category)
-            .gte("created_at", cutoff)
-            .order("created_at", desc=True)
-            .execute()
-        )
-        if len(articles.data) > limit:
-            ids_to_delete = [r["id"] for r in articles.data[limit:]]
-            for aid in ids_to_delete:
-                supabase.table("processed_articles").delete().eq("id", aid).execute()
-            print(f"  🗑️  [{category}] Trimmed today → kept {limit}")
-        else:
-            print(f"  ✅ [{category}] {len(articles.data)}/{limit} today — OK")
+        try:
+            articles = _sb_retry(lambda: (
+                supabase.table("processed_articles")
+                .select("id")
+                .eq("category", category)
+                .gte("created_at", cutoff)
+                .order("created_at", desc=True)
+                .execute()
+            ), what=f"[{category}] fetch")
+            if len(articles.data) > limit:
+                ids_to_delete = [r["id"] for r in articles.data[limit:]]
+                for aid in ids_to_delete:
+                    _sb_retry(lambda aid=aid: supabase.table("processed_articles").delete().eq("id", aid).execute(),
+                              what=f"[{category}] delete")
+                print(f"  🗑️  [{category}] Trimmed today → kept {limit}")
+            else:
+                print(f"  ✅ [{category}] {len(articles.data)}/{limit} today — OK")
+        except Exception as e:
+            # Skip this category's trim rather than crashing the run.
+            print(f"  ⚠️  [{category}] limit-enforcement skipped after retries: {type(e).__name__}")
 
 
 def get_title_fingerprint(title):
@@ -1104,7 +1125,11 @@ def run():
     print(f"💰 REAL total cost this run (searches + processing): ${total:.4f} / ${DAILY_BUDGET:.2f} cap")
     print("=" * 50)
 
-    enforce_per_category_limit()
+    try:
+        enforce_per_category_limit()
+    except Exception as e:
+        # Never fail the run over the trailing cleanup — articles are already saved.
+        print(f"⚠️  Per-category cleanup skipped ({type(e).__name__}); articles already saved.")
 
 
 if __name__ == "__main__":
