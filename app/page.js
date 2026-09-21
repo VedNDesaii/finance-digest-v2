@@ -231,6 +231,16 @@ function isWeekend() {
   return ist.getDay() === 0 || ist.getDay() === 6
 }
 
+// Predictions must be locked in before 12:30 PM IST on a trading day.
+const PREDICT_CUTOFF_MINS = 12 * 60 + 30   // 12:30 PM
+function isPredictionOpen() {
+  const ist  = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
+  const day  = ist.getDay()
+  if (day === 0 || day === 6) return false
+  const mins = ist.getHours() * 60 + ist.getMinutes()
+  return mins < PREDICT_CUTOFF_MINS
+}
+
 function getActiveMobileTab(section) {
   if (section === 'headlines') return 'top'
   if (section === 'quiz') return 'quiz'
@@ -781,7 +791,7 @@ function Fd2StoryList({ articles, dark }) {
   )
 }
 
-function TodayView({ articles, dark, isMobile, prediction, predCorrect, handlePrediction, afterClose, weekend, dayOffset = 0, loading, onOlder, onNewer, onGoSectors, onReview }) {
+function TodayView({ articles, dark, isMobile, prediction, predCorrect, handlePrediction, afterClose, weekend, predictOpen = true, dayOffset = 0, loading, onOlder, onNewer, onGoSectors, onReview }) {
   const isToday = dayOffset === 0
   const { label: dayLabel } = istDayBounds(dayOffset)
   const [sel, setSel] = useState(null)
@@ -929,15 +939,17 @@ function TodayView({ articles, dark, isMobile, prediction, predCorrect, handlePr
           ) : (
             <div className="done">✓ Locked in — you said Nifty closes {prediction === 'up' ? 'higher' : 'lower'}. Come back after close to see if you were right.</div>
           )
-        ) : (
+        ) : predictOpen ? (
           <>
             <div className="q">Will the Nifty finish <b>higher</b> today?</div>
             <div className="btns">
               <button onClick={() => handlePrediction && handlePrediction('up')}>Yes, green</button>
               <button onClick={() => handlePrediction && handlePrediction('down')}>No, red</button>
             </div>
-            <div className="dis">A game to sharpen your view — not investment advice. Result after close.</div>
+            <div className="dis">Lock in before <b>12:30 PM IST</b> — not investment advice. Result after close.</div>
           </>
+        ) : (
+          <div className="q">⏳ Predictions close at <b>12:30 PM IST</b>. Come back tomorrow before then to make your call.</div>
         )}
       </div>
       </>)}
@@ -1483,6 +1495,7 @@ export default function Home() {
   const activeTab   = getActiveMobileTab(activeSection)
   const afterClose  = isAfterMarketClose()
   const weekend     = isWeekend()
+  const predictOpen = isPredictionOpen()
   const isPortfolio = activeSection === 'portfolio'
 
   useEffect(() => {
@@ -1625,7 +1638,7 @@ export default function Home() {
   }
 
   function handlePrediction(dir) {
-    if (prediction || afterClose || weekend) return
+    if (prediction || !isPredictionOpen()) return
     const todayStr = new Date().toDateString()
     setPrediction(dir)
     safeLS.setItem(`fd-pred-${todayStr}`, dir)
@@ -2055,7 +2068,7 @@ export default function Home() {
 
             {/* how it works */}
             <div style={{ background: 'var(--bg-gist)', borderRadius: '12px', padding: '12px 14px', marginBottom: '14px', fontSize: '12.5px', lineHeight: 1.55, color: 'var(--text-secondary)' }}>
-              <b style={{ color: 'var(--text-primary)' }}>How it works.</b> Earn Finance IQ from the daily market call: <b style={{ color: 'var(--up)' }}>+40</b> if you&rsquo;re right, <b style={{ color: 'var(--down)' }}>−25</b> if wrong, plus a <b>+70</b> bonus for 7 correct in a row. Your IQ decides your rank. The <b>top 3 ranks are skill-only</b> — you must hold <b>≥55% accuracy</b> over your last 20 calls to unlock them.
+              <b style={{ color: 'var(--text-primary)' }}>How it works.</b> Lock in the daily market call <b>before 12:30 PM IST</b> — no predictions after that. When the market closes you earn <b style={{ color: 'var(--up)' }}>+40</b> if you&rsquo;re right, <b style={{ color: 'var(--down)' }}>−25</b> if wrong, plus a <b>+70</b> bonus for 7 correct in a row. Your IQ decides your rank. The <b>top 3 ranks are skill-only</b> — you must hold <b>≥55% accuracy</b> over your last 20 calls to unlock them.
             </div>
 
             {/* the full ladder */}
@@ -2100,7 +2113,7 @@ export default function Home() {
             {activeSection === 'headlines' ? (
               <TodayView articles={articles} dark={dark} isMobile={isMobile}
                 prediction={prediction} predCorrect={predCorrect} handlePrediction={handlePrediction}
-                afterClose={afterClose} weekend={weekend}
+                afterClose={afterClose} weekend={weekend} predictOpen={predictOpen}
                 dayOffset={dayOffset} loading={loading}
                 onOlder={() => setDayOffset(o => Math.min(MAX_DAY_OFFSET, o + 1))}
                 onNewer={() => setDayOffset(o => Math.max(0, o - 1))}
