@@ -1472,6 +1472,7 @@ export default function Home() {
   const [prediction, setPrediction]     = useState(null)
   const [predCorrect, setPredCorrect]   = useState(null)
   const [predStats, setPredStats]       = useState({ count: 0, acc: 0 })  // rolling prediction accuracy for the rank gate
+  const [showRanks, setShowRanks]       = useState(false)  // the "how ranks work" panel
   const [showPointPop, setShowPointPop] = useState(null)
   const [navShrunk, setNavShrunk] = useState(false)
   const [navHovered, setNavHovered] = useState(false)
@@ -1800,6 +1801,12 @@ export default function Home() {
     : (activeSection === 'sectors' || BROWSE_META[activeSection]) ? 'sectors'
     : ''
   const rank = getIQLevel(iqScore, predStats.acc, predStats.count)
+  const rankIdx  = RANKS.findIndex(r => r.title === rank.title)
+  const nextRank = RANKS[rankIdx + 1] || null
+  const gateOK   = predStats.count >= GATE_MIN_CALLS && predStats.acc >= GATE_MIN_ACC
+  const accPct   = Math.round((predStats.acc || 0) * 100)
+  const toNext   = nextRank ? Math.max(0, nextRank.min - iqScore) : 0
+  const nextPct  = nextRank ? Math.min(100, Math.max(0, ((iqScore - rank.min) / (nextRank.min - rank.min)) * 100)) : 100
 
   const headerH = isMobile ? 72 : 64
 
@@ -1886,6 +1893,8 @@ export default function Home() {
             <IndexChip label="SENSEX" data={indices.sensex} dark={dark} />
             <IndexChip label="NIFTY" data={indices.nifty} dark={dark} />
             <IQChip iq={iqScore} dark={dark} />
+            <button onClick={() => setShowRanks(true)} aria-label="Ranks" title="See ranks & how they work"
+              style={{ width: '34px', height: '34px', borderRadius: '10px', border: '1px solid var(--border-main)', background: 'var(--bg-card)', cursor: 'pointer', fontSize: '16px', lineHeight: 1, display: 'grid', placeItems: 'center', flexShrink: 0 }}>🏆</button>
             <ThemeToggle dark={dark} onToggle={toggleTheme} />
             <AccountButton dark={dark} user={user} />
           </div>
@@ -1978,6 +1987,62 @@ export default function Home() {
             ))}
           </div>
         </div>
+      )}
+
+      {/* ── Ranks panel ── */}
+      {showRanks && (
+        <>
+          <div onClick={() => setShowRanks(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 60, backdropFilter: 'blur(2px)' }} />
+          <div style={{ position: 'fixed', zIndex: 61, top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 'min(440px, calc(100% - 24px))', maxHeight: '86vh', overflowY: 'auto', background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '20px', padding: '18px', boxShadow: '0 24px 70px rgba(0,0,0,0.35)', fontFamily: 'var(--font-ui)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--accent)' }}>Your rank</span>
+              <button onClick={() => setShowRanks(false)} aria-label="Close" style={{ width: '30px', height: '30px', borderRadius: '9px', border: '1px solid var(--border-main)', background: 'var(--bg-page)', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '14px', display: 'grid', placeItems: 'center' }}>✕</button>
+            </div>
+
+            {/* current rank — front and centre */}
+            <div style={{ textAlign: 'center', padding: '8px 0 14px' }}>
+              <div style={{ width: '92px', height: '92px', borderRadius: '50%', margin: '0 auto 10px', display: 'grid', placeItems: 'center', fontSize: '44px', background: `color-mix(in srgb, ${rank.color} 18%, transparent)`, border: `2px solid ${rank.color}` }}>{rank.emoji}</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '23px', letterSpacing: '-0.01em', color: 'var(--text-primary)' }}>{rank.title}</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-muted)', marginTop: '3px' }}>🧠 {iqScore.toLocaleString()} IQ · Rank {rankIdx + 1}/10</div>
+              {nextRank ? (
+                <div style={{ marginTop: '12px', maxWidth: '300px', marginLeft: 'auto', marginRight: 'auto' }}>
+                  <div style={{ height: '7px', borderRadius: '4px', background: 'var(--border-main)', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${nextPct}%`, background: 'linear-gradient(90deg, var(--accent), var(--accent-dark))', transition: 'width 0.5s ease' }} />
+                  </div>
+                  <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '6px' }}>{toNext.toLocaleString()} IQ to {nextRank.emoji} {nextRank.title}</div>
+                  {nextRank.gated && !gateOK && (
+                    <div style={{ fontSize: '11px', color: 'var(--accent)', marginTop: '4px', fontWeight: 600 }}>🔒 Legend ranks need ≥55% accuracy over your last 20 calls (you: {accPct}%{predStats.count < GATE_MIN_CALLS ? `, ${predStats.count}/10 calls` : ''})</div>
+                  )}
+                </div>
+              ) : (
+                <div style={{ marginTop: '10px', fontSize: '12.5px', color: 'var(--accent)', fontWeight: 700 }}>👑 Top rank reached — legend status!</div>
+              )}
+            </div>
+
+            {/* how it works */}
+            <div style={{ background: 'var(--bg-gist)', borderRadius: '12px', padding: '12px 14px', marginBottom: '14px', fontSize: '12.5px', lineHeight: 1.55, color: 'var(--text-secondary)' }}>
+              <b style={{ color: 'var(--text-primary)' }}>How it works.</b> Earn Finance IQ from the daily market call: <b style={{ color: 'var(--up)' }}>+40</b> if you&rsquo;re right, <b style={{ color: 'var(--down)' }}>−25</b> if wrong, plus a <b>+70</b> bonus for 7 correct in a row. Your IQ decides your rank. The <b>top 3 ranks are skill-only</b> — you must hold <b>≥55% accuracy</b> over your last 20 calls to unlock them.
+            </div>
+
+            {/* the full ladder */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {RANKS.map((r, i) => {
+                const isCurrent = r.title === rank.title
+                const achieved  = iqScore >= r.min && (!r.gated || gateOK)
+                return (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 10px', borderRadius: '12px', background: isCurrent ? 'color-mix(in srgb, var(--accent) 10%, transparent)' : 'transparent', border: `1px solid ${isCurrent ? 'color-mix(in srgb, var(--accent) 30%, transparent)' : 'transparent'}` }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', flexShrink: 0, display: 'grid', placeItems: 'center', fontSize: '20px', background: `color-mix(in srgb, ${r.color} 16%, transparent)`, border: `1.5px solid ${r.color}`, filter: achieved ? 'none' : 'grayscale(0.7) opacity(0.55)' }}>{r.emoji}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '14px', fontWeight: isCurrent ? 700 : 600, color: isCurrent ? 'var(--accent)' : 'var(--text-primary)' }}>{r.title} {r.gated && <span style={{ fontSize: '11px' }}>🔒</span>}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{r.min.toLocaleString()} IQ{r.gated ? ' · 55% acc' : ''}</div>
+                    </div>
+                    {isCurrent && <span style={{ fontSize: '10px', fontFamily: 'var(--font-mono)', color: 'var(--accent)', fontWeight: 700, letterSpacing: '0.08em' }}>YOU</span>}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </>
       )}
 
       {/* ── Main Content ── */}
