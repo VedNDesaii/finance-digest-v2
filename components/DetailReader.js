@@ -51,6 +51,7 @@ export default function DetailReader({ article, dark, open, onClose }) {
   const cat = CAT_LABEL[article.category] || 'Markets'
   const s = senti(article)
   const time = (() => { try { return new Date(article.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) } catch { return '' } })()
+  const dateStr = (() => { try { return new Date(article.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }) } catch { return '' } })()
   const why = decodeEntities((article.investor_take || '').trim())
   const picture = decodeEntities((article.detailed_article || '').trim())
   const impact = decodeEntities((article.market_impact || '').trim())
@@ -83,7 +84,7 @@ export default function DetailReader({ article, dark, open, onClose }) {
           <h1>{decodeEntities(article.headline || article.title)}</h1>
 
           <div className="fd2-rmeta">
-            <span>{source}</span>{time && <span>{time} · IST</span>}<span>AI-assisted</span>
+            <span>{source}</span>{(dateStr || time) && <span>{[dateStr, time].filter(Boolean).join(', ')}{time ? ' · IST' : ''}</span>}<span>AI-assisted</span>
           </div>
 
           {stat && keyNumbers.length === 0 && (

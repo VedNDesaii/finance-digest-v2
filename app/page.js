@@ -717,6 +717,7 @@ function importanceScore(a) {
 
 function fd2Src(a) { return ((a.source || '').split('|').pop() || '').trim() || 'Finance Digest' }
 function fd2Time(a) { try { return new Date(a.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) } catch { return '' } }
+function fd2Date(a) { try { return new Date(a.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' }) } catch { return '' } }
 
 function Fd2Chips({ a }) {
   const s = (a.sentiment || '').toLowerCase()
@@ -739,7 +740,7 @@ function Fd2Story({ a, i, onOpen }) {
         <Fd2Chips a={a} />
         <h3>{decodeEntities(a.headline || a.title)}</h3>
         {blurb && <p className="why">{blurb}</p>}
-        <div className="meta"><span>{fd2Src(a)}</span><span>·</span><span>{fd2Time(a)}</span></div>
+        <div className="meta"><span>{fd2Src(a)}</span><span>·</span><span>{fd2Date(a)}</span><span>·</span><span>{fd2Time(a)}</span></div>
       </div>
     </button>
   )
