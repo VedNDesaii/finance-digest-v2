@@ -781,7 +781,7 @@ function Fd2StoryList({ articles, dark }) {
   )
 }
 
-function TodayView({ articles, dark, isMobile, prediction, handlePrediction, afterClose, weekend, dayOffset = 0, loading, onOlder, onNewer, onGoSectors, onReview }) {
+function TodayView({ articles, dark, isMobile, prediction, predCorrect, handlePrediction, afterClose, weekend, dayOffset = 0, loading, onOlder, onNewer, onGoSectors, onReview }) {
   const isToday = dayOffset === 0
   const { label: dayLabel } = istDayBounds(dayOffset)
   const [sel, setSel] = useState(null)
@@ -920,7 +920,15 @@ function TodayView({ articles, dark, isMobile, prediction, handlePrediction, aft
         {weekend ? (
           <div className="q">Markets are closed this weekend — come back Monday to make your call.</div>
         ) : prediction ? (
-          <div className="done">✓ Locked in — you said Nifty closes {prediction === 'up' ? 'higher' : 'lower'}. Come back after close to see if you were right.</div>
+          predCorrect === true ? (
+            <div className="done">✅ You nailed it — Nifty closed {prediction === 'up' ? 'higher' : 'lower'}. <b>+40 IQ</b> added.</div>
+          ) : predCorrect === false ? (
+            <div className="done">❌ Not this time — the Nifty went the other way. <b>−25 IQ</b>.</div>
+          ) : afterClose ? (
+            <div className="done">⏳ Settling your call — checking the Nifty close…</div>
+          ) : (
+            <div className="done">✓ Locked in — you said Nifty closes {prediction === 'up' ? 'higher' : 'lower'}. Come back after close to see if you were right.</div>
+          )
         ) : (
           <>
             <div className="q">Will the Nifty finish <b>higher</b> today?</div>
@@ -1525,37 +1533,74 @@ export default function Home() {
     }
   }, [])
 
+  // Settle the daily prediction once the market has closed. Resilient: reads the
+  // Nifty close from the authoritative daily market-data.json (with the live feed
+  // as a fallback), and if neither is ready it simply retries on the next render/
+  // visit — so a correct call reliably pays out even when /api/indices is flaky.
   useEffect(() => {
-    if (!prediction || !indices.nifty?.pct || predCorrect !== null || !afterClose) return
+    if (!prediction || predCorrect !== null || !afterClose) return
     const todayStr   = new Date().toDateString()
     const settledKey = `fd-pred-settled-${todayStr}`
-    const niftyUp    = parseFloat(indices.nifty.pct) >= 0
-    const correct    = (prediction === 'up' && niftyUp) || (prediction === 'down' && !niftyUp)
-    setPredCorrect(correct)
-    // Settle exactly once per day — without this, every reload after close
-    // re-awarded the points. Show the result on later visits, don't re-award.
-    if (safeLS.getItem(settledKey)) return
-    safeLS.setItem(settledKey, correct ? 'correct' : 'wrong')
-    // Record the outcome in a rolling window (last 20) for the accuracy gate.
-    try {
-      const log = JSON.parse(safeLS.getItem('fd-pred-log') || '[]')
-      log.push(correct ? 1 : 0)
-      const last = log.slice(-20)
-      safeLS.setItem('fd-pred-log', JSON.stringify(last))
-      setPredStats({ count: last.length, acc: last.length ? last.reduce((a, b) => a + b, 0) / last.length : 0 })
-    } catch {}
-    if (correct) {
-      addIQ(PREDICTION_POINTS, `+${PREDICTION_POINTS} IQ! Correct prediction 🎯`)
-      const predStreak = parseInt(safeLS.getItem('fd-pred-streak') || '0') + 1
-      safeLS.setItem('fd-pred-streak', predStreak)
-      if (predStreak >= 3) awardBadge('predict3', earnedBadges)
-      // Weekly streak reward: 7 correct calls in a row = +70 bonus (repeats each further week).
-      if (predStreak % 7 === 0) addIQ(STREAK_BONUS, `🔥 7-day streak! +${STREAK_BONUS} bonus IQ`)
-    } else {
-      safeLS.setItem('fd-pred-streak', '0')
-      addIQ(-WRONG_PENALTY, `−${WRONG_PENALTY} IQ — wrong call`)
-    }
-  }, [indices, afterClose, prediction])
+    // Already settled earlier today → reflect the stored result, never re-award.
+    const prior = safeLS.getItem(settledKey)
+    if (prior) { setPredCorrect(prior === 'correct'); return }
+
+    let cancelled = false
+    const toIst   = (d) => new Date(new Date(d).toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
+    const istDay  = (d) => toIst(d).toDateString()
+    const istMins = (d) => toIst(d).getHours() * 60 + toIst(d).getMinutes()
+    const istToday = istDay(Date.now())
+
+    ;(async () => {
+      let niftyUp = null      // final answer
+      let mdNifty = null      // today's market-data snapshot direction (may be intraday)
+      let mdPostClose = false // true only if that snapshot was taken at/after 15:30
+      try {
+        const r = await fetch('/market-data.json', { cache: 'no-store' })
+        const d = await r.json()
+        const upd = d?.indian?.updated_at || d?.updated_at
+        if (upd && istDay(upd) === istToday) {
+          const n = (d?.indian?.indices || []).find(x => /nifty\s*50/i.test(x.label || ''))
+          if (n && typeof n.up === 'boolean') mdNifty = n.up
+          else if (n && n.pct != null) mdNifty = parseFloat(String(n.pct).replace(/[^0-9.\-]/g, '')) >= 0
+          else if (d?.indian?.verdict === 'up' || d?.indian?.verdict === 'down') mdNifty = d.indian.verdict === 'up'
+          mdPostClose = istMins(upd) >= 930
+        }
+      } catch {}
+      // Priority: (1) today's market-data taken AFTER close = authoritative close;
+      // (2) the live indices feed (the actual close value, when it loads);
+      // (3) today's intraday market-data snapshot as a last resort.
+      if (mdPostClose && mdNifty !== null) niftyUp = mdNifty
+      if (niftyUp === null && indices.nifty?.pct != null) niftyUp = parseFloat(indices.nifty.pct) >= 0
+      if (niftyUp === null && mdNifty !== null) niftyUp = mdNifty
+      // Nothing resolved yet → leave unsettled; a later visit/render will retry.
+      if (cancelled || niftyUp === null) return
+      if (safeLS.getItem(settledKey)) return   // won a race with another tab/render
+
+      const correct = (prediction === 'up' && niftyUp) || (prediction === 'down' && !niftyUp)
+      safeLS.setItem(settledKey, correct ? 'correct' : 'wrong')
+      setPredCorrect(correct)
+      // Record the outcome in a rolling window (last 20) for the accuracy gate.
+      try {
+        const log = JSON.parse(safeLS.getItem('fd-pred-log') || '[]')
+        log.push(correct ? 1 : 0)
+        const last = log.slice(-20)
+        safeLS.setItem('fd-pred-log', JSON.stringify(last))
+        setPredStats({ count: last.length, acc: last.length ? last.reduce((a, b) => a + b, 0) / last.length : 0 })
+      } catch {}
+      if (correct) {
+        addIQ(PREDICTION_POINTS, `+${PREDICTION_POINTS} IQ! Correct prediction 🎯`)
+        const predStreak = parseInt(safeLS.getItem('fd-pred-streak') || '0') + 1
+        safeLS.setItem('fd-pred-streak', predStreak)
+        if (predStreak >= 3) awardBadge('predict3', earnedBadges)
+        if (predStreak % 7 === 0) addIQ(STREAK_BONUS, `🔥 7-day streak! +${STREAK_BONUS} bonus IQ`)
+      } else {
+        safeLS.setItem('fd-pred-streak', '0')
+        addIQ(-WRONG_PENALTY, `−${WRONG_PENALTY} IQ — wrong call`)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [indices, afterClose, prediction, predCorrect])
 
   useEffect(() => {
     if (streak >= 7)  awardBadge('streak7',  earnedBadges)
@@ -2054,7 +2099,7 @@ export default function Home() {
 
             {activeSection === 'headlines' ? (
               <TodayView articles={articles} dark={dark} isMobile={isMobile}
-                prediction={prediction} handlePrediction={handlePrediction}
+                prediction={prediction} predCorrect={predCorrect} handlePrediction={handlePrediction}
                 afterClose={afterClose} weekend={weekend}
                 dayOffset={dayOffset} loading={loading}
                 onOlder={() => setDayOffset(o => Math.min(MAX_DAY_OFFSET, o + 1))}
