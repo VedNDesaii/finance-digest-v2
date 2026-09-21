@@ -964,14 +964,6 @@ function ReviewView({ mode, setMode, dark, isMobile }) {
     return () => { ok = false }
   }, [mode])
 
-  const seg = (m, label) => (
-    <button onClick={() => setMode(m)} style={{
-      flex: 1, padding: '9px', borderRadius: '9px', border: 'none', cursor: 'pointer',
-      fontFamily: 'var(--font-mono)', fontWeight: 600, fontSize: '11px', letterSpacing: '0.05em', textTransform: 'uppercase',
-      background: mode === m ? 'var(--accent)' : 'transparent', color: mode === m ? '#fff' : 'var(--text-secondary)',
-    }}>{label}</button>
-  )
-
   return (
     <div>
       <div className="fd2-eyebrow" style={{ marginTop: '8px' }}>In review <span className="ln" /></div>
@@ -981,9 +973,6 @@ function ReviewView({ mode, setMode, dark, isMobile }) {
       <p style={{ color: 'var(--text-secondary)', fontSize: '13.5px', margin: '0 0 14px', lineHeight: 1.5 }}>
         The biggest stories of the last {mode === 'month' ? '30' : '7'} days, ranked by market impact and brand value.
       </p>
-      <div style={{ display: 'flex', gap: '4px', padding: '4px', border: '1px solid var(--border-main)', borderRadius: '12px', background: 'var(--bg-card)', marginBottom: '18px' }}>
-        {seg('week', 'This week')}{seg('month', 'This month')}
-      </div>
       {rows === null ? (
         <p style={{ color: 'var(--text-muted)', fontSize: '13px', padding: '8px 2px' }}>Loading…</p>
       ) : rows.length === 0 ? (
