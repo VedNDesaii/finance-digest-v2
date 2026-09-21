@@ -53,6 +53,7 @@ const MAX_DAY_OFFSET = 29  // 30 days of retained history (0..29)
 // their next visit (points live in localStorage, so there's no server wipe).
 const POINTS_VERSION    = 'v2-2026-08'
 const PREDICTION_POINTS = 40   // awarded once per day for a correct market prediction
+const WRONG_PENALTY     = 25   // deducted for a wrong prediction (floored at 0) so rank reflects skill
 const STREAK_BONUS      = 70   // extra IQ for 7 correct predictions in a row (every completed week)
 
 const BOTTOM_TABS = [
@@ -175,12 +176,35 @@ const WORDLE_WORDS = [
   { word: 'INDEX', def: 'A basket of stocks that tracks how a market is doing.', ex: 'The Nifty 50 index tracks India’s 50 largest companies.' },
 ]
 
-function getIQLevel(iq) {
-  if (iq >= 2500) return { title: 'Market Expert',      color: 'var(--accent)' }
-  if (iq >= 1000) return { title: 'Savvy Investor',     color: 'var(--accent)' }
-  if (iq >= 500)  return { title: 'Finance Enthusiast', color: 'var(--up)' }
-  if (iq >= 100)  return { title: 'Market Watcher',     color: '#60A5FA' }
-  return                  { title: 'Curious Reader',    color: '#9A8E7E' }
+// 10-rank ladder. Ranks 8-10 (gated:true) also require prediction skill —
+// see getIQLevel. Thresholds tuned to a predictions-only economy (~+15-25/day
+// for a good player): fast early ranks, a ~5-month chase for Harshad Mehta.
+const RANKS = [
+  { min: 0,     title: 'Beginner',             emoji: '🌱', color: '#9A8E7E', gated: false },
+  { min: 40,    title: 'Amateur',              emoji: '📖', color: '#9A8E7E', gated: false },
+  { min: 120,   title: 'Analyst',              emoji: '🔍', color: '#60A5FA', gated: false },
+  { min: 250,   title: 'Senior Analyst',       emoji: '📊', color: '#60A5FA', gated: false },
+  { min: 450,   title: 'Portfolio Manager',    emoji: '💼', color: 'var(--up)', gated: false },
+  { min: 700,   title: 'Fund Manager',         emoji: '🏦', color: 'var(--up)', gated: false },
+  { min: 1050,  title: 'Dalal Street Trader',  emoji: '📈', color: 'var(--accent)', gated: false },
+  { min: 1500,  title: 'Dalal Street Tycoon',  emoji: '🏛️', color: 'var(--accent)', gated: true },
+  { min: 2100,  title: 'Bull of Dalal Street', emoji: '🐂', color: 'var(--accent)', gated: true },
+  { min: 3000,  title: 'Harshad Mehta',        emoji: '👑', color: 'var(--accent)', gated: true },
+]
+// Gate for the legend tier (ranks 8-10): at least 10 predictions made AND
+// >=55% correct over the rolling window. Keeps the top ranks skill-only.
+const GATE_MIN_CALLS = 10
+const GATE_MIN_ACC   = 0.55
+
+function getIQLevel(iq, acc = null, predCount = 0) {
+  const gateOK = predCount >= GATE_MIN_CALLS && acc != null && acc >= GATE_MIN_ACC
+  let current = RANKS[0]
+  for (const r of RANKS) {
+    if (iq < r.min) break
+    if (r.gated && !gateOK) break   // qualifies on points but not on skill — hold at last rank
+    current = r
+  }
+  return current
 }
 
 function isAfterMarketClose() {
@@ -1447,6 +1471,7 @@ export default function Home() {
   const [earnedBadges, setEarnedBadges] = useState([])
   const [prediction, setPrediction]     = useState(null)
   const [predCorrect, setPredCorrect]   = useState(null)
+  const [predStats, setPredStats]       = useState({ count: 0, acc: 0 })  // rolling prediction accuracy for the rank gate
   const [showPointPop, setShowPointPop] = useState(null)
   const [navShrunk, setNavShrunk] = useState(false)
   const [navHovered, setNavHovered] = useState(false)
@@ -1488,6 +1513,9 @@ export default function Home() {
     setIqScore(savedIQ)
     setEarnedBadges(savedBadges)
     if (savedPred) setPrediction(savedPred)
+    // Load rolling prediction accuracy for the rank gate.
+    const predLog = safeParse(safeLS.getItem('fd-pred-log') || '[]', [])
+    setPredStats({ count: predLog.length, acc: predLog.length ? predLog.reduce((a, b) => a + b, 0) / predLog.length : 0 })
     const ist = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
     if (ist.getHours() < 9) awardBadge('earlybird', savedBadges)
 
@@ -1518,6 +1546,14 @@ export default function Home() {
     // re-awarded the points. Show the result on later visits, don't re-award.
     if (safeLS.getItem(settledKey)) return
     safeLS.setItem(settledKey, correct ? 'correct' : 'wrong')
+    // Record the outcome in a rolling window (last 20) for the accuracy gate.
+    try {
+      const log = JSON.parse(safeLS.getItem('fd-pred-log') || '[]')
+      log.push(correct ? 1 : 0)
+      const last = log.slice(-20)
+      safeLS.setItem('fd-pred-log', JSON.stringify(last))
+      setPredStats({ count: last.length, acc: last.length ? last.reduce((a, b) => a + b, 0) / last.length : 0 })
+    } catch {}
     if (correct) {
       addIQ(PREDICTION_POINTS, `+${PREDICTION_POINTS} IQ! Correct prediction 🎯`)
       const predStreak = parseInt(safeLS.getItem('fd-pred-streak') || '0') + 1
@@ -1527,6 +1563,7 @@ export default function Home() {
       if (predStreak % 7 === 0) addIQ(STREAK_BONUS, `🔥 7-day streak! +${STREAK_BONUS} bonus IQ`)
     } else {
       safeLS.setItem('fd-pred-streak', '0')
+      addIQ(-WRONG_PENALTY, `−${WRONG_PENALTY} IQ — wrong call`)
     }
   }, [indices, afterClose, prediction])
 
@@ -1537,7 +1574,7 @@ export default function Home() {
 
   function addIQ(points, msg) {
     setIqScore(prev => {
-      const newScore = prev + points
+      const newScore = Math.max(0, prev + points)
       safeLS.setItem('fd-iq', newScore)
       if (newScore >= 500 && prev < 500) awardBadge('iq500', earnedBadges)
       return newScore
@@ -1762,7 +1799,7 @@ export default function Home() {
     : activeSection === 'markets' ? 'markets'
     : (activeSection === 'sectors' || BROWSE_META[activeSection]) ? 'sectors'
     : ''
-  const iqLevel = getIQLevel(iqScore)
+  const rank = getIQLevel(iqScore, predStats.acc, predStats.count)
 
   const headerH = isMobile ? 72 : 64
 
@@ -1835,6 +1872,10 @@ export default function Home() {
             <h1 style={{ fontSize: isMobile ? '18px' : '22px', fontWeight: '700', color: 'var(--text-primary)', margin: '0', letterSpacing: '-0.03em', fontFamily: 'var(--font-display)', lineHeight: 1.1 }}>
               Finance <span style={{ color: 'var(--accent)' }}>Digest</span>
             </h1>
+            <div title={`Finance IQ: ${iqScore}`} style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '3px' }}>
+              <span style={{ fontSize: '12px', lineHeight: 1 }}>{rank.emoji}</span>
+              <span style={{ fontSize: isMobile ? '10.5px' : '11px', fontWeight: 700, color: rank.color, letterSpacing: '0.02em', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>{rank.title}</span>
+            </div>
             {!isMobile && (
               <p style={{ fontSize: '10px', color: 'var(--text-muted)', margin: '2px 0 0', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
                 {today}{activeSectionLabel && <span style={{ color: 'var(--accent)', marginLeft: '6px' }}>· {activeSectionLabel}</span>}
@@ -1846,9 +1887,6 @@ export default function Home() {
             <IndexChip label="NIFTY" data={indices.nifty} dark={dark} />
             <IQChip iq={iqScore} dark={dark} />
             <ThemeToggle dark={dark} onToggle={toggleTheme} />
-            <button onClick={() => setOverlay(overlay === 'more' ? null : 'more')} aria-label="More"
-              title="Quiz, Portfolio & more"
-              style={{ width: '34px', height: '34px', borderRadius: '10px', border: '1px solid var(--border-main)', background: overlay === 'more' ? 'var(--accent)' : 'var(--bg-card)', color: overlay === 'more' ? '#fff' : 'var(--text-secondary)', cursor: 'pointer', fontSize: '17px', fontWeight: 700, lineHeight: 1, display: 'grid', placeItems: 'center', flexShrink: 0 }}>⋯</button>
             <AccountButton dark={dark} user={user} />
           </div>
         </div>
@@ -1938,37 +1976,6 @@ export default function Home() {
                 <span style={{ fontSize: '9px', fontWeight: activeSection === s.id ? '700' : '500', color: activeSection === s.id ? 'var(--accent)' : (dark ? '#9A8E7E' : '#6B5E4E'), fontFamily: 'var(--font-ui)', textAlign: 'center', lineHeight: 1.2 }}>{s.label}</span>
               </button>
             ))}
-          </div>
-        </div>
-      )}
-
-      {overlay === 'more' && (
-        <div style={{
-          position: 'fixed',
-          bottom: isMobile ? '96px' : '104px',
-          left: '50%', transform: 'translateX(-50%)',
-          width: isMobile ? 'calc(100% - 32px)' : '420px',
-          maxWidth: '420px',
-          background: 'var(--bg-card)',
-          borderRadius: '20px',
-          padding: '16px',
-          zIndex: 39,
-          boxShadow: '0 -8px 32px rgba(0,0,0,0.15)',
-          border: `1px solid var(--border-main)`,
-          animation: 'slideUp 0.25s ease',
-        }}>
-          <div style={{ width: '36px', height: '3px', background: dark ? '#3A3028' : '#EDE8E0', borderRadius: '2px', margin: '0 auto 16px' }} />
-          <div style={{ padding: '12px 14px', marginBottom: '12px', borderRadius: '12px',
-            background: dark ? 'rgba(255,75,43,0.08)' : 'rgba(255,75,43,0.06)',
-            border: `1px solid ${dark ? 'rgba(255,75,43,0.2)' : 'rgba(255,75,43,0.15)'}` }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-              <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--accent)', fontFamily: 'var(--font-ui)' }}>🧠 Finance IQ: {iqScore}</span>
-              <span style={{ fontSize: '11px', color: iqLevel.color, fontFamily: 'var(--font-ui)', fontWeight: '600' }}>{iqLevel.title}</span>
-            </div>
-            <div style={{ height: '4px', borderRadius: '2px', background: 'var(--border-main)', overflow: 'hidden', marginBottom: '10px' }}>
-              <div style={{ height: '100%', borderRadius: '2px', background: 'linear-gradient(90deg, var(--accent), var(--accent-dark))', width: `${Math.min((iqScore % 500) / 5, 100)}%`, transition: 'width 0.5s ease' }} />
-            </div>
-            <BadgeWall compact={true} />
           </div>
         </div>
       )}
