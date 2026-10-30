@@ -87,6 +87,12 @@ DAILY_MANDATORY = [
 # processing loop counts RUN_COST too — so DAILY_BUDGET is a TRUE total cap.
 RUN_COST         = {"spent": 0.0}
 SEARCH_BUDGET    = 0.25    # hard cap on the whole pre-pass search phase
+SCORING_BUDGET   = 0.30    # safety cap on Layer 1/3 headline scoring — generous, sized to
+                           # a realistic worst-case headline volume, so it does NOT trim
+                           # normal-day coverage. It only exists because
+                           # inject_important_headlines previously had NO check at all
+                           # (unlike the search loops), which is the likely source of
+                           # spend beyond the intended DAILY_BUDGET.
 
 # Haiku 4.5 real pricing (per token)
 _IN_RATE      = 0.80 / 1_000_000
@@ -385,7 +391,6 @@ def run_dynamic_watchlist(client, supabase,
                         "title":    title,
                         "content":  summary if summary else title,
                         "source":   data.get("source", "Dynamic Watchlist"),
-                        "url":      "",
                         "category": "indian-markets",
                     }).execute()
 
@@ -466,6 +471,10 @@ def inject_important_headlines(client, supabase, headlines,
     seen_in_batch = set()
 
     for h in headlines:
+        if RUN_COST["spent"] >= SCORING_BUDGET:
+            print(f"  ⏹️  Scoring budget reached (${RUN_COST['spent']:.2f}); stopping headline scoring.")
+            break
+
         title   = h["title"].strip()
         content = h["content"].strip()
 
@@ -490,7 +499,6 @@ def inject_important_headlines(client, supabase, headlines,
                     "title":    title,
                     "content":  content if len(content) > 50 else title,
                     "source":   h["source"],
-                    "url":      h.get("link", ""),
                     "category": category,
                 }).execute()
 
@@ -546,7 +554,8 @@ COST_PER_M_OUTPUT = 4.00
 
 # TRUE total cap for the whole run (pre-pass searches + scoring + processing),
 # now that RUN_COST tracks everything. Kept under $1.00 with margin.
-DAILY_BUDGET      = 1.20   # hard cap/day; raised for the deeper "how it works" + applied-concepts output
+DAILY_BUDGET      = 0.95   # hard cap/day — backstop; the new lower CATEGORY_LIMITS should
+                           # naturally keep spend under $1 before this ever gets hit
 
 # Realistic look-ahead ONLY (a safety buffer for the budget pre-check).
 # Actual spend is measured from each response's usage via add_cost().
@@ -560,42 +569,47 @@ COST_PER_ARTICLE  = (
 # ── LIMITS: max articles kept per category ──
 # banking-finance is 20 = 10 for banking/finance + 10 for investment banking (clubbed)
 CATEGORY_LIMITS = {
-    "indian-markets":  10,
-    "us-markets":      10,
-    "global-economy":  10,
-    "banking-finance": 20,   # clubbed: banking-finance + investment banking
-    "macro-policy":    10,
-    "technology-it":    5,
-    "pharma-health":    5,
-    "auto-ev":          5,
-    "energy-oil":       5,
-    "metals-mining":    5,
-    "infrastructure":   5,
-    "fmcg-consumer":    3,
-    "renewables":       3,
-    "real-estate":      3,
-    "telecom-media":    3,
+    "indian-markets":   8,   # was 10
+    "us-markets":       7,   # was 10
+    "global-economy":   7,   # was 10
+    "banking-finance": 18,   # unchanged — clubbed: banking-finance + investment banking
+    "macro-policy":     7,   # was 10
+    "technology-it":    3,   # was 5
+    "pharma-health":    3,   # was 5
+    "auto-ev":          3,   # was 5
+    "energy-oil":       3,   # was 5
+    "metals-mining":    3,   # was 5
+    "infrastructure":   3,   # was 5
+    "fmcg-consumer":    3,   # was 3
+    "renewables":       3,   # was 3
+    "real-estate":      3,   # was 3
+    "telecom-media":    3,   # was 3
 }
+# Ceiling sum: 59 articles/day (was 102). At ~$0.0092/article that's ~$0.54 worst-case
+# processing cost; combined with a maxed-out pre-pass (~$0.40-0.45) that lands the
+# whole run around $0.94-0.99/day.
 
 # ── MINIMUMS: realistic floors per category ──
 # banking-finance minimum = 12 (6 banking + 6 IB, achievable daily)
 CATEGORY_MINIMUMS = {
-    "indian-markets":  7,
-    "us-markets":      6,
-    "global-economy":  5,
-    "banking-finance": 12,   # clubbed: higher floor to reflect two topics
-    "macro-policy":    5,
-    "technology-it":   4,
-    "pharma-health":   3,
-    "auto-ev":         3,
-    "energy-oil":      3,
-    "metals-mining":   3,
-    "infrastructure":  3,
-    "fmcg-consumer":   3,
-    "renewables":      3,
-    "real-estate":     3,
-    "telecom-media":   3,
+    "indian-markets":   6,   # was 7
+    "us-markets":       3,   # was 6
+    "global-economy":   2,   # was 5
+    "banking-finance": 12,   # unchanged — clubbed: higher floor to reflect two topics
+    "macro-policy":     3,   # was 5
+    "technology-it":    2,   # was 4
+    "pharma-health":    1,   # was 3
+    "auto-ev":          1,   # was 3
+    "energy-oil":       1,   # was 3
+    "metals-mining":    1,   # was 3
+    "infrastructure":   1,   # was 3
+    "fmcg-consumer":    1,   # was 3
+    "renewables":       1,   # was 3
+    "real-estate":      1,   # was 3
+    "telecom-media":    1,   # was 3
 }
+# Floor sum: 37 articles/day (was 66). At ~$0.0092/article that's ~$0.34 minimum
+# processing cost — cheap even on a maxed-out pre-pass day.
 
 CATEGORIES = list(CATEGORY_LIMITS.keys())
 
@@ -746,6 +760,45 @@ def is_valid_output(processed_data):
 # ARTICLE PROCESSING
 # ═══════════════════════════════════════════════════════════════
 
+def extract_json(raw):
+    """Parse the model's JSON, tolerating code fences AND output that was cut
+    off by max_tokens. On a clean parse it just works; on a truncated response
+    it closes the dangling string/brackets so the fields that DID complete are
+    still usable — instead of dropping the whole article."""
+    t = (raw or "").strip()
+    if t.startswith("```"):
+        t = t.split("```")[1]
+        if t.startswith("json"):
+            t = t[4:]
+        t = t.strip()
+    try:
+        return json.loads(t)
+    except json.JSONDecodeError:
+        pass
+    # Best-effort repair of a truncated object.
+    stack, in_str, esc = [], False, False
+    for ch in t:
+        if in_str:
+            if esc:            esc = False
+            elif ch == "\\":   esc = True
+            elif ch == '"':    in_str = False
+            continue
+        if ch == '"':          in_str = True
+        elif ch in "{[":       stack.append(ch)
+        elif ch in "}]":
+            if stack:          stack.pop()
+    repaired = t
+    if in_str:
+        repaired += '"'
+    repaired = repaired.rstrip().rstrip(",")
+    for opener in reversed(stack):
+        repaired += "}" if opener == "{" else "]"
+    try:
+        return json.loads(repaired)
+    except json.JSONDecodeError:
+        return None
+
+
 def process_strict(title, content, feed_category):
     category_hint = f"""
 The RSS feed that supplied this article was tagged as: "{feed_category}".
@@ -819,16 +872,13 @@ Content: {content[:3500]}"""
 
     message = client.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=2800,
+        max_tokens=4096,
         messages=[{"role": "user", "content": prompt}]
     )
     add_cost(message)
-    text = message.content[0].text.strip()
-    if text.startswith("```"):
-        text = text.split("```")[1]
-        if text.startswith("json"): text = text[4:]
-        text = text.strip()
-    parsed = json.loads(text)
+    parsed = extract_json(message.content[0].text)
+    if parsed is None:
+        return None
     return None if parsed.get("verdict") == "reject" else parsed
 
 
@@ -866,16 +916,13 @@ Content: {content[:3500]}"""
 
     message = client.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=2600,
+        max_tokens=3600,
         messages=[{"role": "user", "content": prompt}]
     )
     add_cost(message)
-    text = message.content[0].text.strip()
-    if text.startswith("```"):
-        text = text.split("```")[1]
-        if text.startswith("json"): text = text[4:]
-        text = text.strip()
-    parsed = json.loads(text)
+    parsed = extract_json(message.content[0].text)
+    if parsed is None:
+        return None
     return None if parsed.get("verdict") == "reject" else parsed
 
 
