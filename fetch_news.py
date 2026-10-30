@@ -129,6 +129,48 @@ RSS_FEEDS = [
     {"url": "https://www.livemint.com/rss/technology",                                            "category": "telecom-media"},
     {"url": "https://economictimes.indiatimes.com/industry/media/entertainment/rssfeeds/13357212.cms", "category": "telecom-media"},
     {"url": "https://www.thehindubusinessline.com/info-tech/telecom/?service=rss",                "category": "telecom-media"},
+
+    # ── Sector-specialist sources (Sector News Source Directory; feeds verified live) ──
+    # Technology & IT
+    {"url": "https://analyticsindiamag.com/feed/",                                                "category": "technology-it"},
+    {"url": "https://yourstory.com/feed",                                                         "category": "technology-it"},
+    {"url": "https://www.expresscomputer.in/feed/",                                               "category": "technology-it"},
+    {"url": "https://feeds.feedburner.com/TheHackersNews",                                         "category": "technology-it"},
+    {"url": "https://www.darkreading.com/rss.xml",                                                 "category": "technology-it"},
+    {"url": "https://www.ciodive.com/feeds/news/",                                                 "category": "technology-it"},
+    # Pharma & Health
+    {"url": "https://www.expresspharma.in/feed/",                                                  "category": "pharma-health"},
+    {"url": "https://www.biopharmadive.com/feeds/news/",                                           "category": "pharma-health"},
+    {"url": "https://www.statnews.com/feed/",                                                      "category": "pharma-health"},
+    {"url": "https://pharma.economictimes.indiatimes.com/rss/topstories",                          "category": "pharma-health"},
+    # Auto & EV
+    {"url": "https://electrek.co/feed/",                                                           "category": "auto-ev"},
+    {"url": "https://cnevpost.com/feed/",                                                          "category": "auto-ev"},
+    # Energy & Oil
+    {"url": "https://oilprice.com/rss/main",                                                       "category": "energy-oil"},
+    # Metals & Mining
+    {"url": "https://im-mining.com/feed/",                                                         "category": "metals-mining"},
+    {"url": "https://www.mining.com/feed/",                                                        "category": "metals-mining"},
+    # Renewables
+    {"url": "https://mercomindia.com/feed/",                                                       "category": "renewables"},
+    {"url": "https://www.pv-magazine-india.com/feed/",                                             "category": "renewables"},
+    # Real Estate
+    {"url": "https://www.mingtiandi.com/feed/",                                                    "category": "real-estate"},
+    {"url": "https://www.bisnow.com/rss",                                                          "category": "real-estate"},
+    # Infrastructure
+    {"url": "https://www.constructiondive.com/feeds/news/",                                        "category": "infrastructure"},
+    # FMCG & Consumer
+    {"url": "https://www.fooddive.com/feeds/news/",                                                "category": "fmcg-consumer"},
+    {"url": "https://www.retaildive.com/feeds/news/",                                              "category": "fmcg-consumer"},
+    # Telecom & Media
+    {"url": "https://www.lightreading.com/rss.xml",                                                "category": "telecom-media"},
+    {"url": "https://www.mobileworldlive.com/feed/",                                               "category": "telecom-media"},
+    # ── Crypto (new sector) ──
+    {"url": "https://www.coindesk.com/arc/outboundfeeds/rss/",                                     "category": "crypto"},
+    {"url": "https://cointelegraph.com/rss",                                                       "category": "crypto"},
+    {"url": "https://decrypt.co/feed",                                                             "category": "crypto"},
+    {"url": "https://blockworks.co/feed",                                                          "category": "crypto"},
+    {"url": "https://www.theblock.co/rss.xml",                                                     "category": "crypto"},
 ]
 
 

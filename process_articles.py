@@ -584,6 +584,7 @@ CATEGORY_LIMITS = {
     "renewables":       3,   # was 3
     "real-estate":      3,   # was 3
     "telecom-media":    3,   # was 3
+    "crypto":           3,   # new sector
 }
 # Ceiling sum: 59 articles/day (was 102). At ~$0.0092/article that's ~$0.54 worst-case
 # processing cost; combined with a maxed-out pre-pass (~$0.40-0.45) that lands the
@@ -607,6 +608,7 @@ CATEGORY_MINIMUMS = {
     "renewables":       1,   # was 3
     "real-estate":      1,   # was 3
     "telecom-media":    1,   # was 3
+    "crypto":           1,   # new sector
 }
 # Floor sum: 37 articles/day (was 66). At ~$0.0092/article that's ~$0.34 minimum
 # processing cost — cheap even on a maxed-out pre-pass day.
@@ -629,6 +631,7 @@ CATEGORY_KEYWORDS = {
     "renewables":        "solar, wind energy, green hydrogen, renewable energy, EV charging, clean energy, NTPC Renewable, Adani Green, ReNew",
     "real-estate":       "housing sales, property prices, REIT, mortgage, home loan, residential demand, commercial property, DLF, Godrej Properties",
     "telecom-media":     "Jio, Airtel, Vi, BSNL, spectrum, 5G, OTT, streaming, telecom tariff, media merger, broadband",
+    "crypto":            "Bitcoin, Ethereum, crypto, cryptocurrency, blockchain, Web3, DeFi, stablecoin, token, altcoin, crypto exchange, Binance, Coinbase, WazirX, CoinDCX, BTC, ETH, crypto regulation, RBI crypto, crypto tax, VDA",
 }
 
 
@@ -825,9 +828,10 @@ Pick EXACTLY ONE:
   "indian-markets" | "us-markets" | "global-economy" | "technology-it" |
   "pharma-health"  | "auto-ev"    | "energy-oil"      | "metals-mining" |
   "infrastructure" | "fmcg-consumer" | "renewables"   | "real-estate"   |
-  "telecom-media"  | "banking-finance" | "macro-policy"
+  "telecom-media"  | "banking-finance" | "macro-policy" | "crypto"
 
 Use "banking-finance" for: bank earnings, NPA, RBI lending policy, NBFC, credit growth, deposit rates, insurance, AND investment banking deals — IPOs, QIPs, block deals, OFS, PE/VC investments, M&A advisory, fundraising rounds.
+Use "crypto" for: Bitcoin, Ethereum and other cryptocurrencies, blockchain, Web3/DeFi, stablecoins, tokens, crypto exchanges (Binance, Coinbase, WazirX, CoinDCX) and crypto regulation/tax. (A fintech bank that merely mentions crypto stays "banking-finance".)
 If the story is foreign/global with no Indian company or market involved, prefer "global-economy" (or "us-markets" for US market/Fed/Wall Street news).
 
 ━━━ STEP 3: IMPORTANCE ━━━
@@ -890,8 +894,8 @@ CATEGORY — classify by the article's ACTUAL content; never force a category to
   "indian-markets" | "us-markets" | "global-economy" | "technology-it" |
   "pharma-health"  | "auto-ev"    | "energy-oil"      | "metals-mining" |
   "infrastructure" | "fmcg-consumer" | "renewables"   | "real-estate"   |
-  "telecom-media"  | "banking-finance" | "macro-policy"
-Rules: "banking-finance" = bank/NBFC news, deposit & lending rates, insurance, AND investment-banking deals (IPO/QIP/block deal/OFS/PE/VC/M&A). "real-estate" = ONLY property, housing, REITs, home loans — never personal-finance or deposits. "renewables" = ONLY solar/wind/green-hydrogen/clean energy — EV and car news is "auto-ev". "fmcg-consumer" = consumer goods (HUL, ITC, Nestle) — pharma is "pharma-health".
+  "telecom-media"  | "banking-finance" | "macro-policy" | "crypto"
+Rules: "banking-finance" = bank/NBFC news, deposit & lending rates, insurance, AND investment-banking deals (IPO/QIP/block deal/OFS/PE/VC/M&A). "real-estate" = ONLY property, housing, REITs, home loans — never personal-finance or deposits. "renewables" = ONLY solar/wind/green-hydrogen/clean energy — EV and car news is "auto-ev". "fmcg-consumer" = consumer goods (HUL, ITC, Nestle) — pharma is "pharma-health". "crypto" = Bitcoin/Ethereum/cryptocurrencies, blockchain, Web3/DeFi, stablecoins, crypto exchanges and crypto regulation/tax.
 
 WRITE:
 HEADLINE: a short, punchy, plain-English headline — 4 to 9 words, under ~55 chars. Curiosity-hooking everyday language (like a smart explainer newsletter), accurate, NO source names/jargon/ALL-CAPS/clickbait.

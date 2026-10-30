@@ -81,6 +81,7 @@ const SECTORS_SECTIONS = [
   { id: 'infrastructure', label: 'Infra',       icon: '🔧' },
   { id: 'fmcg-consumer',  label: 'FMCG',        icon: '🛒' },
   { id: 'telecom-media',  label: 'Telecom',     icon: '📡' },
+  { id: 'crypto',         label: 'Crypto',      icon: '🪙' },
 ]
 
 // The Sectors tab lists every browsable topic — markets & economy, finance,
@@ -119,12 +120,13 @@ const ALL_SECTIONS = [
   { id: 'infrastructure',  label: 'Infrastructure'    },
   { id: 'fmcg-consumer',   label: 'FMCG & Consumer'   },
   { id: 'telecom-media',   label: 'Telecom & Media'   },
+  { id: 'crypto',          label: 'Crypto'            },
   { id: 'portfolio',       label: 'My Portfolio'      },
 ]
 
 const SECTOR_IDS = [
   'technology-it','energy-oil','pharma-health','auto-ev','metals-mining',
-  'renewables','real-estate','infrastructure','fmcg-consumer','telecom-media',
+  'renewables','real-estate','infrastructure','fmcg-consumer','telecom-media','crypto',
 ]
 
 const ALL_BADGES = [
@@ -685,6 +687,7 @@ const MB_CAT = {
   'pharma-health': 'Pharma', 'auto-ev': 'Auto & EV', 'energy-oil': 'Energy',
   'metals-mining': 'Metals', 'infrastructure': 'Infrastructure', 'fmcg-consumer': 'FMCG',
   'renewables': 'Renewables', 'real-estate': 'Real Estate', 'telecom-media': 'Telecom',
+  'crypto': 'Crypto',
 }
 function mbSentiColor(a) {
   const s = (a.sentiment || '').toLowerCase()
@@ -724,7 +727,7 @@ const IMP_CAT = {
   'indian-markets': 10, 'macro-policy': 9, 'banking-finance': 8, 'us-markets': 7,
   'global-economy': 7, 'investment-banking': 6, 'technology-it': 6, 'energy-oil': 5,
   'auto-ev': 5, 'pharma-health': 5, 'metals-mining': 4, 'fmcg-consumer': 4,
-  'infrastructure': 4, 'renewables': 4, 'telecom-media': 4, 'real-estate': 3,
+  'infrastructure': 4, 'renewables': 4, 'telecom-media': 4, 'real-estate': 3, 'crypto': 5,
 }
 // High brand-value / famous names — fame & brand weight.
 const IMP_FAME = /reliance|\bril\b|hdfc|icici|\bsbi\b|state bank|kotak|axis bank|bajaj|\btcs\b|infosys|wipro|hcl|tech mahindra|adani|\btata\b|\bjio\b|airtel|vodafone|\bvi\b|maruti|mahindra|hero motocorp|\bola\b|zomato|swiggy|paytm|nykaa|\bitc\b|hindustan unilever|\bhul\b|nestl|asian paints|larsen|\bl&t\b|\blic\b|\bntpc\b|\bongc\b|coal india|vedanta|\bjsw\b|nvidia|\bapple\b|microsoft|amazon|tesla|\bmeta\b|goldman|morgan/gi
@@ -1765,6 +1768,7 @@ export default function Home() {
           'infrastructure': 1,
           'fmcg-consumer': 1,
           'telecom-media': 1,
+          'crypto': 1,
         }
 
         const grouped = {}

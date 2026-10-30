@@ -10,6 +10,7 @@ const CAT_LABEL = {
   'pharma-health': 'Pharma', 'auto-ev': 'Auto & EV', 'energy-oil': 'Energy',
   'metals-mining': 'Metals', 'infrastructure': 'Infrastructure', 'fmcg-consumer': 'FMCG',
   'renewables': 'Renewables', 'real-estate': 'Real Estate', 'telecom-media': 'Telecom',
+  'crypto': 'Crypto',
 }
 // Impact wording — plain, not trader jargon.
 function senti(a) {
