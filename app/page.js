@@ -729,20 +729,48 @@ const IMP_CAT = {
   'auto-ev': 5, 'pharma-health': 5, 'metals-mining': 4, 'fmcg-consumer': 4,
   'infrastructure': 4, 'renewables': 4, 'telecom-media': 4, 'real-estate': 3, 'crypto': 5,
 }
-// High brand-value / famous names — fame & brand weight.
-const IMP_FAME = /reliance|\bril\b|hdfc|icici|\bsbi\b|state bank|kotak|axis bank|bajaj|\btcs\b|infosys|wipro|hcl|tech mahindra|adani|\btata\b|\bjio\b|airtel|vodafone|\bvi\b|maruti|mahindra|hero motocorp|\bola\b|zomato|swiggy|paytm|nykaa|\bitc\b|hindustan unilever|\bhul\b|nestl|asian paints|larsen|\bl&t\b|\blic\b|\bntpc\b|\bongc\b|coal india|vedanta|\bjsw\b|nvidia|\bapple\b|microsoft|amazon|tesla|\bmeta\b|goldman|morgan/gi
-// Market-moving events / concepts.
-const IMP_KW = /\bgdp\b|inflation|\bcpi\b|\bwpi\b|repo rate|rate cut|rate hike|\brbi\b|\bsebi\b|federal reserve|\bus fed\b|budget|\bipo\b|\bfpi\b|\bfii\b|\bdii\b|acquisition|merger|\bm&a\b|earnings|results|profit|crash|rally|surge|plunge|sensex|nifty|tariff|crude|rupee|recession|layoff|stake|fundrais|bond yield/gi
+// High brand-value / famous names — the household names that draw real attention
+// (global + Indian). A story about these is inherently higher-profile.
+const IMP_FAME = /reliance|\bril\b|hdfc|icici|\bsbi\b|state bank|kotak|axis bank|bajaj|\btcs\b|infosys|wipro|\bhcl\b|tech mahindra|adani|\btata\b|\bjio\b|airtel|vodafone|\bvi\b|maruti|mahindra|hero motocorp|\bola\b|zomato|swiggy|paytm|nykaa|\bitc\b|hindustan unilever|\bhul\b|nestl|asian paints|larsen|\bl&t\b|\blic\b|\bntpc\b|\bongc\b|coal india|vedanta|\bjsw\b|dmart|avenue supermart|bharti|yes bank|flipkart|phonepe|\bgoogle\b|alphabet|\bapple\b|microsoft|amazon|tesla|\bmeta\b|facebook|instagram|netflix|nvidia|samsung|openai|chatgpt|spacex|starlink|\bamd\b|\bintel\b|oracle|boeing|walmart|disney|\buber\b|berkshire|jpmorgan|jp morgan|goldman|morgan stanley|\bbyju|\boyo\b|binance|coinbase/gi
+// Market-moving events / concepts (NOT routine price-move verbs — those are
+// handled separately and penalised unless the move is genuinely huge).
+const IMP_KW = /\bgdp\b|inflation|\bcpi\b|\bwpi\b|repo rate|rate cut|rate hike|\brbi\b|\bsebi\b|federal reserve|\bus fed\b|budget|\bipo\b|\bfpi\b|\bfii\b|\bdii\b|acquisition|merger|\bm&a\b|takeover|earnings|\bresults\b|crash|recession|tariff|\bcrude\b|rupee|layoff|job cut|\bstake\b|fundrais|bond yield|antitrust|lawsuit|\bfine\b|\bban\b|sanction|bankrupt|\bdefault\b|buyback|delisting|market cap|\bwipe/gi
+// Routine single-stock price-move language — the kind we DON'T want leading the
+// brief unless the move is genuinely huge.
+const PRICE_MOVE = /\b(shares?|stock|scrip|share price|equity|counter)\b[^.;]*\b(ris|ros|rose|fell|fall|gain|drop|jump|tumbl|slump|slip|surg|plung|rall|soar|climb|slid|declin|advanc|higher|lower|spike|spurt|zoom|crack)/i
+const RECORD_MOVE = /\b(52[-\s]?week|all[-\s]?time|record)\s+(high|low)\b|\b(top|best|worst)\s+(gainers?|losers?)\b|\bmost active\b|\bhits? (a )?(fresh |new )?(high|low)\b/i
+// How "huge" the story is, from any big figure mentioned (money or %).
+function magnitudeScore(text) {
+  let m = 0
+  if (/\b(trillion|tn)\b/i.test(text) || /lakh\s*crore/i.test(text)) m = Math.max(m, 7)
+  const b = text.match(/(\d[\d,.]*)\s*(?:billion|bn)\b/i)
+  if (b) { const v = parseFloat(b[1].replace(/,/g, '')); m = Math.max(m, v >= 100 ? 7 : v >= 25 ? 5 : 3) }
+  const cr = text.match(/₹?\s*(\d[\d,.]*)\s*crore/i)
+  if (cr) { const v = parseFloat(cr[1].replace(/,/g, '')); m = Math.max(m, v >= 50000 ? 6 : v >= 10000 ? 4 : v >= 1000 ? 2 : 0) }
+  const pcts = text.match(/(\d{1,3}(?:\.\d+)?)\s*%/g)
+  if (pcts) { const mx = Math.max(...pcts.map(p => parseFloat(p))); m = Math.max(m, mx >= 20 ? 5 : mx >= 10 ? 3 : mx >= 5 ? 1 : 0) }
+  return m
+}
 function importanceScore(a) {
   const title = decodeEntities(a.title || '')
+  const head  = decodeEntities(a.headline || '')
+  const text  = (title + ' ' + head + ' ' + (a.stat || '') + ' ' + (a.simplified_article || '').slice(0, 240))
+  const fame  = Math.min(((title + ' ' + head).match(IMP_FAME) || []).length * 3, 9)   // fame / brand
+  const mag   = magnitudeScore(text)                                                   // how huge
+  const events = Math.min(((text).match(IMP_KW) || []).length * 2, 6)                  // market-moving
   let s = IMP_CAT[a.category] || 4
-  s += Math.min(((title.match(IMP_FAME) || []).length) * 3, 9)      // fame / brand value
-  s += Math.min(((title.match(IMP_KW) || []).length) * 2, 6)        // market-moving
-  if ((a.stat || '').trim()) s += 2                                  // a concrete headline number
+  s += fame
+  s += Math.round(mag * 1.6)                                         // magnitude dominates — "huge" wins
+  s += events
   const sent = (a.sentiment || '').toLowerCase()
   if (sent === 'bullish' || sent === 'bearish') s += 2              // a clear market read
   const ageH = (Date.now() - new Date(a.created_at).getTime()) / 3.6e6
   s += ageH < 6 ? 2 : ageH < 12 ? 1 : 0                             // freshness tiebreaker
+  // Demote routine single-stock price-move stories — UNLESS the move is huge, or
+  // it's a marquee name with a real move (i.e. actually hyped & market-moving).
+  const priceMove = PRICE_MOVE.test(title) || RECORD_MOVE.test(title)
+  const huge = mag >= 5 || (fame >= 3 && mag >= 3)
+  if (priceMove && !huge) s -= 8
   return s
 }
 
