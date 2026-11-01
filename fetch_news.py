@@ -40,6 +40,12 @@ RSS_FEEDS = [
     {"url": "https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms",           "category": "indian-markets"},
     {"url": "https://www.moneycontrol.com/rss/marketreports.xml",                                 "category": "indian-markets"},
     {"url": "https://www.livemint.com/rss/markets",                                               "category": "indian-markets"},
+    # ── Top stories (BROAD) — catch the day's biggest news across every beat;
+    #    the processor reclassifies each by its actual content. ──
+    {"url": "https://economictimes.indiatimes.com/rssfeedstopstories.cms",                         "category": "indian-markets"},
+    {"url": "https://www.livemint.com/rss/news",                                                   "category": "indian-markets"},
+    {"url": "https://www.business-standard.com/rss/home_page_top_stories.rss",                      "category": "indian-markets"},
+    {"url": "https://www.moneycontrol.com/rss/business.xml",                                        "category": "banking-finance"},
     # ── US Markets ──
     {"url": "https://www.cnbc.com/id/10001147/device/rss/rss.html",                               "category": "us-markets"},
     {"url": "https://feeds.content.dowjones.io/public/rss/mw_topstories",                        "category": "us-markets"},

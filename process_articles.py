@@ -64,6 +64,13 @@ def fetch_rss_headlines():
 # ═══════════════════════════════════════════════════════════════
 
 DAILY_MANDATORY = [
+    # ── Top news of the day (BROAD) — run first; each returns several headlines
+    #    so the day's genuinely biggest stories are always captured. ──
+    "biggest India business and stock market news today",
+    "major India M&A acquisition stake sale deal today",
+    "biggest Indian company news today",
+    "biggest global business news affecting India today",
+    # ── Specific beats ──
     "RBI announcement decision today",
     "SEBI order regulation today",
     "India GDP inflation IIP data today",
@@ -86,13 +93,51 @@ DAILY_MANDATORY = [
 # adds to RUN_COST, the search phase stops at SEARCH_BUDGET, and the main
 # processing loop counts RUN_COST too — so DAILY_BUDGET is a TRUE total cap.
 RUN_COST         = {"spent": 0.0}
-SEARCH_BUDGET    = 0.25    # hard cap on the whole pre-pass search phase
+SEARCH_BUDGET    = 0.35    # hard cap on the whole pre-pass search phase (raised so the
+                           # "top news of the day" searches always complete)
 SCORING_BUDGET   = 0.30    # safety cap on Layer 1/3 headline scoring — generous, sized to
                            # a realistic worst-case headline volume, so it does NOT trim
                            # normal-day coverage. It only exists because
                            # inject_important_headlines previously had NO check at all
                            # (unlike the search loops), which is the likely source of
                            # spend beyond the intended DAILY_BUDGET.
+
+# ── IMPORTANCE SCORING (keyword-based, ZERO API cost) ───────────────
+# Mirrors the frontend brief ranking so MAJOR news is fetched, processed and
+# kept FIRST: famous names + big magnitude (crore/billion/trillion/%) + deal /
+# regulatory events. Used to order processing, protect majors from caps, and
+# keep the most important stories when trimming.
+_IMP_FAME = re.compile(r"reliance|\bril\b|hdfc|icici|\bsbi\b|kotak|axis bank|bajaj|\btcs\b|infosys|wipro|tech mahindra|adani|\btata\b|\bjio\b|airtel|vodafone|\bidea\b|maruti|mahindra|hero motocorp|zomato|swiggy|paytm|nykaa|\bitc\b|hindustan unilever|\bhul\b|nestl|asian paints|larsen|\bl&t\b|\blic\b|\bntpc\b|\bongc\b|coal india|vedanta|\bjsw\b|dmart|avenue supermart|bharti|yes bank|flipkart|phonepe|\bgoogle\b|alphabet|\bapple\b|microsoft|amazon|tesla|\bmeta\b|netflix|nvidia|samsung|openai|spacex|\bamd\b|\bintel\b|oracle|boeing|walmart|disney|\buber\b|berkshire|jpmorgan|goldman|morgan stanley|binance|coinbase", re.I)
+_IMP_EVENT = re.compile(r"acquisit|\bstake\b|open offer|\bmerger\b|\bm&a\b|takeover|buyout|\bdeal\b|\bipo\b|\bqip\b|block deal|\bofs\b|divest|demerger|\bsebi\b|\brbi\b|federal reserve|\bus fed\b|\bgdp\b|inflation|\bcpi\b|rate cut|rate hike|fraud|bankrupt|\bdefault\b|antitrust|lawsuit|\bfine\b|\bban\b|sanction|delisting|buyback|\bresults\b|earnings|\bfii\b|\bfpi\b|tariff|layoff|job cut|market cap|\bwipe", re.I)
+
+def _magnitude(text):
+    m = 0
+    if re.search(r"trillion|lakh\s*crore", text, re.I): m = max(m, 7)
+    b = re.search(r"(\d[\d,.]*)\s*(?:billion|bn)\b", text, re.I)
+    if b:
+        try: v = float(b.group(1).replace(",", ""))
+        except Exception: v = 0
+        m = max(m, 7 if v >= 100 else 5 if v >= 25 else 3)
+    cr = re.search(r"(?:₹|rs\.?\s*)?(\d[\d,.]*)\s*crore", text, re.I)
+    if cr:
+        try: v = float(cr.group(1).replace(",", ""))
+        except Exception: v = 0
+        m = max(m, 6 if v >= 50000 else 4 if v >= 10000 else 2 if v >= 1000 else 0)
+    pcts = re.findall(r"(\d{1,3}(?:\.\d+)?)\s*%", text)
+    if pcts:
+        mx = max(float(x) for x in pcts)
+        m = max(m, 5 if mx >= 20 else 3 if mx >= 10 else 1 if mx >= 5 else 0)
+    return m
+
+def story_importance(title, content=""):
+    """0-ish to ~20. >=8 = major, >=11 = headline-grade."""
+    title = title or ""
+    text  = title + " " + (content or "")[:300]
+    s = 0
+    if _IMP_FAME.search(title): s += 4
+    s += min(len(_IMP_EVENT.findall(text)) * 2, 6)
+    s += round(_magnitude(text) * 1.6)
+    return s
 
 # Haiku 4.5 real pricing (per token)
 _IN_RATE      = 0.80 / 1_000_000
@@ -165,14 +210,16 @@ def run_mandatory_searches(client):
         try:
             message = client.messages.create(
                 model="claude-haiku-4-5-20251001",
-                max_tokens=300,
+                max_tokens=700,
                 tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 1}],
                 messages=[{
                     "role": "user",
                     "content": (
-                        f"Search for: {query}. Return the single most important "
-                        f"headline and a 2 sentence summary. JSON only, no markdown: "
-                        f'{{"title": "", "summary": "", "relevant": true}}'
+                        f"Search the web for: {query}. From the results, list the most "
+                        f"important, genuinely newsworthy headlines from TODAY (up to 6) — "
+                        f"the biggest, most market-moving and most talked-about stories, "
+                        f"not routine stock price ticks. JSON array only, no markdown: "
+                        f'[{{"title":"","summary":""}}]. If nothing relevant, return [].'
                     )
                 }]
             )
@@ -185,15 +232,21 @@ def run_mandatory_searches(client):
                         if text.startswith("json"):
                             text = text[4:]
                         text = text.strip()
-                    data = json.loads(text)
-                    if data.get("relevant") and data.get("title"):
-                        headlines.append({
-                            "title":   data["title"],
-                            "content": data.get("summary", ""),
-                            "source":  "Mandatory Search",
-                            "link":    "",
-                        })
-                        print(f"  🔒 Mandatory: {data['title'][:60]}...")
+                    try:
+                        items = json.loads(text)
+                    except Exception:
+                        continue
+                    if isinstance(items, dict):
+                        items = [items]
+                    for data in (items or []):
+                        if isinstance(data, dict) and data.get("title"):
+                            headlines.append({
+                                "title":   data["title"],
+                                "content": data.get("summary", ""),
+                                "source":  "Mandatory Search",
+                                "link":    "",
+                            })
+                            print(f"  🔒 Mandatory: {data['title'][:60]}...")
         except Exception as e:
             print(f"  ⚠️  Mandatory search failed for '{query}': {e}")
 
@@ -417,6 +470,12 @@ def score_headline_importance(client, title, summary):
 Score this headline 1-10. Return ONLY JSON, no markdown.
 
 Score 8-10 (must publish) if:
+- ANY large deal: acquisition, stake buy/sale, open offer, merger, takeover,
+  demerger, block deal, QIP, OFS — especially ₹500cr+ or a famous company
+- A big move in value: tens of thousands of crore, billions/$bn, or "lakh crore"
+  added or wiped off a company/market (e.g. "Google loses $500 billion")
+- A globally famous company's major news (Google, Apple, Nvidia, Tesla, Amazon,
+  Microsoft, Meta, Samsung, OpenAI…) with market relevance
 - Named Indian company: acquisition, CEO change, fraud, major results, IPO >₹500cr
 - RBI or SEBI announcement
 - India macro data: GDP, inflation, IIP, trade deficit, external debt
@@ -554,8 +613,8 @@ COST_PER_M_OUTPUT = 4.00
 
 # TRUE total cap for the whole run (pre-pass searches + scoring + processing),
 # now that RUN_COST tracks everything. Kept under $1.00 with margin.
-DAILY_BUDGET      = 0.95   # hard cap/day — backstop; the new lower CATEGORY_LIMITS should
-                           # naturally keep spend under $1 before this ever gets hit
+DAILY_BUDGET      = 1.05   # hard cap/day — backstop; raised a touch for the top-news
+                           # search pass so major-news fetching isn't starved
 
 # Realistic look-ahead ONLY (a safety buffer for the budget pre-check).
 # Actual spend is measured from each response's usage via add_cost().
@@ -676,14 +735,21 @@ def enforce_per_category_limit():
         try:
             articles = _sb_retry(lambda: (
                 supabase.table("processed_articles")
-                .select("id")
+                .select("id, title, created_at")
                 .eq("category", category)
                 .gte("created_at", cutoff)
                 .order("created_at", desc=True)
                 .execute()
             ), what=f"[{category}] fetch")
             if len(articles.data) > limit:
-                ids_to_delete = [r["id"] for r in articles.data[limit:]]
+                # Keep the most IMPORTANT `limit` stories (newest breaks ties),
+                # so a major story is never trimmed in favour of a routine one.
+                rows = sorted(
+                    articles.data,
+                    key=lambda r: (story_importance(r.get("title", "")), r.get("created_at", "")),
+                    reverse=True,
+                )
+                ids_to_delete = [r["id"] for r in rows[limit:]]
                 for aid in ids_to_delete:
                     _sb_retry(lambda aid=aid: supabase.table("processed_articles").delete().eq("id", aid).execute(),
                               what=f"[{category}] delete")
@@ -1014,14 +1080,20 @@ def run():
     print(f"Found {len(articles)} unprocessed articles")
     print(f"Dedup index: {len(existing_titles_data)} existing titles")
 
+    # MAJOR news first (by importance), then fill the rest by category quota.
     def sort_priority(article):
         cat   = article.get("category", "global-economy")
         count = category_counts.get(cat, 0)
         minim = CATEGORY_MINIMUMS.get(cat, 3)
         limit = CATEGORY_LIMITS.get(cat, 5)
-        if count < minim:  return 0
-        if count < limit:  return 1
-        return 2
+        tier  = 0 if count < minim else 1 if count < limit else 2
+        imp   = story_importance(article.get("title", ""), article.get("content", ""))
+        major = imp >= 8
+        # Majors: processed first, most important first. Rest: fill minimums first,
+        # then by importance. (lower tuple sorts earlier)
+        if major:
+            return (0, -imp, tier)
+        return (1, tier, -imp)
 
     articles.sort(key=sort_priority)
 
@@ -1035,6 +1107,10 @@ def run():
 
         title   = article["title"]
         content = article.get("content", "")
+        # Major stories get a VIP allowance to exceed the per-category cap, so a
+        # big deal is never dropped just because its category is "full".
+        imp      = story_importance(title, content)
+        headroom = 4 if imp >= 11 else 2 if imp >= 8 else 0
 
         try:
             if is_duplicate_story(title, existing_titles_data):
@@ -1043,7 +1119,7 @@ def run():
 
             feed_category = article.get("category", "global-economy")
 
-            if category_counts.get(feed_category, 0) >= CATEGORY_LIMITS.get(feed_category, 5):
+            if category_counts.get(feed_category, 0) >= CATEGORY_LIMITS.get(feed_category, 5) + headroom:
                 skipped_full += 1
                 continue
 
@@ -1059,7 +1135,7 @@ def run():
                 continue
 
             category  = processed.get("category", feed_category)
-            cat_limit = CATEGORY_LIMITS.get(category, 5)
+            cat_limit = CATEGORY_LIMITS.get(category, 5) + headroom
 
             if category_counts.get(category, 0) >= cat_limit:
                 skipped_full += 1
