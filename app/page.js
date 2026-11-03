@@ -1067,6 +1067,14 @@ function ReviewView({ mode, setMode, dark, isMobile }) {
           ? `${rows.length} distinct stories, de-duplicated from ${rows.reduce((s, a) => s + (a._reports || 1), 0)} reports · last ${mode === 'month' ? '30' : '7'} days, ranked by market impact and brand value.`
           : `The biggest stories of the last ${mode === 'month' ? '30' : '7'} days, ranked by market impact and brand value.`}
       </p>
+      <div style={{ display: 'inline-flex', gap: '2px', padding: '3px', background: 'var(--bg-gist)', border: '1px solid var(--border-main)', borderRadius: '10px', marginBottom: '16px' }}>
+        {[{ k: 'week', l: 'Week' }, { k: 'month', l: 'Month' }].map(o => (
+          <button key={o.k} onClick={() => setMode(o.k)}
+            style={{ border: 'none', cursor: 'pointer', padding: '6px 18px', borderRadius: '7px', fontSize: '12.5px', fontWeight: 600, fontFamily: 'var(--font-ui)', transition: 'background 0.15s',
+              background: mode === o.k ? 'var(--accent)' : 'transparent',
+              color: mode === o.k ? '#fff' : 'var(--text-secondary)' }}>{o.l}</button>
+        ))}
+      </div>
       {rows === null ? (
         <p style={{ color: 'var(--text-muted)', fontSize: '13px', padding: '8px 2px' }}>Loading…</p>
       ) : rows.length === 0 ? (
@@ -2023,24 +2031,18 @@ export default function Home() {
         </div>
       </header>
 
-      {/* ── Flat 3-tab bottom nav (Today / Markets / Sectors) ── */}
+      {/* ── Flat 4-tab bottom nav (Today / Markets / Review / Sectors) ──
+          Week & Month live as a toggle inside Review, matching the prototype. */}
       <nav className="fd2-tabs">
         {[
           { id: 'headlines', label: 'Today',   d: 'M3 10.5 12 4l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z' },
           { id: 'markets',   label: 'Markets', d: 'M4 19V5M4 15l5-5 4 3 7-8' },
+          { id: 'review',    label: 'Review',  d: 'M7 3v3M17 3v3M4 8h16M5 6h14v14H5zM8 12h3M8 16h6' },
           { id: 'sectors',   label: 'Sectors', d: 'M4 5h16M4 12h16M4 19h10' },
-          { id: 'week',      label: 'Week',    d: 'M8 2v3M16 2v3M5 5h14v15H5zM4 9h16M8 13h3' },
-          { id: 'month',     label: 'Month',   d: 'M8 2v3M16 2v3M5 5h14v15H5zM4 9h16M8 13h2M14 13h2M8 17h2M14 17h2' },
         ].map(t => {
-          const isReview = t.id === 'week' || t.id === 'month'
-          const on = isReview
-            ? (activeSection === 'review' && reviewMode === t.id)
-            : navTab === t.id
-          const go = isReview
-            ? () => { setReviewMode(t.id); handleSectionClick('review') }
-            : () => handleSectionClick(t.id)
+          const on = t.id === 'review' ? activeSection === 'review' : navTab === t.id
           return (
-            <button key={t.id} className={'fd2-tab' + (on ? ' on' : '')} onClick={go}>
+            <button key={t.id} className={'fd2-tab' + (on ? ' on' : '')} onClick={() => handleSectionClick(t.id)}>
               <svg viewBox="0 0 24 24"><path d={t.d} /></svg>
               <span>{t.label}</span>
             </button>
