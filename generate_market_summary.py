@@ -32,7 +32,7 @@ Never use jargon without explaining it. Keep every field concise.
 Always return ONLY valid JSON — no markdown, no explanation, nothing else."""
 
 
-def _recent_closes(symbol: str, tries: int = 3):
+def _recent_closes(symbol: str, tries: int = 6):
     """Return (prev_close, last_close) from the last two *valid* trading days.
 
     yfinance is flaky (transient empties, and Yahoo often throttles CI/server
@@ -50,7 +50,7 @@ def _recent_closes(symbol: str, tries: int = 3):
                 return None, float(closes.iloc[-1])
         except Exception as e:
             last_err = e
-        time.sleep(1.5)   # brief backoff before retrying
+        time.sleep(1.5 * (attempt + 1))   # growing backoff (Yahoo throttles CI IPs)
     if last_err:
         print(f"  ⚠️  fetch failed for {symbol}: {last_err}")
     return None, None
