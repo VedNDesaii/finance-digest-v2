@@ -129,33 +129,30 @@ export default function DetailReader({ article, dark, open, onClose }) {
             </div>
           )}
 
-          {impact && (
+          {why && (
+            <blockquote style={{ margin: '22px 0', padding: '4px 0 4px 16px', borderLeft: '3px solid var(--accent)', fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: '18px', lineHeight: 1.35, color: 'var(--text-primary)' }}>
+              {why}
+            </blockquote>
+          )}
+
+          {(impact || means) && (
             <div className="fd2-blk">
-              <div className="bh">Market impact — what could happen <span className="impact" style={{ color: impColor, background: impBg }}>{s.lbl}</span></div>
-              {impact.split(/\n\n+/).filter(Boolean).map((p, i) => <p key={i}>{p}</p>)}
+              <div className="bh">Why it matters {impact && <span className="impact" style={{ color: impColor, background: impBg }}>{s.lbl}</span>}</div>
+              {impact && impact.split(/\n\n+/).filter(Boolean).map((p, i) => <p key={'imp' + i}>{p}</p>)}
+              {means && <p>{means}</p>}
             </div>
           )}
 
-          {means && (
-            <div className="fd2-blk"><div className="bh">What this means for you</div><p>{means}</p></div>
-          )}
-
-          {glossary.length > 0 && (
-            <div className="fd2-gloss">
+          {(glossary.length > 0 || concepts.length > 0) && (
+            <div className="fd2-gloss fd2-concepts">
               <div className="bh">Key terms</div>
               {glossary.map((g, i) => (
-                <div className="gl" key={i}><b>{decodeEntities(g.word || g.term)}</b><span>{decodeEntities(g.meaning || g.definition)}</span></div>
+                <div className="gl" key={'g' + i}><b>{decodeEntities(g.word || g.term)}</b><span>{decodeEntities(g.meaning || g.definition)}</span></div>
               ))}
-            </div>
-          )}
-
-          {concepts.length > 0 && (
-            <div className="fd2-concepts">
-              <div className="bh">Concepts explained</div>
               {concepts.map((c, i) => {
                 const use = decodeEntities(c.in_news || c.usage || c.example || c.applied || '')
                 return (
-                  <div className="cc" key={i}>
+                  <div className="cc" key={'c' + i}>
                     <b>{decodeEntities(c.name || c.concept || c.word || '')}</b>
                     <p>{decodeEntities(c.explanation || c.meaning || c.definition || '')}</p>
                     {use && <p className="use"><span className="ul">In this news</span>{use}</p>}
