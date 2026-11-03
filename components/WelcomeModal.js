@@ -164,8 +164,8 @@ export default function WelcomeModal({ dark, user, authLoading }) {
         {/* Standalone mode message */}
         {isStandalone && !success && (
           <div style={{
-            background: dark ? 'rgba(255,75,43,0.08)' : 'rgba(255,75,43,0.06)',
-            border: '1px solid rgba(255,75,43,0.3)',
+            background: dark ? 'rgba(107,138,240,0.08)' : 'rgba(107,138,240,0.06)',
+            border: '1px solid rgba(107,138,240,0.3)',
             borderRadius: '10px', padding: '10px 14px', marginBottom: '20px',
             fontSize: '12px', color: textSec, textAlign: 'center', lineHeight: 1.5,
           }}>

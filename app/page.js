@@ -365,7 +365,7 @@ function NotificationBell({ dark }) {
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         width: '32px', height: '32px', borderRadius: '8px', border: 'none',
         background: status === 'subscribed'
-          ? (dark ? 'rgba(255,75,43,0.2)' : 'rgba(255,75,43,0.15)')
+          ? (dark ? 'rgba(107,138,240,0.2)' : 'rgba(107,138,240,0.15)')
           : (dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)'),
         cursor: 'pointer', fontSize: '15px', flexShrink: 0,
         transition: 'all 0.2s ease',
@@ -447,14 +447,14 @@ function InstallBanner({ dark }) {
       background: 'var(--accent)',
       border: 'none', borderRadius: '99px', padding: '10px 18px',
       cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
-      boxShadow: '0 4px 20px rgba(255,75,43,0.5)',
+      boxShadow: '0 4px 20px rgba(107,138,240,0.5)',
       animation: 'pillPulse 2s ease-in-out infinite',
     }}>
       <span style={{ fontSize: '16px' }}>🔔</span>
       <span style={{ fontSize: '13px', fontWeight: '700', color: '#1A1410', fontFamily: 'var(--font-ui)' }}>
         Enable Notifications
       </span>
-      <style>{`@keyframes pillPulse { 0%,100% { box-shadow: 0 4px 20px rgba(255,75,43,0.5); } 50% { box-shadow: 0 4px 32px rgba(255,75,43,0.8); } }`}</style>
+      <style>{`@keyframes pillPulse { 0%,100% { box-shadow: 0 4px 20px rgba(107,138,240,0.5); } 50% { box-shadow: 0 4px 32px rgba(107,138,240,0.8); } }`}</style>
     </button>
   )
 
@@ -542,7 +542,7 @@ function Badge({ count, active, dark }) {
   return (
     <span style={{
       fontSize: '10px', fontWeight: '700',
-      background: active ? 'var(--accent)' : (dark ? 'rgba(255,75,43,0.15)' : 'rgba(232,67,31,0.12)'),
+      background: active ? 'var(--accent)' : (dark ? 'rgba(107,138,240,0.15)' : 'rgba(56,88,168,0.12)'),
       color: active ? '#1A1410' : 'var(--accent)',
       padding: '2px 7px', borderRadius: '99px',
       fontFamily: 'var(--font-ui)', minWidth: '20px',
@@ -1352,7 +1352,7 @@ function FinanceWordle({ dark, isMobile, addIQ }) {
 
       {done && (
         <div style={{ marginTop: '4px', padding: '14px', borderRadius: '10px',
-          background: dark ? 'rgba(255,75,43,0.08)' : 'rgba(255,75,43,0.1)',
+          background: dark ? 'rgba(107,138,240,0.08)' : 'rgba(107,138,240,0.1)',
           borderLeft: `3px solid ${done === 'won' ? COLORS.correct : 'var(--accent)'}` }}>
           <p style={{ margin: '0 0 8px', fontSize: '14px', fontWeight: '700', color: done === 'won' ? COLORS.correct : ('var(--text-primary)'), fontFamily: 'var(--font-display)' }}>
             {done === 'won' ? 'Solved it! 🎉 +10 IQ' : `The word was ${answer}`}
@@ -1454,7 +1454,7 @@ function YesterdayQuiz({ dark, isMobile, addIQ, earnedBadges, awardBadge }) {
               border: `1px solid ${answered ? (correct ? 'rgba(22,163,74,0.25)' : 'rgba(239,68,68,0.2)') : ('var(--border-main)')}` }}>
               <div style={{ padding: '10px 14px', background: 'var(--bg-gist)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                  <span style={{ fontSize: '10px', fontWeight: '700', color: 'var(--accent)', fontFamily: 'var(--font-ui)', background: dark ? 'rgba(255,75,43,0.1)' : 'rgba(255,75,43,0.12)', padding: '1px 7px', borderRadius: '20px' }}>Q{qi + 1}</span>
+                  <span style={{ fontSize: '10px', fontWeight: '700', color: 'var(--accent)', fontFamily: 'var(--font-ui)', background: dark ? 'rgba(107,138,240,0.1)' : 'rgba(107,138,240,0.12)', padding: '1px 7px', borderRadius: '20px' }}>Q{qi + 1}</span>
                 </div>
                 <p style={{ margin: 0, fontSize: isMobile ? '13px' : '14px', fontWeight: '700', color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{q.q}</p>
               </div>
@@ -1490,8 +1490,8 @@ function YesterdayQuiz({ dark, isMobile, addIQ, earnedBadges, awardBadge }) {
         })}
         {totalAnswered === quiz.length && (
           <div style={{ padding: '12px 16px', borderRadius: '10px', textAlign: 'center',
-            background: totalCorrect >= 3 ? 'rgba(22,163,74,0.08)' : 'rgba(255,75,43,0.08)',
-            border: `1px solid ${totalCorrect >= 3 ? 'rgba(22,163,74,0.2)' : 'rgba(255,75,43,0.2)'}` }}>
+            background: totalCorrect >= 3 ? 'rgba(22,163,74,0.08)' : 'rgba(107,138,240,0.08)',
+            border: `1px solid ${totalCorrect >= 3 ? 'rgba(22,163,74,0.2)' : 'rgba(107,138,240,0.2)'}` }}>
             <p style={{ margin: 0, fontSize: '14px', fontWeight: '700', fontFamily: 'var(--font-display)', color: totalCorrect >= 3 ? 'var(--up)' : 'var(--accent)' }}>
               {totalCorrect >= 3 ? '🎉' : '📖'} {totalCorrect}/{quiz.length} correct · +{totalCorrect * 10} IQ earned
             </p>
@@ -1928,8 +1928,8 @@ export default function Home() {
             <div key={b.id} title={`${b.name}: ${b.desc}`} style={{
               width: '32px', height: '32px', borderRadius: '8px',
               display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px',
-              background: earned ? (dark ? 'rgba(255,75,43,0.15)' : 'rgba(255,75,43,0.12)') : (dark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.04)'),
-              border: `1px solid ${earned ? 'rgba(255,75,43,0.3)' : ('var(--border-main)')}`,
+              background: earned ? (dark ? 'rgba(107,138,240,0.15)' : 'rgba(107,138,240,0.12)') : (dark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.04)'),
+              border: `1px solid ${earned ? 'rgba(107,138,240,0.3)' : ('var(--border-main)')}`,
               filter: earned ? 'none' : 'grayscale(1) opacity(0.3)', cursor: 'help',
             }}>{b.emoji}</div>
           )
@@ -1963,7 +1963,7 @@ export default function Home() {
           borderRadius: '20px', fontSize: '13px', fontWeight: '700',
           fontFamily: 'var(--font-ui)', zIndex: 999,
           animation: 'fadeInUp 0.3s ease, fadeOut 0.3s ease 2.2s forwards',
-          boxShadow: '0 4px 20px rgba(255,75,43,0.4)',
+          boxShadow: '0 4px 20px rgba(107,138,240,0.4)',
         }}>
           {showPointPop}
         </div>
@@ -2048,7 +2048,7 @@ export default function Home() {
           <div style={{ width: '36px', height: '3px', background: dark ? '#3A3028' : '#EDE8E0', borderRadius: '2px', margin: '0 auto 16px' }} />
           <p style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '0.1em', color: 'var(--text-muted)', margin: '0 0 12px', fontFamily: 'var(--font-ui)' }}>MARKETS</p>
           {MARKETS_SECTIONS.map(s => (
-            <button key={s.id} onClick={() => handleSectionClick(s.id)} style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '13px 14px', marginBottom: '4px', borderRadius: '12px', border: 'none', cursor: 'pointer', background: activeSection === s.id ? (dark ? 'rgba(255,75,43,0.12)' : 'rgba(232,67,31,0.08)') : (dark ? 'rgba(255,255,255,0.03)' : '#FAFAF8'), textAlign: 'left' }}>
+            <button key={s.id} onClick={() => handleSectionClick(s.id)} style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '13px 14px', marginBottom: '4px', borderRadius: '12px', border: 'none', cursor: 'pointer', background: activeSection === s.id ? (dark ? 'rgba(107,138,240,0.12)' : 'rgba(56,88,168,0.08)') : (dark ? 'rgba(255,255,255,0.03)' : '#FAFAF8'), textAlign: 'left' }}>
               <span style={{ fontSize: '22px' }}>{s.icon}</span>
               <span style={{ fontSize: '15px', fontWeight: activeSection === s.id ? '600' : '400', color: activeSection === s.id ? 'var(--accent)' : ('var(--text-primary)'), fontFamily: 'var(--font-ui)' }}>{s.label}</span>
               {sectionCounts[s.id] > 0 && <span style={{ marginLeft: 'auto', fontSize: '11px', fontWeight: '600', color: 'var(--accent)', fontFamily: 'var(--font-ui)' }}>{sectionCounts[s.id]}</span>}
@@ -2056,7 +2056,7 @@ export default function Home() {
           ))}
           <p style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '0.1em', color: 'var(--text-muted)', margin: '12px 0 8px', fontFamily: 'var(--font-ui)' }}>FINANCE & POLICY</p>
           {[{ id: 'macro-policy', label: 'Macro, Tax & Budget', icon: '🏛️' }, { id: 'investment-banking', label: 'Investment Banking', icon: '💼' }].map(s => (
-            <button key={s.id} onClick={() => handleSectionClick(s.id)} style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '13px 14px', marginBottom: '4px', borderRadius: '12px', border: 'none', cursor: 'pointer', background: activeSection === s.id ? (dark ? 'rgba(255,75,43,0.12)' : 'rgba(232,67,31,0.08)') : (dark ? 'rgba(255,255,255,0.03)' : '#FAFAF8'), textAlign: 'left' }}>
+            <button key={s.id} onClick={() => handleSectionClick(s.id)} style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '13px 14px', marginBottom: '4px', borderRadius: '12px', border: 'none', cursor: 'pointer', background: activeSection === s.id ? (dark ? 'rgba(107,138,240,0.12)' : 'rgba(56,88,168,0.08)') : (dark ? 'rgba(255,255,255,0.03)' : '#FAFAF8'), textAlign: 'left' }}>
               <span style={{ fontSize: '22px' }}>{s.icon}</span>
               <span style={{ fontSize: '15px', fontWeight: activeSection === s.id ? '600' : '400', color: activeSection === s.id ? 'var(--accent)' : ('var(--text-primary)'), fontFamily: 'var(--font-ui)' }}>{s.label}</span>
             </button>
@@ -2083,7 +2083,7 @@ export default function Home() {
           <p style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '0.1em', color: 'var(--text-muted)', margin: '0 0 14px', fontFamily: 'var(--font-ui)' }}>SECTORS</p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px' }}>
             {SECTORS_SECTIONS.map(s => (
-              <button key={s.id} onClick={() => handleSectionClick(s.id)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', padding: '12px 4px', borderRadius: '12px', border: 'none', cursor: 'pointer', background: activeSection === s.id ? (dark ? 'rgba(255,75,43,0.15)' : 'rgba(232,67,31,0.10)') : ('var(--bg-gist)'), transition: 'background 0.15s' }}>
+              <button key={s.id} onClick={() => handleSectionClick(s.id)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', padding: '12px 4px', borderRadius: '12px', border: 'none', cursor: 'pointer', background: activeSection === s.id ? (dark ? 'rgba(107,138,240,0.15)' : 'rgba(56,88,168,0.10)') : ('var(--bg-gist)'), transition: 'background 0.15s' }}>
                 <span style={{ fontSize: '24px' }}>{s.icon}</span>
                 <span style={{ fontSize: '9px', fontWeight: activeSection === s.id ? '700' : '500', color: activeSection === s.id ? 'var(--accent)' : (dark ? '#9A8E7E' : '#6B5E4E'), fontFamily: 'var(--font-ui)', textAlign: 'center', lineHeight: 1.2 }}>{s.label}</span>
               </button>
