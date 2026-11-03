@@ -774,6 +774,47 @@ function importanceScore(a) {
   return s
 }
 
+// Collapse multiple articles about the SAME event into one entry, so the
+// week/month review stops showing near-duplicate stories (e.g. 3 takes on one
+// Reliance result). Clusters by headline token-overlap (Jaccard); `rows` must
+// already be sorted best-first so the top story represents each cluster. Each
+// representative gets `_reports` = how many articles it stands in for.
+const REVIEW_STOP = new Set(['the','a','an','to','of','in','on','for','and','as','at','by','is','it','its','with','after','amid','over','from','into','up','down','vs','that','new','will','be','has','his','her','are','was'])
+// Generic/ambiguous capitalised words that must NOT be treated as a company
+// "brand" for clustering (else every "India …" story would merge together).
+const REVIEW_GENERIC = new Set(['india','indian','sensex','nifty','bse','nse','market','markets','stock','stocks','shares','share','rupee','crore','lakh','monday','tuesday','wednesday','thursday','friday','saturday','sunday','january','february','march','april','may','june','july','august','september','october','november','december','foreign','global'])
+function reviewSig(s) {
+  return new Set((decodeEntities(s || '').toLowerCase().replace(/[^a-z0-9₹$ ]/g, ' ').split(/\s+/)
+    .filter(w => w && w.length > 2 && !REVIEW_STOP.has(w))))
+}
+function reviewBrands(s) {
+  const m = (decodeEntities(s || '').match(/\b[A-Z][a-zA-Z]{3,}\b/g) || []).map(w => w.toLowerCase())
+  return new Set(m.filter(w => !REVIEW_GENERIC.has(w) && !REVIEW_STOP.has(w)))
+}
+// Collapse near-duplicate articles about the same event. Two merge when their
+// headlines overlap a lot (Jaccard ≥ 0.5), OR they share a company/brand name
+// AND are the same category within ~36h AND have some overlap — which catches
+// "Reliance shares jump 7.5%" vs "Reliance profits jump 41%" (same result, two takes).
+function reviewDedup(rows) {
+  const jac = (A, B) => { let i = 0; A.forEach(w => { if (B.has(w)) i++ }); const u = A.size + B.size - i; return u ? i / u : 0 }
+  const within = (a, b) => { const t = Math.abs(new Date(a).getTime() - new Date(b).getTime()); return !isNaN(t) && t < 36 * 3.6e6 }
+  const clusters = []
+  for (const a of rows) {
+    const sig = reviewSig((a.headline || a.title) + ' ' + (a.title || ''))
+    const br = reviewBrands(a.headline || a.title)
+    let placed = false
+    for (const c of clusters) {
+      const j = jac(sig, c.set)
+      const sharedBrand = [...br].some(w => c.brands.has(w))
+      if (j >= 0.5 || (sharedBrand && (a.category || '') === c.cat && j >= 0.15 && within(a.created_at, c.date))) {
+        c.n++; placed = true; break
+      }
+    }
+    if (!placed) clusters.push({ rep: a, set: sig, brands: br, cat: a.category || '', date: a.created_at, n: 1 })
+  }
+  return clusters.map(c => { c.rep._reports = c.n; return c.rep })
+}
+
 // ── TodayView (redesign) ────────────────────────────────────────────────────
 // The Today screen, matched 1:1 to the approved prototype and wired to real
 // data: ticker + as-of stamp, verdict hero + share, "5 things to know", the
@@ -805,7 +846,7 @@ function Fd2Story({ a, i, onOpen }) {
         <Fd2Chips a={a} />
         <h3>{decodeEntities(a.headline || a.title)}</h3>
         {blurb && <p className="why">{blurb}</p>}
-        <div className="meta"><span>{fd2Src(a)}</span><span>·</span><span>{fd2Date(a)}</span><span>·</span><span>{fd2Time(a)}</span></div>
+        <div className="meta"><span>{fd2Src(a)}</span><span>·</span><span>{fd2Date(a)}</span><span>·</span><span>{fd2Time(a)}</span>{a._reports > 1 && <><span>·</span><span>{a._reports} reports</span></>}</div>
       </div>
     </button>
   )
@@ -1010,7 +1051,7 @@ function ReviewView({ mode, setMode, dark, isMobile }) {
     const since = new Date(Date.now() - days * 86400000).toISOString()
     supabase.from('processed_articles').select('*').gte('created_at', since)
       .order('created_at', { ascending: false }).limit(400)
-      .then(({ data }) => { if (ok) setRows([...(data || [])].sort((a, b) => importanceScore(b) - importanceScore(a)).slice(0, cap)) })
+      .then(({ data }) => { if (ok) { const ranked = [...(data || [])].sort((a, b) => importanceScore(b) - importanceScore(a)); setRows(reviewDedup(ranked).slice(0, cap)) } })
       .catch(() => { if (ok) setRows([]) })
     return () => { ok = false }
   }, [mode])
@@ -1022,7 +1063,9 @@ function ReviewView({ mode, setMode, dark, isMobile }) {
         {mode === 'month' ? 'The month in review' : 'The week in review'}
       </h2>
       <p style={{ color: 'var(--text-secondary)', fontSize: '13.5px', margin: '0 0 14px', lineHeight: 1.5 }}>
-        The biggest stories of the last {mode === 'month' ? '30' : '7'} days, ranked by market impact and brand value.
+        {rows && rows.length
+          ? `${rows.length} distinct stories, de-duplicated from ${rows.reduce((s, a) => s + (a._reports || 1), 0)} reports · last ${mode === 'month' ? '30' : '7'} days, ranked by market impact and brand value.`
+          : `The biggest stories of the last ${mode === 'month' ? '30' : '7'} days, ranked by market impact and brand value.`}
       </p>
       {rows === null ? (
         <p style={{ color: 'var(--text-muted)', fontSize: '13px', padding: '8px 2px' }}>Loading…</p>
