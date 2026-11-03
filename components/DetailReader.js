@@ -60,6 +60,7 @@ export default function DetailReader({ article, dark, open, onClose }) {
   const means = decodeEntities((article.what_this_means || '').trim())
   const glossary = Array.isArray(article.glossary) ? article.glossary : []
   const concepts = Array.isArray(article.concepts) ? article.concepts : []
+  const impactBars = Array.isArray(article.impact_bars) ? article.impact_bars : []
   const stat = (article.stat || '').trim()
   const statLbl = (article.stat_label || '').trim()
   const keyNumbers = (Array.isArray(article.key_numbers) ? article.key_numbers : []).slice(0, 4)
@@ -143,11 +144,33 @@ export default function DetailReader({ article, dark, open, onClose }) {
             </blockquote>
           )}
 
-          {(impact || means) && (
+          {(impact || means || impactBars.length > 0) && (
             <div className="fd2-blk">
               <div className="bh">Why it matters {impact && <span className="impact" style={{ color: impColor, background: impBg }}>{s.lbl}</span>}</div>
               {impact && impact.split(/\n\n+/).filter(Boolean).map((p, i) => <p key={'imp' + i}>{p}</p>)}
               {means && <p>{means}</p>}
+              {impactBars.length > 0 && (
+                <div style={{ margin: '16px 0 2px', display: 'grid', gap: '9px' }}>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9.5px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '1px' }}>Who this moves</div>
+                  {impactBars.slice(0, 5).map((b, i) => {
+                    const up = (b.dir || '').toLowerCase() === 'up'
+                    const mag = Math.max(1, Math.min(5, parseInt(b.mag, 10) || 1))
+                    const col = up ? 'var(--up)' : 'var(--down)'
+                    const bg = up ? 'var(--up-bg)' : 'var(--down-bg)'
+                    return (
+                      <div key={'ib' + i} style={{ display: 'grid', gridTemplateColumns: 'minmax(84px,34%) 1fr', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{decodeEntities(b.name || '')}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                          <div style={{ flex: 1, height: '9px', borderRadius: '5px', background: 'var(--bg-gist)', overflow: 'hidden' }}>
+                            <div style={{ width: (mag * 20) + '%', height: '100%', borderRadius: '5px', background: col, opacity: 0.85 }} />
+                          </div>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10.5px', fontWeight: 700, color: col, background: bg, padding: '1px 6px', borderRadius: '5px', whiteSpace: 'nowrap' }}>{up ? '▲' : '▼'}</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )}
 

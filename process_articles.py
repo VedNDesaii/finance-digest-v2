@@ -172,7 +172,7 @@ def add_cost(message):
 OPTIONAL_COLS = [
     "detailed_article", "market_impact", "what_this_means", "background",
     "sentiment", "difficulty", "stat", "stat_label", "headline", "concepts", "key_numbers",
-    "how_it_works",
+    "how_it_works", "impact_bars",
 ]
 AVAILABLE_OPT_COLS = set(OPTIONAL_COLS)   # narrowed at startup by detect_optional_columns()
 
@@ -935,7 +935,7 @@ stat_label: a 2-4 word label for that number (e.g. "repo rate held"). "" if no s
 
 Return ONLY valid JSON:
 REJECT: {{"verdict":"reject"}}
-ACCEPT: {{"verdict":"accept","category":"<str>","is_headline":false,"headline":"<short punchy plain-English headline>","simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}],"concepts":[{{"name":"","explanation":"","in_news":""}}],"key_numbers":[{{"label":"","value":"","change":"","dir":"up|down|flat"}}],"how_it_works":["step 1","step 2"],"detailed_article":"**What happened.** ...\\n\\n**The bigger picture.** ...\\n\\n**The outlook.** ...","market_impact":"PARA1\\n\\nPARA2","what_this_means":"...","background":"<2-3 plain-English sentences of prior context a first-time reader needs to understand this story — what led up to it, who the players are, why it matters now; use ONLY well-known background, never invent facts; empty string \\"\\" if the story is fully self-contained>","sentiment":"bullish|bearish|neutral","difficulty":"Easy|Medium|Hard","stat":"","stat_label":""}}
+ACCEPT: {{"verdict":"accept","category":"<str>","is_headline":false,"headline":"<short punchy plain-English headline>","simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}],"concepts":[{{"name":"","explanation":"","in_news":""}}],"key_numbers":[{{"label":"","value":"","change":"","dir":"up|down|flat"}}],"impact_bars":[{{"name":"<stock, sector or index this news most affects, e.g. Reliance, Nifty IT, Bank Nifty>","dir":"up|down","mag":"<integer 1-5: how strongly the news pushes it, judged from the news — do NOT invent a percentage>"}}],"how_it_works":["step 1","step 2"],"detailed_article":"**What happened.** ...\\n\\n**The bigger picture.** ...\\n\\n**The outlook.** ...","market_impact":"PARA1\\n\\nPARA2","what_this_means":"...","background":"<2-3 plain-English sentences of prior context a first-time reader needs to understand this story — what led up to it, who the players are, why it matters now; use ONLY well-known background, never invent facts; empty string \\"\\" if the story is fully self-contained>","sentiment":"bullish|bearish|neutral","difficulty":"Easy|Medium|Hard","stat":"","stat_label":""}}
 
 Title: {title}
 Content: {content[:3500]}"""
@@ -979,7 +979,7 @@ CARD METADATA: sentiment ("bullish"|"bearish"|"neutral"), difficulty ("Easy"|"Me
 
 Return ONLY valid JSON:
 REJECT: {{"verdict":"reject"}}
-ACCEPT: {{"verdict":"accept","category":"<one of the categories listed above>","is_headline":false,"headline":"<short punchy plain-English headline>","simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}],"concepts":[{{"name":"","explanation":"","in_news":""}}],"key_numbers":[{{"label":"","value":"","change":"","dir":"up|down|flat"}}],"how_it_works":["step 1","step 2"],"detailed_article":"**What happened.** ...\\n\\n**The bigger picture.** ...\\n\\n**The outlook.** ...","market_impact":"PARA1\\n\\nPARA2","what_this_means":"...","background":"<2-3 plain-English sentences of prior context a first-time reader needs to understand this story — what led up to it, who the players are, why it matters now; use ONLY well-known background, never invent facts; empty string \\"\\" if the story is fully self-contained>","sentiment":"bullish|bearish|neutral","difficulty":"Easy|Medium|Hard","stat":"","stat_label":""}}
+ACCEPT: {{"verdict":"accept","category":"<one of the categories listed above>","is_headline":false,"headline":"<short punchy plain-English headline>","simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}],"concepts":[{{"name":"","explanation":"","in_news":""}}],"key_numbers":[{{"label":"","value":"","change":"","dir":"up|down|flat"}}],"impact_bars":[{{"name":"<stock, sector or index this news most affects, e.g. Reliance, Nifty IT, Bank Nifty>","dir":"up|down","mag":"<integer 1-5: how strongly the news pushes it, judged from the news — do NOT invent a percentage>"}}],"how_it_works":["step 1","step 2"],"detailed_article":"**What happened.** ...\\n\\n**The bigger picture.** ...\\n\\n**The outlook.** ...","market_impact":"PARA1\\n\\nPARA2","what_this_means":"...","background":"<2-3 plain-English sentences of prior context a first-time reader needs to understand this story — what led up to it, who the players are, why it matters now; use ONLY well-known background, never invent facts; empty string \\"\\" if the story is fully self-contained>","sentiment":"bullish|bearish|neutral","difficulty":"Easy|Medium|Hard","stat":"","stat_label":""}}
 
 Title: {title}
 Content: {content[:3500]}"""
@@ -1033,6 +1033,7 @@ def save_processed_article(raw_article, processed_data):
         "concepts":         processed_data["concepts"] if isinstance(processed_data.get("concepts"), list) else [],
         "key_numbers":      processed_data["key_numbers"] if isinstance(processed_data.get("key_numbers"), list) else [],
         "how_it_works":     processed_data["how_it_works"] if isinstance(processed_data.get("how_it_works"), list) else [],
+        "impact_bars":      processed_data["impact_bars"] if isinstance(processed_data.get("impact_bars"), list) else [],
     }
     for col in OPTIONAL_COLS:
         if col in AVAILABLE_OPT_COLS:
