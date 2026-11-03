@@ -170,7 +170,7 @@ def add_cost(message):
 # and the swipe card. Any that don't exist in the DB yet are simply skipped on
 # insert, so a missing column never breaks the run or wastes an API call.
 OPTIONAL_COLS = [
-    "detailed_article", "market_impact", "what_this_means",
+    "detailed_article", "market_impact", "what_this_means", "background",
     "sentiment", "difficulty", "stat", "stat_label", "headline", "concepts", "key_numbers",
     "how_it_works",
 ]
@@ -935,7 +935,7 @@ stat_label: a 2-4 word label for that number (e.g. "repo rate held"). "" if no s
 
 Return ONLY valid JSON:
 REJECT: {{"verdict":"reject"}}
-ACCEPT: {{"verdict":"accept","category":"<str>","is_headline":false,"headline":"<short punchy plain-English headline>","simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}],"concepts":[{{"name":"","explanation":"","in_news":""}}],"key_numbers":[{{"label":"","value":"","change":"","dir":"up|down|flat"}}],"how_it_works":["step 1","step 2"],"detailed_article":"**What happened.** ...\\n\\n**The bigger picture.** ...\\n\\n**The outlook.** ...","market_impact":"PARA1\\n\\nPARA2","what_this_means":"...","sentiment":"bullish|bearish|neutral","difficulty":"Easy|Medium|Hard","stat":"","stat_label":""}}
+ACCEPT: {{"verdict":"accept","category":"<str>","is_headline":false,"headline":"<short punchy plain-English headline>","simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}],"concepts":[{{"name":"","explanation":"","in_news":""}}],"key_numbers":[{{"label":"","value":"","change":"","dir":"up|down|flat"}}],"how_it_works":["step 1","step 2"],"detailed_article":"**What happened.** ...\\n\\n**The bigger picture.** ...\\n\\n**The outlook.** ...","market_impact":"PARA1\\n\\nPARA2","what_this_means":"...","background":"<2-3 plain-English sentences of prior context a first-time reader needs to understand this story — what led up to it, who the players are, why it matters now; use ONLY well-known background, never invent facts; empty string \\"\\" if the story is fully self-contained>","sentiment":"bullish|bearish|neutral","difficulty":"Easy|Medium|Hard","stat":"","stat_label":""}}
 
 Title: {title}
 Content: {content[:3500]}"""
@@ -979,7 +979,7 @@ CARD METADATA: sentiment ("bullish"|"bearish"|"neutral"), difficulty ("Easy"|"Me
 
 Return ONLY valid JSON:
 REJECT: {{"verdict":"reject"}}
-ACCEPT: {{"verdict":"accept","category":"<one of the categories listed above>","is_headline":false,"headline":"<short punchy plain-English headline>","simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}],"concepts":[{{"name":"","explanation":"","in_news":""}}],"key_numbers":[{{"label":"","value":"","change":"","dir":"up|down|flat"}}],"how_it_works":["step 1","step 2"],"detailed_article":"**What happened.** ...\\n\\n**The bigger picture.** ...\\n\\n**The outlook.** ...","market_impact":"PARA1\\n\\nPARA2","what_this_means":"...","sentiment":"bullish|bearish|neutral","difficulty":"Easy|Medium|Hard","stat":"","stat_label":""}}
+ACCEPT: {{"verdict":"accept","category":"<one of the categories listed above>","is_headline":false,"headline":"<short punchy plain-English headline>","simplified_article":"PART1\\n\\nPART2","investor_take":"PART3","glossary":[{{"word":"","meaning":""}}],"concepts":[{{"name":"","explanation":"","in_news":""}}],"key_numbers":[{{"label":"","value":"","change":"","dir":"up|down|flat"}}],"how_it_works":["step 1","step 2"],"detailed_article":"**What happened.** ...\\n\\n**The bigger picture.** ...\\n\\n**The outlook.** ...","market_impact":"PARA1\\n\\nPARA2","what_this_means":"...","background":"<2-3 plain-English sentences of prior context a first-time reader needs to understand this story — what led up to it, who the players are, why it matters now; use ONLY well-known background, never invent facts; empty string \\"\\" if the story is fully self-contained>","sentiment":"bullish|bearish|neutral","difficulty":"Easy|Medium|Hard","stat":"","stat_label":""}}
 
 Title: {title}
 Content: {content[:3500]}"""
@@ -1024,6 +1024,7 @@ def save_processed_article(raw_article, processed_data):
         "detailed_article": (processed_data.get("detailed_article") or "").strip(),
         "market_impact":    (processed_data.get("market_impact") or "").strip(),
         "what_this_means":  (processed_data.get("what_this_means") or "").strip(),
+        "background":       (processed_data.get("background") or "").strip(),
         "sentiment":        sentiment,
         "difficulty":       difficulty,
         "stat":             (processed_data.get("stat") or "").strip(),

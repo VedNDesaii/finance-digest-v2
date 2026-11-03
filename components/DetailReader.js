@@ -54,6 +54,7 @@ export default function DetailReader({ article, dark, open, onClose }) {
   const time = (() => { try { return new Date(article.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) } catch { return '' } })()
   const dateStr = (() => { try { return new Date(article.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }) } catch { return '' } })()
   const why = decodeEntities((article.investor_take || '').trim())
+  const background = decodeEntities((article.background || '').trim())
   const picture = decodeEntities((article.detailed_article || '').trim())
   const impact = decodeEntities((article.market_impact || '').trim())
   const means = decodeEntities((article.what_this_means || '').trim())
@@ -106,6 +107,13 @@ export default function DetailReader({ article, dark, open, onClose }) {
                   </div>
                 )
               })}
+            </div>
+          )}
+
+          {background && (
+            <div style={{ margin: '0 0 18px', padding: '12px 15px', background: 'var(--bg-gist)', border: '1px solid var(--border-main)', borderLeft: '3px solid var(--accent)', borderRadius: '0 12px 12px 0' }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: '5px' }}>◂ Catch up</div>
+              <p style={{ margin: 0, fontSize: '14px', lineHeight: 1.6, color: 'var(--text-secondary)' }}>{background}</p>
             </div>
           )}
 
