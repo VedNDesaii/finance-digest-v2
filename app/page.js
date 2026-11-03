@@ -863,173 +863,140 @@ function Fd2StoryList({ articles, dark }) {
   )
 }
 
-function TodayView({ articles, dark, isMobile, prediction, predCorrect, handlePrediction, afterClose, weekend, predictOpen = true, dayOffset = 0, loading, onOlder, onNewer, onGoSectors, onReview }) {
-  const isToday = dayOffset === 0
-  const { label: dayLabel } = istDayBounds(dayOffset)
+// Estimated read time in minutes from an article's longest body text.
+function readMin(a) {
+  const w = decodeEntities(a.detailed_article || a.simplified_article || a.investor_take || '')
+    .split(/\s+/).filter(Boolean).length
+  return Math.max(2, Math.min(9, Math.round(w / 180) || 2))
+}
+
+// ── TodayView (editorial homepage) ───────────────────────────────────────────
+// Newspaper-style front page matched to the prototype: full index strip,
+// a lead Top Story, a 2×2 desk grid, sector performance, and top movers.
+function TodayView({ articles, dark, isMobile, loading }) {
   const [sel, setSel] = useState(null)
-  const [md, setMd] = useState(null)
+  const [j, setJ] = useState(null)
   useEffect(() => {
     let ok = true
     fetch('/market-data.json', { cache: 'no-store' })
-      .then(r => r.json()).then(j => { if (ok) setMd(j.indian || null) }).catch(() => {})
+      .then(r => r.json()).then(d => { if (ok) setJ(d) }).catch(() => {})
     return () => { ok = false }
   }, [])
 
-  const list = articles || []
-  // Lead with the 5 most important stories (market impact + fame/brand value),
-  // not merely the newest; the rest flow into "more top stories".
-  const ranked = [...list].sort((a, b) => importanceScore(b) - importanceScore(a))
-  const five = ranked.slice(0, 5)
-  const more = ranked.slice(5, 11)
-
-  const d = md || {}
-  const indices = (d.indices && d.indices.length) ? d.indices : []
-  const verdict = d.verdict || 'mixed'
-  const V = verdict === 'up' ? { c: 'up', a: '▲', l: 'Up day' }
-    : verdict === 'down' ? { c: 'dn', a: '▼', l: 'Down day' }
-    : { c: 'mixed', a: '◑', l: 'Mixed day' }
-  const lead = d.lead || d.headline || 'Market summary updates after the next close.'
-  const brief = d.brief || ''
-  const watch = d.watch || ''
-  const updatedAt = d.updated_at
-    ? new Date(d.updated_at).toLocaleString('en-IN', { weekday: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) + ' IST'
+  const indian = (j && j.indian) || {}
+  const us = (j && j.us) || {}
+  // Index strip — India headline indices first, then the two US benchmarks.
+  const allIx = [...(indian.indices || []), ...(us.indices || [])]
+  const order = ['Nifty 50', 'Sensex', 'Bank Nifty', 'Nasdaq', 'S&P 500']
+  const stripOrdered = order.map(l => allIx.find(x => x.label === l)).filter(Boolean)
+  const indexStrip = stripOrdered.length ? stripOrdered : allIx
+  const sectors = (indian.sectors || [])
+  const movers = indian.movers || { gainers: [], losers: [] }
+  const updatedAt = indian.updated_at
+    ? new Date(indian.updated_at).toLocaleString('en-IN', { weekday: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) + ' IST'
     : ''
 
-  // Today's term — first glossary term among today's stories.
-  let term = null
-  for (const a of list) {
-    const g = Array.isArray(a.glossary) ? a.glossary : []
-    if (g.length && (g[0].word || g[0].term)) { term = { w: g[0].word || g[0].term, m: g[0].meaning || g[0].definition }; break }
+  // Rank stories; the top one leads, the next four distinct desks fill the grid.
+  const ranked = [...(articles || [])].sort((a, b) => importanceScore(b) - importanceScore(a))
+  const top = ranked[0] || null
+  const cards = []
+  const seen = new Set(top ? [top.category] : [])
+  for (const a of ranked.slice(1)) {
+    if (cards.length >= 4) break
+    if (seen.has(a.category)) continue
+    seen.add(a.category); cards.push(a)
+  }
+  for (const a of ranked.slice(1)) {   // backfill if too few distinct desks
+    if (cards.length >= 4) break
+    if (a !== top && !cards.includes(a)) cards.push(a)
   }
 
-  // "More top stories" grouped by sector.
-  const groups = []
-  let lastCat = null
-  more.forEach(a => {
-    const c = MB_CAT[a.category] || 'Markets'
-    if (c !== lastCat) { groups.push({ cat: c, items: [] }); lastCat = c }
-    groups[groups.length - 1].items.push(a)
-  })
-
-  function share() {
-    const t = document.getElementById('fd2-toast')
-    const text = `📊 FinanceDigest morning brief\n${lead}\nfinancedigest.xyz`
-    const done = msg => { if (t) { t.textContent = msg; t.classList.add('on'); setTimeout(() => t.classList.remove('on'), 1900) } }
-    if (navigator.share) navigator.share({ title: 'FinanceDigest — Morning Brief', text }).catch(() => {})
-    else if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(() => done('Copied — paste into WhatsApp ✓')).catch(() => done('Press ⌘/Ctrl+C to copy'))
-  }
+  const dateEyebrow = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()
+  const mono = 'var(--font-mono)'
+  const display = 'var(--font-display)'
+  const secColor = p => (Number(p) >= 0 ? 'var(--up)' : 'var(--down)')
 
   return (
     <div>
-      {/* Date navigation — browse previous days (up to 30 days of history). */}
-      <div className="fd2-datenav">
-        <button className="nb" onClick={onOlder} disabled={dayOffset >= MAX_DAY_OFFSET} aria-label="Previous day">‹ Older</button>
-        <span className="d">{isToday ? 'Today' : dayLabel}</span>
-        <button className="nb" onClick={onNewer} disabled={isToday} aria-label="Next day">Newer ›</button>
-      </div>
-
-      {isToday && indices.length > 0 && (
-        <div className="fd2-ticker">
-          {indices.map((ix, k) => (
-            <div className="fd2-tk" key={k}>
-              <div className="n">{ix.label}</div>
-              <div className="v">{ix.value}</div>
-              <div className={'c ' + (ix.up ? 'fd2-up' : 'fd2-dn')}>{ix.pct}</div>
+      {/* ── Index strip ── */}
+      {indexStrip.length > 0 && (
+        <div style={{ display: 'flex', overflowX: 'auto', borderTop: '1px solid var(--border-main)', borderBottom: '1px solid var(--border-main)', margin: '0 0 6px', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
+          {indexStrip.map((ix, k) => (
+            <div key={k} style={{ flex: '1 0 auto', minWidth: isMobile ? '116px' : '0', padding: '13px 16px', borderRight: k < indexStrip.length - 1 ? '1px solid var(--border-main)' : 'none' }}>
+              <div style={{ fontFamily: mono, fontSize: '9.5px', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{ix.label}</div>
+              <div style={{ fontFamily: mono, fontWeight: 600, fontSize: '16px', marginTop: '3px', color: ix.up ? 'var(--up)' : 'var(--down)' }}>{ix.value}</div>
+              <div style={{ fontFamily: mono, fontSize: '11px', marginTop: '1px', color: ix.up ? 'var(--up)' : 'var(--down)' }}>{ix.pct}</div>
             </div>
           ))}
         </div>
       )}
-      {isToday && updatedAt && <div className="fd2-asof" style={{ marginBottom: '16px' }}>Prices as of {updatedAt} · AI-assisted</div>}
+      {updatedAt && <div style={{ fontFamily: mono, fontSize: '9.5px', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', margin: '0 0 22px' }}>Prices as of {updatedAt} · AI-assisted</div>}
 
-      <div className="fd2-zone"><span className="z-lbl">{isToday ? 'The 5-minute brief' : 'The brief'}</span><span className="z-date">{dayLabel}</span></div>
-
-      {isToday ? (
-        <div className="fd2-verdict">
-          <span className={'fd2-vtag ' + V.c}>{V.a} {V.l}</span>
-          <h2>{lead}</h2>
-          {brief && <p>{brief}</p>}
-          {watch && <div className="watch"><span className="w">Watch</span> {watch}</div>}
-          <div className="fd2-vsrc">Cross-checked across ET · Mint · Bloomberg · Reuters · CNBC</div>
-          <button className="fd2-sharebtn" onClick={share}>↗ Share this brief</button>
-        </div>
+      {/* ── Top story ── */}
+      <div style={{ fontFamily: mono, fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: top ? '14px' : '0' }}>Today · {dateEyebrow}</div>
+      {top ? (
+        <button onClick={() => setSel(top)} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: 0, cursor: 'pointer', marginBottom: '30px' }}>
+          <div style={{ fontFamily: mono, fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: '10px' }}>Top story · {MB_CAT[top.category] || 'Markets'}</div>
+          <h1 style={{ fontFamily: display, fontWeight: 800, fontSize: isMobile ? '26px' : '34px', lineHeight: 1.08, letterSpacing: '-0.02em', margin: '0 0 12px', color: 'var(--text-primary)' }}>{decodeEntities(top.headline || top.title)}</h1>
+          <p style={{ fontFamily: 'var(--font-ui)', fontSize: isMobile ? '15px' : '16.5px', lineHeight: 1.5, color: 'var(--text-secondary)', margin: '0 0 12px' }}>{mbSummary(top, 180)}</p>
+          <div style={{ fontFamily: mono, fontSize: '11px', letterSpacing: '0.02em', color: 'var(--text-muted)' }}>◷ {readMin(top)} min read · {fd2Src(top)}</div>
+        </button>
       ) : (
-        <div className="fd2-asof" style={{ border: '1px solid var(--border-main)', borderRadius: '12px', marginBottom: '4px' }}>Archive · viewing {dayLabel} — the market summary is kept for today only</div>
+        <p style={{ color: 'var(--text-muted)', fontSize: '13px', padding: '8px 2px', marginBottom: '24px' }}>{loading ? 'Loading today’s stories…' : 'Today’s stories publish by 8:30 AM IST.'}</p>
       )}
 
-      <div className="fd2-sublbl">{isToday ? '5 things to know' : 'What mattered that day'}</div>
-      <div className="fd2-fivelist">
-        {five.length
-          ? five.map((a, i) => <Fd2Story key={a.id || i} a={a} i={i + 1} onOpen={setSel} />)
-          : <p style={{ color: 'var(--text-muted)', fontSize: '13px', padding: '8px 2px' }}>{loading ? 'Loading…' : isToday ? 'Today’s brief publishes by 8:30 AM — tap ‹ Older for the latest day.' : 'No stories archived for this day.'}</p>}
-      </div>
-
-      {five.length > 0 && (
-        <div className="fd2-caughtline">
-          <span className="tick">✓</span>
-          <div><b>That&rsquo;s your 5 minutes — you&rsquo;re caught up.</b><span>Swept the morning&rsquo;s sources · nothing important missed.</span></div>
+      {/* ── Desk grid (2×2) ── */}
+      {cards.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '0 34px' }}>
+          {cards.map((a, i) => (
+            <button key={a.id || i} onClick={() => setSel(a)} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', borderTop: '1px solid var(--border-main)', padding: '16px 0 20px', cursor: 'pointer' }}>
+              <div style={{ fontFamily: mono, fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: '8px' }}>{MB_CAT[a.category] || 'Markets'}</div>
+              <h3 style={{ fontFamily: display, fontWeight: 700, fontSize: '17px', lineHeight: 1.22, letterSpacing: '-0.01em', margin: '0 0 7px', color: 'var(--text-primary)' }}>{decodeEntities(a.headline || a.title)}</h3>
+              <p style={{ fontFamily: 'var(--font-ui)', fontSize: '13.5px', lineHeight: 1.5, color: 'var(--text-secondary)', margin: '0 0 9px' }}>{mbSummary(a, 110)}</p>
+              <div style={{ fontFamily: mono, fontSize: '10px', letterSpacing: '0.02em', color: 'var(--text-muted)' }}>◷ {readMin(a)} min · {fd2Src(a)}</div>
+            </button>
+          ))}
         </div>
       )}
 
-      <div className="fd2-zone dim"><span className="z-lbl">More, if you have time</span><span className="z-date">optional</span></div>
-
-      {term && (
-        <>
-          <div className="fd2-sublbl">Today&rsquo;s term</div>
-          <div className="fd2-term"><div className="k">In today&rsquo;s news</div><div className="w">{term.w}</div><p>{term.m}</p></div>
-        </>
-      )}
-
-      {groups.length > 0 && (
-        <>
-          <div className="fd2-sublbl">More top stories</div>
-          <div>
-            {groups.map((g, gi) => (
-              <div key={gi}>
-                <div className="fd2-grplbl">{g.cat}</div>
-                {g.items.map((a, i) => <Fd2Story key={a.id || i} a={a} onOpen={setSel} />)}
+      {/* ── Sector performance ── */}
+      {sectors.length > 0 && (
+        <div style={{ marginTop: '34px' }}>
+          <div style={{ fontFamily: mono, fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', borderTop: '1px solid var(--border-main)', paddingTop: '18px', marginBottom: '16px' }}>Sector performance · Today</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px 34px' }}>
+            {sectors.map((s, i) => (
+              <div key={i}>
+                <div style={{ fontFamily: 'var(--font-ui)', fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '2px' }}>{s.name}</div>
+                <div style={{ fontFamily: mono, fontWeight: 600, fontSize: '15px', color: secColor(s.pct) }}>{Number(s.pct) >= 0 ? '+' : ''}{s.pct}%</div>
               </div>
             ))}
           </div>
-        </>
+        </div>
       )}
 
-      <button className="fd2-explore" onClick={onGoSectors}>Explore all sectors →</button>
+      {/* ── Top movers ── */}
+      {(movers.gainers?.length > 0 || movers.losers?.length > 0) && (
+        <div style={{ marginTop: '34px' }}>
+          <div style={{ fontFamily: mono, fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', borderTop: '1px solid var(--border-main)', paddingTop: '18px', marginBottom: '16px' }}>Top movers</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px 34px' }}>
+            {[{ t: 'Gainers', rows: movers.gainers || [] }, { t: 'Losers', rows: movers.losers || [] }].map((col, ci) => (
+              <div key={ci}>
+                <div style={{ fontFamily: mono, fontSize: '9.5px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '10px' }}>{col.t}</div>
+                {col.rows.length ? col.rows.map((m, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '5px 0', borderBottom: i < col.rows.length - 1 ? '1px solid var(--border-main)' : 'none' }}>
+                    <span style={{ fontFamily: mono, fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)' }}>{m.sym}</span>
+                    <span style={{ fontFamily: mono, fontSize: '12.5px', fontWeight: 600, color: secColor(m.pct) }}>{Number(m.pct) >= 0 ? '+' : ''}{m.pct}%</span>
+                  </div>
+                )) : <div style={{ fontFamily: mono, fontSize: '11px', color: 'var(--text-muted)' }}>—</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
-      {isToday && (<>
-      <div className="fd2-sublbl">Form a view</div>
-      <div className="fd2-predict">
-        <div className="ph"><span className="em">🎯</span><span className="t">Predict today&rsquo;s close</span></div>
-        {weekend ? (
-          <div className="q">Markets are closed this weekend — come back Monday to make your call.</div>
-        ) : prediction ? (
-          predCorrect === true ? (
-            <div className="done">✅ You nailed it — Nifty closed {prediction === 'up' ? 'higher' : 'lower'}. <b>+40 IQ</b> added.</div>
-          ) : predCorrect === false ? (
-            <div className="done">❌ Not this time — the Nifty went the other way. <b>−25 IQ</b>.</div>
-          ) : afterClose ? (
-            <div className="done">⏳ Settling your call — checking the Nifty close…</div>
-          ) : (
-            <div className="done">✓ Locked in — you said Nifty closes {prediction === 'up' ? 'higher' : 'lower'}. Come back after close to see if you were right.</div>
-          )
-        ) : predictOpen ? (
-          <>
-            <div className="q">Will the Nifty finish <b>higher</b> today?</div>
-            <div className="btns">
-              <button onClick={() => handlePrediction && handlePrediction('up')}>Yes, green</button>
-              <button onClick={() => handlePrediction && handlePrediction('down')}>No, red</button>
-            </div>
-            <div className="dis">Lock in before <b>12:30 PM IST</b> — not investment advice. Result after close.</div>
-          </>
-        ) : (
-          <div className="q">⏳ Predictions close at <b>12:30 PM IST</b>. Come back tomorrow before then to make your call.</div>
-        )}
-      </div>
-      </>)}
-
-      <div className="fd2-disc">AI-assisted summaries, sourced from Mint, Economic Times, Business Standard, CNBC &amp; Reuters. Not investment advice.</div>
+      <div className="fd2-disc" style={{ marginTop: '30px' }}>AI-assisted summaries, sourced from Mint, Economic Times, Business Standard, CNBC &amp; Reuters. Not investment advice.</div>
 
       <DetailReader article={sel || {}} dark={dark} open={!!sel} onClose={() => setSel(null)} />
-      <div className="fd2-toast" id="fd2-toast" />
     </div>
   )
 }
@@ -1817,7 +1784,7 @@ export default function Home() {
     try {
       if (section === 'headlines') {
         const { start, end } = istDayBounds(dayOffset)
-        const { data, error } = await Promise.race([
+        let { data, error } = await Promise.race([
           supabase
             .from('processed_articles')
             .select('*')
@@ -1829,6 +1796,18 @@ export default function Home() {
         ])
 
         if (error) throw error
+
+        // Front page should never be blank: before today's 8:30 AM run lands (or
+        // on a quiet day), fall back to the most recent stories available.
+        if (dayOffset === 0 && (!data || data.length === 0)) {
+          const fb = await Promise.race([
+            supabase.from('processed_articles').select('*')
+              .order('created_at', { ascending: false }).limit(300),
+            new Promise((_, rej) => setTimeout(() => rej(new Error('Request timed out — check your connection and retry.')), 15000)),
+          ])
+          if (fb.error) throw fb.error
+          data = fb.data
+        }
 
         const categoryLimits = {
           'indian-markets': 3,
@@ -2188,14 +2167,7 @@ export default function Home() {
           }}>
 
             {activeSection === 'headlines' ? (
-              <TodayView articles={articles} dark={dark} isMobile={isMobile}
-                prediction={prediction} predCorrect={predCorrect} handlePrediction={handlePrediction}
-                afterClose={afterClose} weekend={weekend} predictOpen={predictOpen}
-                dayOffset={dayOffset} loading={loading}
-                onOlder={() => setDayOffset(o => Math.min(MAX_DAY_OFFSET, o + 1))}
-                onNewer={() => setDayOffset(o => Math.max(0, o - 1))}
-                onGoSectors={() => handleSectionClick('sectors')}
-                onReview={(m) => { setReviewMode(m || 'week'); handleSectionClick('review') }} />
+              <TodayView articles={articles} dark={dark} isMobile={isMobile} loading={loading} />
             ) : activeSection === 'markets' ? (
               <MarketsView />
             ) : activeSection === 'sectors' ? (

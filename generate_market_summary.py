@@ -104,6 +104,48 @@ INDIA_SECTORS = {
 }
 US_SECTORS = {"Tech": "XLK", "Financials": "XLF", "Energy": "XLE", "Healthcare": "XLV"}
 
+# A liquid basket of Nifty heavyweights — top gainers/losers are computed from
+# these each day for the homepage "Top movers" panel. (NSE tickers, .NS suffix.)
+NIFTY_MOVERS = {
+    "RELIANCE": "RELIANCE.NS", "TCS": "TCS.NS", "HDFCBANK": "HDFCBANK.NS",
+    "ICICIBANK": "ICICIBANK.NS", "INFY": "INFY.NS", "SBIN": "SBIN.NS",
+    "BHARTIARTL": "BHARTIARTL.NS", "ITC": "ITC.NS", "LT": "LT.NS",
+    "AXISBANK": "AXISBANK.NS", "KOTAKBANK": "KOTAKBANK.NS", "HINDUNILVR": "HINDUNILVR.NS",
+    "BAJFINANCE": "BAJFINANCE.NS", "MARUTI": "MARUTI.NS", "ADANIENT": "ADANIENT.NS",
+    "TATASTEEL": "TATASTEEL.NS", "TATAMOTORS": "TATAMOTORS.NS", "WIPRO": "WIPRO.NS",
+    "SUNPHARMA": "SUNPHARMA.NS", "NTPC": "NTPC.NS", "ONGC": "ONGC.NS",
+    "COALINDIA": "COALINDIA.NS", "HCLTECH": "HCLTECH.NS", "TECHM": "TECHM.NS",
+    "ASIANPAINT": "ASIANPAINT.NS", "POWERGRID": "POWERGRID.NS",
+}
+
+
+def fetch_movers(tickers: dict, top: int = 4) -> dict:
+    """Top gainers & losers among a basket of liquid NSE names, from the last two
+    valid closes. One batched yfinance download (fast, fewer throttles than
+    per-symbol calls)."""
+    moves = []
+    data = None
+    try:
+        data = yf.download(list(tickers.values()), period="5d",
+                           progress=False, group_by="ticker", threads=True)
+    except Exception as e:
+        print(f"  ⚠️  movers batch download failed: {e}")
+    for name, symbol in tickers.items():
+        try:
+            closes = data[symbol]["Close"].dropna() if data is not None else None
+            if closes is None or len(closes) < 2:
+                continue
+            prev, curr = float(closes.iloc[-2]), float(closes.iloc[-1])
+            if prev <= 0:
+                continue
+            moves.append({"sym": name, "pct": round((curr - prev) / prev * 100, 2)})
+        except Exception:
+            continue
+    gainers = sorted((m for m in moves if m["pct"] > 0), key=lambda m: m["pct"], reverse=True)[:top]
+    losers  = sorted((m for m in moves if m["pct"] < 0), key=lambda m: m["pct"])[:top]
+    print(f"  ✅ movers: {len(gainers)} gainers, {len(losers)} losers from {len(moves)} names")
+    return {"gainers": gainers, "losers": losers}
+
 
 def get_recent_articles(categories: list, limit: int = 5) -> list:
     articles = []
@@ -146,6 +188,7 @@ def generate_indian_summary() -> dict:
     print("  Fetching live Indian prices...")
     prices   = fetch_prices({"Sensex": "^BSESN", "Nifty 50": "^NSEI", "Bank Nifty": "^NSEBANK"})
     sectors  = fetch_sector_moves(INDIA_SECTORS)          # REAL sector moves, not AI guesses
+    movers   = fetch_movers(NIFTY_MOVERS)                 # REAL top gainers/losers
     articles = get_recent_articles(["indian-markets", "banking-finance", "macro-policy"])
     news     = "\n".join(f"- {a['title']}: {a['simplified_article'][:180]}" for a in articles)
     today    = datetime.now().strftime("%d %B %Y")
@@ -192,6 +235,7 @@ Write a market summary. Return ONLY this JSON:
         "narrative": ai.get("narrative", ""),
         "indices":  indices,
         "sectors":  sectors,                      # REAL data
+        "movers":   movers,                       # REAL top gainers/losers
         "tiles":    ai.get("tiles", []),
         "watch":    ai.get("watch", ""),
     }
