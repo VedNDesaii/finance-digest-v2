@@ -2,7 +2,7 @@
    Finance Digest — Global Styles
    ───────────────────────────────────────────────────────────── */
 
-@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800;900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600;6..72,700;6..72,800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700;9..144,900&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
 /* ─── Theme: True Black & Cobalt ───
    Light is the bare :root; dark is [data-theme='dark'] (the app's toggle).
@@ -10,34 +10,34 @@
 
 /* ── Tokens: Light ── */
 :root {
-  --bg-page:        #FAFAFA;
+  --bg-page:        #F4F5F8;
   --bg-sidebar:     #FFFFFF;
   --bg-header:      #FFFFFF;
   --bg-card:        #FFFFFF;
-  --bg-card-hover:  #F6F6F6;
-  --bg-gist:        #F2F2F2;
-  --bg-detail:      #FAFAFA;
-  --bg-input:       #F1F1F1;
+  --bg-card-hover:  #F6F7FA;
+  --bg-gist:        #F0F2F7;
+  --bg-detail:      #F4F5F8;
+  --bg-input:       #F0F2F6;
 
-  --border-main:    #E6E6E6;
-  --border-light:   #F0F0F0;
-  --border-accent:  rgba(56, 88, 168, 0.35);
+  --border-main:    #E6E9EF;
+  --border-light:   #EFF1F5;
+  --border-accent:  rgba(30, 80, 229, 0.35);
 
-  --text-primary:   #141414;
-  --text-secondary: #3A3A3A;
-  --text-muted:     #767676;
-  --text-faint:     #A6A6A6;
+  --text-primary:   #0C0E14;
+  --text-secondary: #59616F;
+  --text-muted:     #98A0AE;
+  --text-faint:     #B8BEC9;
 
-  --accent:         #3858A8;
-  --accent-light:   #E9EDF8;
-  --accent-dark:    #2C4788;
-  --accent-text:    #2A4487;
-  --head-ink:       #5F6268;   /* muted serif gray for wordmark + editorial headlines (prototype) */
+  --accent:         #1E50E5;
+  --accent-light:   #EAF0FE;
+  --accent-dark:    #1A45C4;
+  --accent-text:    #1A45C4;
+  --head-ink:       #0C0E14;   /* dark editorial-headline ink (matches the mock) */
 
-  --up:             #0E9C6D;
-  --down:           #D62F45;
-  --up-bg:          rgba(14, 156, 109, 0.10);
-  --down-bg:        rgba(214, 47, 69, 0.10);
+  --up:             #0A9D6E;
+  --down:           #DB3C41;
+  --up-bg:          #E6F6F0;
+  --down-bg:        #FCECEC;
   --watch:          #B8791A;
   --watch-bg:       #F6ECD8;
   --neutral:        #8A857C;
@@ -58,8 +58,8 @@
   --shadow-sidebar: 1px 0 0 var(--border-main);
   --shadow-header:  0 1px 0 var(--border-main), 0 2px 12px rgba(0,0,0,0.04);
 
-  --font-display:   'Newsreader', Georgia, 'Times New Roman', serif;
-  --font-ui:        'IBM Plex Sans', system-ui, sans-serif;
+  --font-display:   'Fraunces', Georgia, serif;
+  --font-ui:        'Hanken Grotesk', system-ui, -apple-system, sans-serif;
   --font-mono:      'IBM Plex Mono', ui-monospace, monospace;
 
   --transition:     all 0.18s ease;
@@ -67,34 +67,34 @@
 
 /* ── Tokens: Dark (True Black) ── */
 [data-theme='dark'] {
-  --bg-page:        #000000;
-  --bg-sidebar:     #0A0A0A;
-  --bg-header:      #0A0A0A;
-  --bg-card:        #121212;
-  --bg-card-hover:  #1B1B1B;
-  --bg-gist:        #1B1B1B;
-  --bg-detail:      #0A0A0A;
-  --bg-input:       #1B1B1B;
+  --bg-page:        #0A0D14;
+  --bg-sidebar:     #0F141E;
+  --bg-header:      #0A0D14;
+  --bg-card:        #131924;
+  --bg-card-hover:  #1A2130;
+  --bg-gist:        #171E2B;
+  --bg-detail:      #0F141E;
+  --bg-input:       #171E2B;
 
-  --border-main:    #242424;
-  --border-light:   #1A1A1A;
-  --border-accent:  rgba(107, 138, 240, 0.30);
+  --border-main:    #232B3A;
+  --border-light:   #1E2634;
+  --border-accent:  rgba(91, 134, 255, 0.30);
 
-  --text-primary:   #F2F2F2;
-  --text-secondary: #C9C9C9;
-  --text-muted:     #8A8A8A;
-  --text-faint:     #565656;
+  --text-primary:   #EAEEF6;
+  --text-secondary: #9199A8;
+  --text-muted:     #5E6878;
+  --text-faint:     #47505F;
 
-  --accent:         #6B8AF0;
-  --accent-light:   rgba(107, 138, 240, 0.12);
-  --accent-dark:    #88A2F5;
-  --accent-text:    #9DB2F7;
-  --head-ink:       #E8E8EA;   /* bright serif ink for headlines on true-black */
+  --accent:         #5B86FF;
+  --accent-light:   rgba(91, 134, 255, 0.14);
+  --accent-dark:    #7A9CFF;
+  --accent-text:    #8FA8FF;
+  --head-ink:       #EAEEF6;   /* bright editorial-headline ink on dark */
 
-  --up:             #2FE6A7;
-  --down:           #FF5A6E;
-  --up-bg:          rgba(47, 230, 167, 0.10);
-  --down-bg:        rgba(255, 90, 110, 0.10);
+  --up:             #2ED3A0;
+  --down:           #FF5D63;
+  --up-bg:          #10251F;
+  --down-bg:        #271316;
   --watch:          #F5A623;
   --watch-bg:       #2A2010;
   --neutral:        #8A8F98;
@@ -175,7 +175,7 @@ aside {
 }
 
 /* ── Selection ── */
-::selection { background: rgba(107, 138, 240, 0.22); }
+::selection { background: rgba(91,134,255, 0.22); }
 
 /* ── Dark mode smooth transition for all elements ── */
 *, *::before, *::after {
