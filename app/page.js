@@ -968,33 +968,36 @@ function TodayView({ articles, dark, isMobile, loading }) {
 
         </div>{/* end main column */}
         <aside style={{ minWidth: 0 }}>
-      {/* ── Sector performance ── */}
+      {/* ── Sector performance (heatmap tiles) ── */}
       {sectors.length > 0 && (
-        <div style={{ marginTop: isMobile ? '34px' : '0' }}>
-          <div style={{ fontFamily: mono, fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', borderTop: '1px solid var(--border-main)', paddingTop: '18px', marginBottom: '16px' }}>Sector performance · Today</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px 34px' }}>
-            {sectors.map((s, i) => (
-              <div key={i}>
-                <div style={{ fontFamily: 'var(--font-ui)', fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '2px' }}>{s.name}</div>
-                <div style={{ fontFamily: mono, fontWeight: 600, fontSize: '15px', color: secColor(s.pct) }}>{Number(s.pct) >= 0 ? '+' : ''}{s.pct}%</div>
-              </div>
-            ))}
+        <div style={{ marginTop: isMobile ? '28px' : '0' }}>
+          <div style={{ fontFamily: mono, fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', borderTop: '1px solid var(--border-main)', paddingTop: '18px', marginBottom: '14px' }}>Sector performance · Today</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+            {sectors.map((s, i) => {
+              const p = Number(s.pct) || 0
+              return (
+                <div key={i} style={{ ...heatStyle(p), borderRadius: '10px', padding: '10px 12px' }}>
+                  <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)' }}>{s.name}</div>
+                  <div style={{ fontFamily: mono, fontWeight: 600, fontSize: '14px', color: p >= 0 ? 'var(--up)' : 'var(--down)', marginTop: '3px' }}>{p >= 0 ? '+' : ''}{p}%</div>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
 
       {/* ── Top movers ── */}
       {(movers.gainers?.length > 0 || movers.losers?.length > 0) && (
-        <div style={{ marginTop: '34px' }}>
-          <div style={{ fontFamily: mono, fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', borderTop: '1px solid var(--border-main)', paddingTop: '18px', marginBottom: '16px' }}>Top movers</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px 34px' }}>
+        <div style={{ marginTop: '28px' }}>
+          <div style={{ fontFamily: mono, fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', borderTop: '1px solid var(--border-main)', paddingTop: '18px', marginBottom: '12px' }}>Top movers</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 20px' }}>
             {[{ t: 'Gainers', rows: movers.gainers || [] }, { t: 'Losers', rows: movers.losers || [] }].map((col, ci) => (
-              <div key={ci}>
-                <div style={{ fontFamily: mono, fontSize: '9.5px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '10px' }}>{col.t}</div>
+              <div key={ci} style={{ background: 'var(--bg-gist)', border: '1px solid var(--border-main)', borderRadius: '12px', padding: '12px 13px' }}>
+                <div style={{ fontFamily: mono, fontSize: '9.5px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: col.t === 'Gainers' ? 'var(--up)' : 'var(--down)', marginBottom: '8px' }}>{col.t}</div>
                 {col.rows.length ? col.rows.map((m, i) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '5px 0', borderBottom: i < col.rows.length - 1 ? '1px solid var(--border-main)' : 'none' }}>
-                    <span style={{ fontFamily: mono, fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)' }}>{m.sym}</span>
-                    <span style={{ fontFamily: mono, fontSize: '12.5px', fontWeight: 600, color: secColor(m.pct) }}>{Number(m.pct) >= 0 ? '+' : ''}{m.pct}%</span>
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '6px 0', borderTop: i > 0 ? '1px solid var(--border-main)' : 'none' }}>
+                    <span style={{ fontFamily: mono, fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>{m.sym}</span>
+                    <span style={{ fontFamily: mono, fontSize: '12px', fontWeight: 600, color: m.pct >= 0 ? 'var(--up)' : 'var(--down)' }}>{Number(m.pct) >= 0 ? '+' : ''}{m.pct}%</span>
                   </div>
                 )) : <div style={{ fontFamily: mono, fontSize: '11px', color: 'var(--text-muted)' }}>—</div>}
               </div>
