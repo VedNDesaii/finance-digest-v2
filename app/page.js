@@ -1060,6 +1060,67 @@ function ReviewView({ mode, setMode, dark, isMobile }) {
   )
 }
 
+// ── DiscoverView ─────────────────────────────────────────────────────────────
+// One mixed feed of every desk's stories (newest first), de-duplicated, with
+// desk filter chips — the deck's "Discover: everything, filtered".
+function DiscoverView({ dark, isMobile }) {
+  const [sel, setSel] = useState(null)
+  const [rows, setRows] = useState(null)
+  const [cat, setCat] = useState('all')
+  useEffect(() => {
+    let ok = true
+    supabase.from('processed_articles').select('*')
+      .order('created_at', { ascending: false }).limit(150)
+      .then(({ data }) => { if (ok) setRows(reviewDedup([...(data || [])])) })
+      .catch(() => { if (ok) setRows([]) })
+    return () => { ok = false }
+  }, [])
+
+  const list = rows || []
+  // Build desk chips from the categories actually present, most common first.
+  const counts = {}
+  list.forEach(a => { if (a.category) counts[a.category] = (counts[a.category] || 0) + 1 })
+  const chips = [{ k: 'all', l: 'All' }, ...Object.keys(counts)
+    .sort((a, b) => counts[b] - counts[a])
+    .map(c => ({ k: c, l: MB_CAT[c] || c }))]
+  const shown = cat === 'all' ? list : list.filter(a => a.category === cat)
+
+  return (
+    <div>
+      <div className="fd2-eyebrow" style={{ marginTop: '8px' }}>Discover <span className="ln" /></div>
+      <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: isMobile ? '22px' : '26px', letterSpacing: '-0.01em', margin: '0 0 4px', color: 'var(--head-ink)', lineHeight: 1.1 }}>
+        Everything, in one feed.
+      </h2>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '13.5px', margin: '0 0 14px', lineHeight: 1.5 }}>
+        {list.length ? `${shown.length} stor${shown.length === 1 ? 'y' : 'ies'} across every desk — newest first, de-duplicated.` : 'Every desk’s stories, mixed into one feed.'}
+      </p>
+
+      {chips.length > 1 && (
+        <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px', marginBottom: '14px', scrollbarWidth: 'none' }}>
+          {chips.map(c => {
+            const on = cat === c.k
+            return (
+              <button key={c.k} onClick={() => setCat(c.k)}
+                style={{ flexShrink: 0, border: '1px solid ' + (on ? 'var(--accent)' : 'var(--border-main)'), background: on ? 'var(--accent)' : 'transparent', color: on ? '#fff' : 'var(--text-secondary)', fontFamily: 'var(--font-mono)', fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', padding: '6px 12px', borderRadius: '20px', cursor: 'pointer', whiteSpace: 'nowrap' }}>{c.l}</button>
+            )
+          })}
+        </div>
+      )}
+
+      {rows === null ? (
+        <p style={{ color: 'var(--text-muted)', fontSize: '13px', padding: '8px 2px' }}>Loading…</p>
+      ) : shown.length === 0 ? (
+        <p style={{ color: 'var(--text-muted)', fontSize: '13px', padding: '8px 2px' }}>No stories yet — this fills in as the archive builds.</p>
+      ) : (
+        <div className="fd2-fivelist">
+          {shown.map((a, i) => <Fd2Story key={a.id || i} a={a} onOpen={setSel} />)}
+        </div>
+      )}
+      <DetailReader article={sel || {}} dark={dark} open={!!sel} onClose={() => setSel(null)} />
+    </div>
+  )
+}
+
 // ── MarketsView (redesign) ──────────────────────────────────────────────────
 // The Markets tab, matched to the prototype: verdict hero + a merged
 // India/US indices list + India sector-pulse bars, all from market-data.json.
@@ -2088,16 +2149,18 @@ export default function Home() {
         </div>
       </header>
 
-      {/* ── Flat 4-tab bottom nav (Today / Markets / Review / Sectors) ──
+      {/* ── Flat 5-tab bottom nav (Today / Markets / Discover / Review / Sectors) ──
+          Discover = every desk's stories mixed into one feed.
           Week & Month live as a toggle inside Review, matching the prototype. */}
       <nav className="fd2-tabs">
         {[
-          { id: 'headlines', label: 'Today',   d: 'M3 10.5 12 4l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z' },
-          { id: 'markets',   label: 'Markets', d: 'M4 19V5M4 15l5-5 4 3 7-8' },
-          { id: 'review',    label: 'Review',  d: 'M7 3v3M17 3v3M4 8h16M5 6h14v14H5zM8 12h3M8 16h6' },
-          { id: 'sectors',   label: 'Sectors', d: 'M4 5h16M4 12h16M4 19h10' },
+          { id: 'headlines', label: 'Today',    d: 'M3 10.5 12 4l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z' },
+          { id: 'markets',   label: 'Markets',  d: 'M4 19V5M4 15l5-5 4 3 7-8' },
+          { id: 'discover',  label: 'Discover', d: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM15.5 8.5l-2 5-5 2 2-5z' },
+          { id: 'review',    label: 'Review',   d: 'M7 3v3M17 3v3M4 8h16M5 6h14v14H5zM8 12h3M8 16h6' },
+          { id: 'sectors',   label: 'Sectors',  d: 'M4 5h16M4 12h16M4 19h10' },
         ].map(t => {
-          const on = t.id === 'review' ? activeSection === 'review' : navTab === t.id
+          const on = (t.id === 'review' || t.id === 'discover') ? activeSection === t.id : navTab === t.id
           return (
             <button key={t.id} className={'fd2-tab' + (on ? ' on' : '')} onClick={() => handleSectionClick(t.id)}>
               <svg viewBox="0 0 24 24"><path d={t.d} /></svg>
@@ -2255,6 +2318,8 @@ export default function Home() {
                 onNewer={() => setDayOffset(o => Math.max(0, o - 1))} />
             ) : activeSection === 'review' ? (
               <ReviewView mode={reviewMode} setMode={setReviewMode} dark={dark} isMobile={isMobile} />
+            ) : activeSection === 'discover' ? (
+              <DiscoverView dark={dark} isMobile={isMobile} />
             ) : (
               <>
                 {secMeta ? (
