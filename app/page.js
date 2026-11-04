@@ -2157,7 +2157,6 @@ export default function Home() {
                 { id: 'markets', label: 'Markets' },
                 { id: 'discover', label: 'Discover' },
                 { id: 'review', label: 'In Review' },
-                { id: 'sectors', label: 'Sectors' },
               ].map(t => {
                 const on = (t.id === 'review' || t.id === 'discover') ? activeSection === t.id : navTab === t.id
                 return (
@@ -2182,7 +2181,6 @@ export default function Home() {
           { id: 'markets',   label: 'Markets',  d: 'M4 19V5M4 15l5-5 4 3 7-8' },
           { id: 'discover',  label: 'Discover', d: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM15.5 8.5l-2 5-5 2 2-5z' },
           { id: 'review',    label: 'Review',   d: 'M7 3v3M17 3v3M4 8h16M5 6h14v14H5zM8 12h3M8 16h6' },
-          { id: 'sectors',   label: 'Sectors',  d: 'M4 5h16M4 12h16M4 19h10' },
         ].map(t => {
           const on = (t.id === 'review' || t.id === 'discover') ? activeSection === t.id : navTab === t.id
           return (
