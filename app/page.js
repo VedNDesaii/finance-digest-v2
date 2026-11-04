@@ -936,6 +936,9 @@ function TodayView({ articles, dark, isMobile, loading }) {
       )}
       {updatedAt && <div style={{ fontFamily: mono, fontSize: '9.5px', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', margin: '0 0 22px' }}>Prices as of {updatedAt} · AI-assisted</div>}
 
+      {/* Desktop: 2-column (main stories | sidebar heat+movers). Mobile: stacked. */}
+      <div style={{ display: isMobile ? 'block' : 'grid', gridTemplateColumns: isMobile ? undefined : 'minmax(0,1.62fr) minmax(0,1fr)', gap: isMobile ? undefined : '44px', alignItems: 'start' }}>
+        <div style={{ minWidth: 0 }}>
       {/* ── Top story ── */}
       <div style={{ fontFamily: mono, fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: top ? '14px' : '0' }}>Today · {dateEyebrow}</div>
       {top ? (
@@ -963,9 +966,11 @@ function TodayView({ articles, dark, isMobile, loading }) {
         </div>
       )}
 
+        </div>{/* end main column */}
+        <aside style={{ minWidth: 0 }}>
       {/* ── Sector performance ── */}
       {sectors.length > 0 && (
-        <div style={{ marginTop: '34px' }}>
+        <div style={{ marginTop: isMobile ? '34px' : '0' }}>
           <div style={{ fontFamily: mono, fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', borderTop: '1px solid var(--border-main)', paddingTop: '18px', marginBottom: '16px' }}>Sector performance · Today</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px 34px' }}>
             {sectors.map((s, i) => (
@@ -998,6 +1003,9 @@ function TodayView({ articles, dark, isMobile, loading }) {
         </div>
       )}
 
+        </aside>{/* end sidebar */}
+      </div>{/* end 2-col */}
+
       <div className="fd2-disc" style={{ marginTop: '30px' }}>AI-assisted summaries, sourced from Mint, Economic Times, Business Standard, CNBC &amp; Reuters. Not investment advice.</div>
 
       <DetailReader article={sel || {}} dark={dark} open={!!sel} onClose={() => setSel(null)} />
@@ -1028,7 +1036,7 @@ function ReviewView({ mode, setMode, dark, isMobile }) {
   }, [mode])
 
   return (
-    <div>
+    <div style={{ maxWidth: isMobile ? '100%' : '760px' }}>
       <div className="fd2-eyebrow" style={{ marginTop: '8px' }}>In review <span className="ln" /></div>
       <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: isMobile ? '22px' : '26px', letterSpacing: '-0.02em', margin: '0 0 4px', color: 'var(--text-primary)', lineHeight: 1.1 }}>
         {mode === 'month' ? 'The month in review' : 'The week in review'}
@@ -1086,7 +1094,7 @@ function DiscoverView({ dark, isMobile }) {
   const shown = cat === 'all' ? list : list.filter(a => a.category === cat)
 
   return (
-    <div>
+    <div style={{ maxWidth: isMobile ? '100%' : '820px' }}>
       <div className="fd2-eyebrow" style={{ marginTop: '8px' }}>Discover <span className="ln" /></div>
       <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: isMobile ? '22px' : '26px', letterSpacing: '-0.01em', margin: '0 0 4px', color: 'var(--head-ink)', lineHeight: 1.1 }}>
         Everything, in one feed.
@@ -2138,10 +2146,27 @@ export default function Home() {
         <div style={{ height: '3px', background: 'linear-gradient(90deg, var(--accent), var(--accent-dark), var(--accent))' }} />
         <div style={{ padding: isMobile ? '10px 16px' : '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
           <div>
-            <h1 style={{ fontSize: isMobile ? '20px' : '24px', fontWeight: '700', color: 'var(--head-ink)', margin: '0', letterSpacing: '-0.01em', fontFamily: 'var(--font-display)', lineHeight: 1.1 }}>
+            <h1 style={{ fontSize: isMobile ? '20px' : '23px', fontWeight: '700', color: 'var(--head-ink)', margin: '0', letterSpacing: '-0.01em', fontFamily: 'var(--font-display)', lineHeight: 1.1 }}>
               Finance<span style={{ color: 'var(--accent)' }}>Digest</span>
             </h1>
           </div>
+          {!isMobile && (
+            <nav style={{ display: 'flex', gap: '2px', marginLeft: '18px', flex: 1 }}>
+              {[
+                { id: 'headlines', label: 'Home' },
+                { id: 'markets', label: 'Markets' },
+                { id: 'discover', label: 'Discover' },
+                { id: 'review', label: 'In Review' },
+                { id: 'sectors', label: 'Sectors' },
+              ].map(t => {
+                const on = (t.id === 'review' || t.id === 'discover') ? activeSection === t.id : navTab === t.id
+                return (
+                  <button key={t.id} onClick={() => handleSectionClick(t.id)}
+                    style={{ border: 'none', background: on ? 'var(--accent-light)' : 'transparent', color: on ? 'var(--accent)' : 'var(--text-secondary)', fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: '14px', padding: '7px 12px', borderRadius: '9px', cursor: 'pointer' }}>{t.label}</button>
+                )
+              })}
+            </nav>
+          )}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
             <ThemeToggle dark={dark} onToggle={toggleTheme} />
             <AccountButton dark={dark} user={user} />
@@ -2149,9 +2174,8 @@ export default function Home() {
         </div>
       </header>
 
-      {/* ── Flat 5-tab bottom nav (Today / Markets / Discover / Review / Sectors) ──
-          Discover = every desk's stories mixed into one feed.
-          Week & Month live as a toggle inside Review, matching the prototype. */}
+      {/* ── Bottom tab bar — mobile only (desktop uses the header top-nav) ── */}
+      {isMobile && (
       <nav className="fd2-tabs">
         {[
           { id: 'headlines', label: 'Today',    d: 'M3 10.5 12 4l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z' },
@@ -2169,6 +2193,7 @@ export default function Home() {
           )
         })}
       </nav>
+      )}
 
       {/* ── Overlays ── */}
       {overlay === 'markets' && (
@@ -2297,14 +2322,10 @@ export default function Home() {
       }}>
         {(
           <div style={{
-            maxWidth: isMobile ? '100%' : '600px',
+            maxWidth: isMobile ? '100%' : '1180px',
             margin: '0 auto',
-            padding: isMobile ? '16px 14px 20px' : '28px 30px 72px',
-            ...(isMobile ? {} : {
-              borderLeft: '1px solid var(--border-main)',
-              borderRight: '1px solid var(--border-main)',
-              minHeight: `calc(100vh - ${headerH}px)`,
-            }),
+            padding: isMobile ? '16px 14px 20px' : '26px 24px 72px',
+            ...(isMobile ? {} : { minHeight: `calc(100vh - ${headerH}px)` }),
           }}>
 
             {activeSection === 'headlines' ? (
