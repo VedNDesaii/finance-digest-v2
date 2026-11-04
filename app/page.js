@@ -896,20 +896,13 @@ function TodayView({ articles, dark, isMobile, loading }) {
     ? new Date(indian.updated_at).toLocaleString('en-IN', { weekday: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) + ' IST'
     : ''
 
-  // Rank stories; the top one leads, the next four distinct desks fill the grid.
+  // The front page opens with the top 5 stories by importance (market impact +
+  // brand value), de-duplicated so the same event/company never repeats — the
+  // same ranking + dedup rule used across the app. #1 leads; #2–5 fill the grid.
   const ranked = [...(articles || [])].sort((a, b) => importanceScore(b) - importanceScore(a))
-  const top = ranked[0] || null
-  const cards = []
-  const seen = new Set(top ? [top.category] : [])
-  for (const a of ranked.slice(1)) {
-    if (cards.length >= 4) break
-    if (seen.has(a.category)) continue
-    seen.add(a.category); cards.push(a)
-  }
-  for (const a of ranked.slice(1)) {   // backfill if too few distinct desks
-    if (cards.length >= 4) break
-    if (a !== top && !cards.includes(a)) cards.push(a)
-  }
+  const topFive = reviewDedup(ranked).slice(0, 5)
+  const top = topFive[0] || null
+  const cards = topFive.slice(1, 5)
 
   const dateEyebrow = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()
   const mono = 'var(--font-mono)'
