@@ -1063,7 +1063,63 @@ function ReviewView({ mode, setMode, dark, isMobile }) {
 // ── MarketsView (redesign) ──────────────────────────────────────────────────
 // The Markets tab, matched to the prototype: verdict hero + a merged
 // India/US indices list + India sector-pulse bars, all from market-data.json.
-function MarketsView() {
+// ── Market-dashboard graphs (matched to the design deck) ─────────────────────
+// Deterministic intraday-style wiggle when the pipeline hasn't supplied a real
+// series yet, so the cards always render a chart.
+function synthSpark(up, n = 26) {
+  const a = []; let v = 50
+  for (let i = 0; i < n; i++) { v += Math.sin(i * 0.85) * 1.6 + Math.cos(i * 0.37) * 0.9 + (up ? 0.9 : -0.9); a.push(v) }
+  return a
+}
+function sparkGeom(pts, w, h, pad = 4) {
+  const min = Math.min(...pts), max = Math.max(...pts), span = (max - min) || 1
+  const X = i => (i / (pts.length - 1)) * w
+  const Y = v => h - pad - ((v - min) / span) * (h - pad * 2)
+  const line = pts.map((v, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)} ${Y(v).toFixed(1)}`).join(' ')
+  return { line, area: `${line} L${w.toFixed(1)} ${h} L0 ${h} Z`, ex: X(pts.length - 1), ey: Y(pts[pts.length - 1]) }
+}
+function IdxSpark({ series, up, gid, w = 260, h = 68 }) {
+  const pts = (Array.isArray(series) && series.length > 2) ? series.map(Number) : synthSpark(up)
+  const col = up ? 'var(--up)' : 'var(--down)'
+  const g = sparkGeom(pts, w, h)
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ width: '100%', height: h, display: 'block' }} aria-hidden="true">
+      <defs><linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor={col} stopOpacity="0.30" /><stop offset="100%" stopColor={col} stopOpacity="0" />
+      </linearGradient></defs>
+      <path d={g.area} fill={`url(#${gid})`} />
+      <path d={g.line} fill="none" stroke={col} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+      <circle cx={g.ex} cy={g.ey} r="3" fill={col} />
+    </svg>
+  )
+}
+function heatStyle(p) {
+  const v = Number(p) || 0
+  const a = Math.min(0.62, 0.14 + Math.abs(v) / 2.2 * 0.46)
+  return { background: `rgba(${v >= 0 ? '14,156,109' : '214,47,69'}, ${a.toFixed(2)})` }
+}
+function SentimentDonut({ score, label }) {
+  const s = Math.max(0, Math.min(100, Math.round(score)))
+  const R = 54, SW = 13, C = 2 * Math.PI * R, gap = 4
+  const green = (s / 100) * (C - gap * 2), red = ((100 - s) / 100) * (C - gap * 2)
+  return (
+    <div style={{ position: 'relative', width: '134px', height: '134px', flexShrink: 0 }}>
+      <svg viewBox="0 0 134 134" style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }} aria-hidden="true">
+        <circle cx="67" cy="67" r={R} fill="none" stroke="var(--bg-gist)" strokeWidth={SW} />
+        <circle cx="67" cy="67" r={R} fill="none" stroke="var(--up)" strokeWidth={SW} strokeLinecap="round" strokeDasharray={`${green.toFixed(1)} ${(C - green).toFixed(1)}`} strokeDashoffset={-gap} />
+        <circle cx="67" cy="67" r={R} fill="none" stroke="var(--down)" strokeWidth={SW} strokeLinecap="round" strokeDasharray={`${red.toFixed(1)} ${(C - red).toFixed(1)}`} strokeDashoffset={-(green + gap * 2)} />
+      </svg>
+      <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '32px', color: 'var(--head-ink)', lineHeight: 1 }}>{s}</div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', marginTop: '3px' }}>{label}</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function MarketsView({ isMobile }) {
   const [j, setJ] = useState(null)
   useEffect(() => {
     let ok = true
@@ -1073,6 +1129,7 @@ function MarketsView() {
   const ind = (j && j.indian) || {}
   const us = (j && j.us) || {}
   const indices = [...((ind.indices) || []), ...((us.indices) || [])]
+  const cards = (ind.indices || []).slice(0, 3)   // Nifty / Sensex / Bank Nifty, with intraday charts
   const sectors = (ind.sectors) || []
   const verdict = ind.verdict || 'mixed'
   const V = verdict === 'up' ? { c: 'up', a: '▲', l: 'Up day' }
@@ -1084,10 +1141,72 @@ function MarketsView() {
   const why = Array.isArray(ind.why) ? ind.why : []
   const narrative = ind.narrative || ''
   const tiles = Array.isArray(ind.tiles) ? ind.tiles : []
-  const mx = Math.max(1, ...sectors.map(s => Math.abs(Number(s.pct) || 0)))
+  // Market sentiment: prefer a pipeline value, else breadth = share of sectors advancing.
+  const upCt = sectors.filter(s => Number(s.pct) >= 0).length
+  const senti = ind.sentiment || {}
+  const sScore = Number.isFinite(senti.score) ? senti.score : (sectors.length ? Math.round(100 * upCt / sectors.length) : 50)
+  const sLabel = senti.label || (sScore >= 60 ? 'Bullish' : sScore <= 40 ? 'Bearish' : 'Neutral')
+  const sMood = sScore >= 60 ? 'leaning greed' : sScore <= 40 ? 'leaning fear' : 'balanced'
+
   return (
     <div>
-      <div className="fd2-eyebrow" style={{ marginTop: '8px' }}>Indian markets · latest close <span className="ln" /></div>
+      <div className="fd2-eyebrow" style={{ marginTop: '8px' }}>Market dashboard · latest close <span className="ln" /></div>
+
+      {/* Index cards with intraday area charts */}
+      {cards.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: '12px', marginBottom: '6px' }}>
+          {cards.map((m, i) => (
+            <div key={i} style={{ border: '1px solid var(--border-main)', borderRadius: '14px', padding: '14px 14px 6px', background: 'var(--bg-card)' }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9.5px', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{m.label}</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, fontSize: '23px', letterSpacing: '-0.01em', color: 'var(--head-ink)', marginTop: '4px' }}>{m.value}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '2px' }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: m.up ? 'var(--up)' : 'var(--down)' }}>{m.pct}</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>intraday</span>
+              </div>
+              <div style={{ marginTop: '6px' }}><IdxSpark series={m.spark} up={!!m.up} gid={'spk' + i} /></div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="fd2-eyebrow">Indices <span className="ln" /></div>
+      <div>
+        {indices.map((m, i) => (
+          <div className="fd2-mrow" key={i}>
+            <div className="nm">{m.label}</div>
+            <div className="px"><div className="p">{m.value}</div><div className={'c ' + (m.up ? 'fd2-up' : 'fd2-dn')}>{m.pct}</div></div>
+          </div>
+        ))}
+      </div>
+
+      {sectors.length > 0 && (
+        <>
+          <div className="fd2-eyebrow">Sector heatmap <span className="ln" /></div>
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${isMobile ? 2 : 4}, 1fr)`, gap: '8px' }}>
+            {sectors.map((s, i) => {
+              const p = Number(s.pct) || 0
+              return (
+                <div key={i} style={{ ...heatStyle(p), borderRadius: '10px', padding: '11px 12px' }}>
+                  <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)' }}>{s.name}</div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, fontSize: '13.5px', color: p >= 0 ? 'var(--up)' : 'var(--down)', marginTop: '3px' }}>{p >= 0 ? '+' : ''}{p}%</div>
+                </div>
+              )
+            })}
+          </div>
+
+          <div className="fd2-eyebrow">Market sentiment <span className="ln" /></div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', padding: '4px 2px 6px', flexWrap: 'wrap' }}>
+            <SentimentDonut score={sScore} label={sLabel} />
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', lineHeight: 1.9 }}>
+              <div><span style={{ color: 'var(--up)' }}>■</span> <span style={{ color: 'var(--text-secondary)' }}>Advancing sectors</span></div>
+              <div><span style={{ color: 'var(--down)' }}>■</span> <span style={{ color: 'var(--text-secondary)' }}>Declining sectors</span></div>
+              <div style={{ marginTop: '6px', color: 'var(--text-muted)' }}>{sScore}% advancing · {sMood}</div>
+            </div>
+          </div>
+        </>
+      )}
+
+      <div className="fd2-eyebrow">The verdict <span className="ln" /></div>
       <div className="fd2-verdict">
         <span className={'fd2-vtag ' + V.c}>{V.a} {V.l}</span>
         <h2>{lead}</h2>
@@ -1105,37 +1224,6 @@ function MarketsView() {
                 <p style={{ margin: 0, fontSize: '14.5px', lineHeight: 1.55, color: 'var(--text-primary)' }}>{r}</p>
               </div>
             ))}
-          </div>
-        </>
-      )}
-
-      <div className="fd2-eyebrow">Indices <span className="ln" /></div>
-      <div>
-        {indices.map((m, i) => (
-          <div className="fd2-mrow" key={i}>
-            <div className="nm">{m.label}</div>
-            <div className="px"><div className="p">{m.value}</div><div className={'c ' + (m.up ? 'fd2-up' : 'fd2-dn')}>{m.pct}</div></div>
-          </div>
-        ))}
-      </div>
-
-      {sectors.length > 0 && (
-        <>
-          <div className="fd2-eyebrow">Sector pulse <span className="ln" /></div>
-          <div>
-            {sectors.map((s, i) => {
-              const p = Number(s.pct) || 0, up = p >= 0, w = Math.max(6, Math.abs(p) / mx * 50)
-              return (
-                <div className="fd2-sect" key={i}>
-                  <div className="nm">{s.name}</div>
-                  <div className="track">
-                    <i style={{ [up ? 'left' : 'right']: '50%', width: w + '%', background: up ? 'var(--up)' : 'var(--down)' }} />
-                    <span style={{ position: 'absolute', left: '50%', top: '-2px', bottom: '-2px', width: '1px', background: 'var(--border-main)' }} />
-                  </div>
-                  <div className={'pct ' + (up ? 'fd2-up' : 'fd2-dn')}>{up ? '+' : ''}{p}%</div>
-                </div>
-              )
-            })}
           </div>
         </>
       )}
@@ -2159,7 +2247,7 @@ export default function Home() {
             {activeSection === 'headlines' ? (
               <TodayView articles={articles} dark={dark} isMobile={isMobile} loading={loading} />
             ) : activeSection === 'markets' ? (
-              <MarketsView />
+              <MarketsView isMobile={isMobile} />
             ) : activeSection === 'sectors' ? (
               <SectorsView onOpenSector={(id) => handleSectionClick(id)}
                 dayOffset={dayOffset}

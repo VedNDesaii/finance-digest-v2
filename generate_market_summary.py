@@ -90,6 +90,29 @@ def fetch_sector_moves(tickers: dict) -> list:
     return out
 
 
+def fetch_intraday(symbol: str, points: int = 28) -> list:
+    """A compact intraday close series for the index-card area charts. Falls back
+    to a 7-day daily trend when intraday is unavailable (holiday/off-hours)."""
+    closes = []
+    try:
+        hist = yf.Ticker(symbol).history(period="1d", interval="15m")
+        if hist is not None and not hist.empty:
+            closes = hist["Close"].dropna().tolist()
+    except Exception:
+        closes = []
+    if len(closes) < 3:
+        try:
+            h2 = yf.Ticker(symbol).history(period="7d")
+            if h2 is not None and not h2.empty:
+                closes = h2["Close"].dropna().tolist()
+        except Exception:
+            closes = []
+    if len(closes) > points:                      # downsample to ~points
+        step = len(closes) / points
+        closes = [closes[min(len(closes) - 1, int(i * step))] for i in range(points)]
+    return [round(float(c), 2) for c in closes]
+
+
 def compute_verdict(indices: list) -> str:
     """up / down / mixed, from how many indices closed higher."""
     ups = sum(1 for i in indices if i.get("up"))
@@ -202,6 +225,17 @@ def generate_indian_summary() -> dict:
         {"label": "Bank Nifty", "value": b.get("value"), "change": b.get("change"), "pct": b.get("pct"), "up": b.get("up", True)},
     ]
     verdict = compute_verdict(indices)
+    # Intraday area-chart series for the dashboard index cards.
+    spark_syms = {"Sensex": "^BSESN", "Nifty 50": "^NSEI", "Bank Nifty": "^NSEBANK"}
+    for idx in indices:
+        sym = spark_syms.get(idx["label"])
+        if sym:
+            idx["spark"] = fetch_intraday(sym)
+    # Market-sentiment breadth: share of sectors advancing.
+    up_sec = sum(1 for x in sectors if x.get("pct", 0) >= 0)
+    s_score = round(100 * up_sec / len(sectors)) if sectors else 50
+    s_label = "Bullish" if s_score >= 60 else "Bearish" if s_score <= 40 else "Neutral"
+    sentiment = {"score": s_score, "label": s_label}
     sector_txt = ", ".join(f"{x['name']} {x['pct']:+.1f}%" for x in sectors) or "n/a"
 
     prompt = f"""Today is {today}. The Indian market had an overall "{verdict}" day.
@@ -236,6 +270,7 @@ Write a market summary. Return ONLY this JSON:
         "indices":  indices,
         "sectors":  sectors,                      # REAL data
         "movers":   movers,                       # REAL top gainers/losers
+        "sentiment": sentiment,                   # breadth gauge
         "tiles":    ai.get("tiles", []),
         "watch":    ai.get("watch", ""),
     }
