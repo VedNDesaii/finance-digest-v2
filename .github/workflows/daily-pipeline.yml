@@ -79,3 +79,15 @@ jobs:
           done
           echo "❌ could not push data files after 5 attempts"
           exit 1
+
+      # ── Keep this scheduled workflow permanently alive ──
+      # GitHub auto-disables a cron schedule after 60 days when only automated
+      # (bot) commits have landed — and once disabled it STAYS disabled until a
+      # human re-enables it, which is what silently stops the daily update. This
+      # step registers real repository activity on every scheduled run, so the
+      # 60-day timer never elapses and the schedule can't be auto-disabled.
+      # It runs only on scheduled runs and can never fail the pipeline.
+      - name: Keep workflow alive
+        if: github.event_name == 'schedule'
+        continue-on-error: true
+        uses: gautamkrishnar/keepalive-workflow@v2
