@@ -32,6 +32,7 @@
   --accent-light:   #E9EDF8;
   --accent-dark:    #2C4788;
   --accent-text:    #2A4487;
+  --head-ink:       #5F6268;   /* muted serif gray for wordmark + editorial headlines (prototype) */
 
   --up:             #0E9C6D;
   --down:           #D62F45;
@@ -88,6 +89,7 @@
   --accent-light:   rgba(107, 138, 240, 0.12);
   --accent-dark:    #88A2F5;
   --accent-text:    #9DB2F7;
+  --head-ink:       #E8E8EA;   /* bright serif ink for headlines on true-black */
 
   --up:             #2FE6A7;
   --down:           #FF5A6E;

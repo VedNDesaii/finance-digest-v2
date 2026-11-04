@@ -870,6 +870,17 @@ function readMin(a) {
   return Math.max(2, Math.min(9, Math.round(w / 180) || 2))
 }
 
+// Mimic the prototype's blue inline links: colour the key figures and notable
+// terms inside a dek accent-blue. One capturing group → split() interleaves the
+// matches at odd indices.
+const DEK_HILITE = /(₹\s?[\d,]+(?:\.\d+)?\s?(?:lakh crore|crore|lakh|cr|bn|billion|trillion)?|\$\s?[\d,]+(?:\.\d+)?\s?(?:trillion|billion|bn|tn|million|m)?|\d+(?:\.\d+)?\s?%|record high|all-time high|\brecord\b|\bIPO\b)/gi
+function hiliteDek(text) {
+  if (!text) return text
+  return String(text).split(DEK_HILITE).map((p, i) => (i % 2 === 1)
+    ? <span key={i} style={{ color: 'var(--accent)', fontWeight: 500 }}>{p}</span>
+    : p)
+}
+
 // ── TodayView (editorial homepage) ───────────────────────────────────────────
 // Newspaper-style front page matched to the prototype: full index strip,
 // a lead Top Story, a 2×2 desk grid, sector performance, and top movers.
@@ -930,8 +941,8 @@ function TodayView({ articles, dark, isMobile, loading }) {
       {top ? (
         <button onClick={() => setSel(top)} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: 0, cursor: 'pointer', marginBottom: '30px' }}>
           <div style={{ fontFamily: mono, fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: '10px' }}>Top story · {MB_CAT[top.category] || 'Markets'}</div>
-          <h1 style={{ fontFamily: display, fontWeight: 800, fontSize: isMobile ? '26px' : '34px', lineHeight: 1.08, letterSpacing: '-0.02em', margin: '0 0 12px', color: 'var(--text-primary)' }}>{decodeEntities(top.headline || top.title)}</h1>
-          <p style={{ fontFamily: 'var(--font-ui)', fontSize: isMobile ? '15px' : '16.5px', lineHeight: 1.5, color: 'var(--text-secondary)', margin: '0 0 12px' }}>{mbSummary(top, 180)}</p>
+          <h1 style={{ fontFamily: display, fontWeight: 700, fontSize: isMobile ? '27px' : '35px', lineHeight: 1.1, letterSpacing: '-0.01em', margin: '0 0 12px', color: 'var(--head-ink)' }}>{decodeEntities(top.headline || top.title)}</h1>
+          <p style={{ fontFamily: 'var(--font-ui)', fontSize: isMobile ? '15px' : '16.5px', lineHeight: 1.5, color: 'var(--text-secondary)', margin: '0 0 12px' }}>{hiliteDek(mbSummary(top, 180))}</p>
           <div style={{ fontFamily: mono, fontSize: '11px', letterSpacing: '0.02em', color: 'var(--text-muted)' }}>◷ {readMin(top)} min read · {fd2Src(top)}</div>
         </button>
       ) : (
@@ -944,8 +955,8 @@ function TodayView({ articles, dark, isMobile, loading }) {
           {cards.map((a, i) => (
             <button key={a.id || i} onClick={() => setSel(a)} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', borderTop: '1px solid var(--border-main)', padding: '16px 0 20px', cursor: 'pointer' }}>
               <div style={{ fontFamily: mono, fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: '8px' }}>{MB_CAT[a.category] || 'Markets'}</div>
-              <h3 style={{ fontFamily: display, fontWeight: 700, fontSize: '17px', lineHeight: 1.22, letterSpacing: '-0.01em', margin: '0 0 7px', color: 'var(--text-primary)' }}>{decodeEntities(a.headline || a.title)}</h3>
-              <p style={{ fontFamily: 'var(--font-ui)', fontSize: '13.5px', lineHeight: 1.5, color: 'var(--text-secondary)', margin: '0 0 9px' }}>{mbSummary(a, 110)}</p>
+              <h3 style={{ fontFamily: display, fontWeight: 600, fontSize: '18px', lineHeight: 1.24, letterSpacing: '-0.005em', margin: '0 0 7px', color: 'var(--head-ink)' }}>{decodeEntities(a.headline || a.title)}</h3>
+              <p style={{ fontFamily: 'var(--font-ui)', fontSize: '13.5px', lineHeight: 1.5, color: 'var(--text-secondary)', margin: '0 0 9px' }}>{hiliteDek(mbSummary(a, 110))}</p>
               <div style={{ fontFamily: mono, fontSize: '10px', letterSpacing: '0.02em', color: 'var(--text-muted)' }}>◷ {readMin(a)} min · {fd2Src(a)}</div>
             </button>
           ))}
@@ -1508,7 +1519,7 @@ export default function Home() {
   const [reviewMode, setReviewMode] = useState('week')  // 'week' | 'month' for the In-review view
   const [currentIndex, setCurrentIndex]   = useState(0)
   const [fetchError, setFetchError]       = useState(null)
-  const [dark, setDark]                   = useState(true)  // True Black default
+  const [dark, setDark]                   = useState(false)  // Light default (matches the editorial prototype)
   const [showTutorial, setShowTutorial]   = useState(false)
   const [isMobile, setIsMobile]           = useState(false)
   const [sectionCounts, setSectionCounts] = useState({})
@@ -1718,7 +1729,7 @@ export default function Home() {
 
   useEffect(() => {
     const saved = safeLS.getItem('fd-theme')
-    if (saved === 'light') setDark(false)
+    if (saved === 'dark') setDark(true)
   }, [])
 
   // One-time "what's new" tutorial — shows once, then never again.
@@ -1978,25 +1989,11 @@ export default function Home() {
         <div style={{ height: '3px', background: 'linear-gradient(90deg, var(--accent), var(--accent-dark), var(--accent))' }} />
         <div style={{ padding: isMobile ? '10px 16px' : '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
           <div>
-            <h1 style={{ fontSize: isMobile ? '18px' : '22px', fontWeight: '700', color: 'var(--text-primary)', margin: '0', letterSpacing: '-0.03em', fontFamily: 'var(--font-display)', lineHeight: 1.1 }}>
-              Finance <span style={{ color: 'var(--accent)' }}>Digest</span>
+            <h1 style={{ fontSize: isMobile ? '20px' : '24px', fontWeight: '700', color: 'var(--head-ink)', margin: '0', letterSpacing: '-0.01em', fontFamily: 'var(--font-display)', lineHeight: 1.1 }}>
+              Finance<span style={{ color: 'var(--accent)' }}>Digest</span>
             </h1>
-            <div title={`Finance IQ: ${iqScore}`} style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '3px' }}>
-              <span style={{ fontSize: '12px', lineHeight: 1 }}>{rank.emoji}</span>
-              <span style={{ fontSize: isMobile ? '10.5px' : '11px', fontWeight: 700, color: rank.color, letterSpacing: '0.02em', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>{rank.title}</span>
-            </div>
-            {!isMobile && (
-              <p style={{ fontSize: '10px', color: 'var(--text-muted)', margin: '2px 0 0', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
-                {today}{activeSectionLabel && <span style={{ color: 'var(--accent)', marginLeft: '6px' }}>· {activeSectionLabel}</span>}
-              </p>
-            )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-            <IndexChip label="SENSEX" data={indices.sensex} dark={dark} />
-            <IndexChip label="NIFTY" data={indices.nifty} dark={dark} />
-            <IQChip iq={iqScore} dark={dark} />
-            <button onClick={() => setShowRanks(true)} aria-label="Ranks" title="See ranks & how they work"
-              style={{ width: '34px', height: '34px', borderRadius: '10px', border: '1px solid var(--border-main)', background: 'var(--bg-card)', cursor: 'pointer', fontSize: '16px', lineHeight: 1, display: 'grid', placeItems: 'center', flexShrink: 0 }}>🏆</button>
             <ThemeToggle dark={dark} onToggle={toggleTheme} />
             <AccountButton dark={dark} user={user} />
           </div>
