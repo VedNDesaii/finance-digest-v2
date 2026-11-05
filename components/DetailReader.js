@@ -121,24 +121,17 @@ export default function DetailReader({ article, dark, open, onClose }) {
 
           {picture && (
             <div className="fd2-blk">
-              <div className="bh">What happened</div>
-              {fmtDetailed(picture).slice(0, 1).map((b, i) => (
-                <p key={i}>{b.body}</p>
+              <div className="bh">The full picture</div>
+              {fmtDetailed(picture).slice(0, 2).map((b, i) => (
+                <p key={i}>{b.label && <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{b.label}. </strong>}{b.body}</p>
               ))}
             </div>
           )}
 
-          {why && (
-            <blockquote style={{ margin: '22px 0', padding: '4px 0 4px 16px', borderLeft: '3px solid var(--accent)', fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: '18px', lineHeight: 1.35, color: 'var(--text-primary)' }}>
-              {why}
-            </blockquote>
-          )}
-
-          {(impact || means || impactBars.length > 0) && (
+          {(impact || impactBars.length > 0) && (
             <div className="fd2-blk">
-              <div className="bh">Why it matters {impact && <span className="impact" style={{ color: impColor, background: impBg }}>{s.lbl}</span>}</div>
+              <div className="bh">Market impact {impact && <span className="impact" style={{ color: impColor, background: impBg }}>{s.lbl}</span>}</div>
               {impact && impact.split(/\n\n+/).filter(Boolean).map((p, i) => <p key={'imp' + i}>{p}</p>)}
-              {means && <p>{means}</p>}
               {impactBars.length > 0 && (
                 <div style={{ margin: '16px 0 2px', display: 'grid', gap: '9px' }}>
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9.5px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '1px' }}>Who this moves</div>
@@ -161,6 +154,13 @@ export default function DetailReader({ article, dark, open, onClose }) {
                   })}
                 </div>
               )}
+            </div>
+          )}
+
+          {means && (
+            <div className="fd2-blk">
+              <div className="bh">Why it matters</div>
+              {means.split(/\n\n+/).filter(Boolean).map((p, i) => <p key={'why' + i}>{p}</p>)}
             </div>
           )}
 
