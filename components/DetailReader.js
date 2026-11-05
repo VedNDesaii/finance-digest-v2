@@ -36,6 +36,7 @@ function fmtDetailed(raw) {
 
 export default function DetailReader({ article, dark, open, onClose }) {
   const [mounted, setMounted] = useState(false)
+  const [showHow, setShowHow] = useState(false)   // "How it works" is collapsed by default to keep the read short
   useEffect(() => setMounted(true), [])
   useEffect(() => {
     if (!open) return
@@ -120,21 +121,10 @@ export default function DetailReader({ article, dark, open, onClose }) {
 
           {picture && (
             <div className="fd2-blk">
-              <div className="bh">The full picture</div>
-              {fmtDetailed(picture).map((b, i) => (
+              <div className="bh">What happened</div>
+              {fmtDetailed(picture).slice(0, 2).map((b, i) => (
                 <p key={i}>{b.label && <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{b.label}. </strong>}{b.body}</p>
               ))}
-            </div>
-          )}
-
-          {howItWorks.length > 0 && (
-            <div className="fd2-how">
-              <div className="bh">How it works</div>
-              <ol>
-                {howItWorks.map((step, i) => (
-                  <li key={i}><span className="n">{i + 1}</span><p>{decodeEntities(typeof step === 'string' ? step : (step.text || step.step || ''))}</p></li>
-                ))}
-              </ol>
             </div>
           )}
 
@@ -170,6 +160,22 @@ export default function DetailReader({ article, dark, open, onClose }) {
                     )
                   })}
                 </div>
+              )}
+            </div>
+          )}
+
+          {howItWorks.length > 0 && (
+            <div className="fd2-how" style={{ marginTop: '4px' }}>
+              <button onClick={() => setShowHow(v => !v)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
+                <span className="bh" style={{ marginBottom: 0 }}>How it works</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 600, color: 'var(--accent)' }}>{showHow ? 'Hide ▲' : `Show ${howItWorks.length} steps ▾`}</span>
+              </button>
+              {showHow && (
+                <ol style={{ marginTop: '12px' }}>
+                  {howItWorks.map((step, i) => (
+                    <li key={i}><span className="n">{i + 1}</span><p>{decodeEntities(typeof step === 'string' ? step : (step.text || step.step || ''))}</p></li>
+                  ))}
+                </ol>
               )}
             </div>
           )}
