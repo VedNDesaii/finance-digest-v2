@@ -122,8 +122,8 @@ export default function DetailReader({ article, dark, open, onClose }) {
           {picture && (
             <div className="fd2-blk">
               <div className="bh">What happened</div>
-              {fmtDetailed(picture).slice(0, 2).map((b, i) => (
-                <p key={i}>{b.label && <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{b.label}. </strong>}{b.body}</p>
+              {fmtDetailed(picture).slice(0, 1).map((b, i) => (
+                <p key={i}>{b.body}</p>
               ))}
             </div>
           )}
