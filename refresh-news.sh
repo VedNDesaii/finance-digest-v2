@@ -26,7 +26,7 @@ echo "══ 0/3  connectivity check ══"
 import os, sys
 from dotenv import load_dotenv
 from supabase import create_client
-load_dotenv(override=True)
+load_dotenv(".env", override=True)   # explicit path: find_dotenv() can't walk the stack from `python -`
 try:
     sb = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
     sb.table("raw_articles").select("id").limit(1).execute()

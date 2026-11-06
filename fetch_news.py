@@ -446,7 +446,14 @@ def fetch_articles():
                 saved_this_feed += 1
 
             except Exception as e:
-                print(f"  ❌ ERROR: {e}")
+                msg = str(e)
+                # A duplicate link just means another feed already carried this
+                # story — that's the de-dup working, not an error. Skip it quietly
+                # and remember the link so later feeds don't retry it.
+                if "23505" in msg or "duplicate key" in msg:
+                    existing_links.add(link)
+                else:
+                    print(f"  ❌ ERROR: {e}")
 
         print(f"  📊 Saved {saved_this_feed} from this feed")
 
