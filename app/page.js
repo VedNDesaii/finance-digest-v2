@@ -16,6 +16,22 @@ const MyPortfolio = dynamic(() => import('../components/MyPortfolio'), {
   loading: () => null,
 })
 
+// Market data — read the LIVE Supabase row first (updated by the pipeline with
+// no git push / deploy), and fall back to the committed static file if that
+// table isn't there yet. This is why a fresh market summary shows up instantly.
+async function fetchMarketData() {
+  try {
+    const { data, error } = await supabase
+      .from('market_data').select('data').eq('id', 'latest').maybeSingle()
+    if (!error && data && data.data) return data.data
+  } catch { /* fall back below */ }
+  try {
+    const r = await fetch('/market-data.json', { cache: 'no-store' })
+    if (r.ok) return await r.json()
+  } catch { /* give up */ }
+  return null
+}
+
 // Safe storage — in-app browsers (Instagram, etc.) can block localStorage and
 // throw on access. An unguarded throw in a mount effect collapses the page,
 // which is why the site failed to load in Instagram's Android browser.
@@ -563,9 +579,8 @@ function MarketSummaryCard({ market, dark, isMobile }) {
     async function fetchSummary() {
       setLoading(true)
       try {
-        const res = await fetch('/market-data.json', { cache: 'no-store' })
-        const json = await res.json()
-        const data = isIndia ? json.indian : json.us
+        const json = await fetchMarketData()
+        const data = json && (isIndia ? json.indian : json.us)
         if (data && Object.keys(data).length > 0) setSummaryData(data)
       } catch (e) {
         console.error('Market summary fetch failed', e)
@@ -889,8 +904,7 @@ function TodayView({ articles, dark, isMobile, loading }) {
   const [j, setJ] = useState(null)
   useEffect(() => {
     let ok = true
-    fetch('/market-data.json', { cache: 'no-store' })
-      .then(r => r.json()).then(d => { if (ok) setJ(d) }).catch(() => {})
+    fetchMarketData().then(d => { if (ok && d) setJ(d) }).catch(() => {})
     return () => { ok = false }
   }, [])
 
@@ -1195,7 +1209,7 @@ function MarketsView({ isMobile }) {
   const [j, setJ] = useState(null)
   useEffect(() => {
     let ok = true
-    fetch('/market-data.json', { cache: 'no-store' }).then(r => r.json()).then(d => { if (ok) setJ(d) }).catch(() => {})
+    fetchMarketData().then(d => { if (ok && d) setJ(d) }).catch(() => {})
     return () => { ok = false }
   }, [])
   const ind = (j && j.indian) || {}
@@ -1782,8 +1796,7 @@ export default function Home() {
       let mdNifty = null      // today's market-data snapshot direction (may be intraday)
       let mdPostClose = false // true only if that snapshot was taken at/after 15:30
       try {
-        const r = await fetch('/market-data.json', { cache: 'no-store' })
-        const d = await r.json()
+        const d = await fetchMarketData()
         const upd = d?.indian?.updated_at || d?.updated_at
         if (upd && istDay(upd) === istToday) {
           const n = (d?.indian?.indices || []).find(x => /nifty\s*50/i.test(x.label || ''))

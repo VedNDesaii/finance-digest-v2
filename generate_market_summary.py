@@ -383,6 +383,16 @@ def save_to_json(indian: dict, us: dict):
     with open("public/market-data.json", "w") as f:
         json.dump(payload, f)
     print("  ✅ Saved to public/market-data.json")
+    # Publish LIVE to Supabase so the website updates instantly — no git push,
+    # no Vercel deploy. The frontend reads this row first (static file is a
+    # fallback). This is the permanent fix for "market summary not updating".
+    try:
+        supabase.table("market_data").upsert({
+            "id": "latest", "data": payload, "updated_at": now,
+        }).execute()
+        print("  ✅ Published live to Supabase (market_data) — site updates now")
+    except Exception as e:
+        print(f"  ⚠️  Live publish skipped — create the market_data table (see README): {str(e)[:90]}")
 
 
 if __name__ == "__main__":
