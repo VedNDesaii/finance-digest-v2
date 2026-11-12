@@ -186,25 +186,46 @@ def get_recent_articles(categories: list, limit: int = 5) -> list:
 
 
 def call_claude_cached(user_content: str, max_tokens: int = 800) -> dict:
-    """Call Haiku with a cached system prompt to save input token costs."""
-    message = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=max_tokens,
-        system=[
-            {
-                "type": "text",
-                "text": MARKET_SYSTEM_PROMPT,
-                "cache_control": {"type": "ephemeral"},
-            }
-        ],
-        messages=[{"role": "user", "content": user_content}],
+    """Call Haiku with a cached system prompt. NEVER raises — retries a few
+    times, then returns {} on any failure (timeout, API error, bad JSON) so the
+    summary degrades to real data + a computed lead instead of failing the run."""
+    for attempt in range(3):
+        try:
+            message = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=max_tokens,
+                timeout=45,
+                system=[
+                    {
+                        "type": "text",
+                        "text": MARKET_SYSTEM_PROMPT,
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ],
+                messages=[{"role": "user", "content": user_content}],
+            )
+            text = message.content[0].text.strip()
+            if "```" in text:
+                text = text.split("```")[1]
+                if text.startswith("json"):
+                    text = text[4:]
+            return json.loads(text.strip())
+        except Exception as e:
+            print(f"  ⚠️  Claude call failed (attempt {attempt + 1}/3): {str(e)[:90]}")
+            time.sleep(3 * (attempt + 1))
+    print("  ⚠️  Claude unavailable — publishing a data-only summary (real numbers, no AI prose).")
+    return {}
+
+
+def _fallback_lead(label: str, indices: list, verdict: str) -> str:
+    """A plain one-liner built from the real numbers, for when the AI call is
+    down — so the summary still publishes something meaningful, never blank."""
+    word = {"up": "closed higher", "down": "closed lower"}.get(verdict, "ended mixed")
+    moves = ", ".join(
+        f"{i['label']} {i.get('pct', '')}".strip()
+        for i in indices if i.get("pct") and i.get("pct") != "N/A"
     )
-    text = message.content[0].text.strip()
-    if "```" in text:
-        text = text.split("```")[1]
-        if text.startswith("json"):
-            text = text[4:]
-    return json.loads(text.strip())
+    return f"{label} markets {word}." + (f" {moves}." if moves else "")
 
 
 def generate_indian_summary() -> dict:
@@ -212,8 +233,12 @@ def generate_indian_summary() -> dict:
     prices   = fetch_prices({"Sensex": "^BSESN", "Nifty 50": "^NSEI", "Bank Nifty": "^NSEBANK"})
     sectors  = fetch_sector_moves(INDIA_SECTORS)          # REAL sector moves, not AI guesses
     movers   = fetch_movers(NIFTY_MOVERS)                 # REAL top gainers/losers
-    articles = get_recent_articles(["indian-markets", "banking-finance", "macro-policy"])
-    news     = "\n".join(f"- {a['title']}: {a['simplified_article'][:180]}" for a in articles)
+    try:
+        articles = get_recent_articles(["indian-markets", "banking-finance", "macro-policy"])
+    except Exception as e:
+        print(f"  ⚠️  recent-news fetch failed: {str(e)[:60]} — using market data only.")
+        articles = []
+    news     = "\n".join(f"- {a['title']}: {a['simplified_article'][:180]}" for a in articles) or "n/a"
     today    = datetime.now().strftime("%d %B %Y")
 
     s = prices.get("Sensex",    {})
@@ -260,11 +285,12 @@ Write a market summary. Return ONLY this JSON:
 }}"""
 
     ai = call_claude_cached(prompt, max_tokens=1400)
+    fb = _fallback_lead("Indian", indices, verdict)
     return {
         "verdict":  verdict,
-        "headline": ai.get("lead", ""),          # kept for backward compat
-        "lead":     ai.get("lead", ""),
-        "brief":    ai.get("brief", ""),
+        "headline": ai.get("lead") or fb,         # kept for backward compat
+        "lead":     ai.get("lead") or fb,
+        "brief":    ai.get("brief") or fb,
         "why":      ai.get("why", []),
         "narrative": ai.get("narrative", ""),
         "indices":  indices,
@@ -279,8 +305,12 @@ Write a market summary. Return ONLY this JSON:
 def generate_us_summary() -> dict:
     print("  Fetching live US prices...")
     prices   = fetch_prices({"S&P 500": "^GSPC", "Nasdaq": "^IXIC", "Dow Jones": "^DJI"})
-    articles = get_recent_articles(["us-markets", "global-economy", "technology-it"])
-    news     = "\n".join(f"- {a['title']}: {a['simplified_article'][:180]}" for a in articles)
+    try:
+        articles = get_recent_articles(["us-markets", "global-economy", "technology-it"])
+    except Exception as e:
+        print(f"  ⚠️  recent-news fetch failed: {str(e)[:60]} — using market data only.")
+        articles = []
+    news     = "\n".join(f"- {a['title']}: {a['simplified_article'][:180]}" for a in articles) or "n/a"
     today    = datetime.now().strftime("%d %B %Y")
 
     sp = prices.get("S&P 500",  {})
@@ -317,11 +347,12 @@ Write a market summary. Return ONLY this JSON:
 }}"""
 
     ai = call_claude_cached(prompt, max_tokens=1400)
+    fb = _fallback_lead("US", indices, verdict)
     return {
         "verdict":  verdict,
-        "headline": ai.get("lead", ""),
-        "lead":     ai.get("lead", ""),
-        "brief":    ai.get("brief", ""),
+        "headline": ai.get("lead") or fb,
+        "lead":     ai.get("lead") or fb,
+        "brief":    ai.get("brief") or fb,
         "why":      ai.get("why", []),
         "narrative": ai.get("narrative", ""),
         "indices":  indices,
@@ -369,12 +400,17 @@ def save_to_json(indian: dict, us: dict):
     prev = _load_existing_market_data()
 
     def _pick(new: dict, key: str) -> dict:
-        # a valid side must carry real content (indices or verdict); else reuse yesterday's
-        if new and (new.get("indices") or new.get("verdict")):
+        # Valid only if we got at least one REAL live index price. (The AI prose
+        # can be missing — that's fine, we publish the numbers. But if yfinance
+        # returned nothing, keep yesterday's data rather than publishing N/A.)
+        has_real = bool(new) and any(
+            (i.get("value") not in (None, "", "N/A")) for i in (new.get("indices") or [])
+        )
+        if has_real:
             return {**new, "updated_at": now}
         old = prev.get(key)
         if old:
-            print(f"  ⚠️  {key} summary unavailable — keeping previous data ({old.get('updated_at', '?')})")
+            print(f"  ⚠️  {key}: no live prices this run — keeping previous data ({old.get('updated_at', '?')})")
             return old
         return {**(new or {}), "updated_at": now}
 
