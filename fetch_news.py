@@ -29,7 +29,8 @@ ET_HEADERS = {
     "Cache-Control": "no-cache",
 }
 
-FETCH_PER_FEED = 25
+FETCH_PER_FEED  = 50     # scan deeper into each feed so headlines aren't truncated (was 25)
+MAX_TOTAL_FETCH = 500    # cap on articles scraped + saved per run — the biggest stories are saved FIRST
 
 RSS_FEEDS = [
     # ── Indian Markets ──
@@ -46,6 +47,15 @@ RSS_FEEDS = [
     {"url": "https://www.livemint.com/rss/news",                                                   "category": "indian-markets"},
     {"url": "https://www.business-standard.com/rss/home_page_top_stories.rss",                      "category": "indian-markets"},
     {"url": "https://www.moneycontrol.com/rss/business.xml",                                        "category": "banking-finance"},
+    # ── Google News aggregators — the day's biggest stories across EVERY
+    #    publisher, so a major story can't be missed before processing sees it.
+    #    (category here is a placeholder; the processor reclassifies each.) ──
+    {"url": "https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=en-IN&gl=IN&ceid=IN:en",   "category": "indian-markets"},
+    {"url": "https://news.google.com/rss/headlines/section/topic/TECHNOLOGY?hl=en-IN&gl=IN&ceid=IN:en", "category": "technology-it"},
+    {"url": "https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=en-US&gl=US&ceid=US:en",   "category": "us-markets"},
+    {"url": "https://news.google.com/rss/headlines/section/topic/TECHNOLOGY?hl=en-US&gl=US&ceid=US:en", "category": "technology-it"},
+    {"url": "https://news.google.com/rss/search?q=(acquisition%20OR%20merger%20OR%20IPO%20OR%20%22new%20CEO%22%20OR%20layoffs%20OR%20bankruptcy%20OR%20%22rate%20cut%22%20OR%20earnings%20OR%20regulation)%20when:2d&hl=en-IN&gl=IN&ceid=IN:en", "category": "global-economy"},
+    {"url": "https://news.google.com/rss/search?q=(stock%20market%20OR%20Federal%20Reserve%20OR%20tariffs%20OR%20earnings%20OR%20acquisition%20OR%20chipmaker)%20when:1d&hl=en-US&gl=US&ceid=US:en", "category": "us-markets"},
     # ── US Markets ──
     {"url": "https://www.cnbc.com/id/10001147/device/rss/rss.html",                               "category": "us-markets"},
     {"url": "https://feeds.content.dowjones.io/public/rss/mw_topstories",                        "category": "us-markets"},
@@ -384,6 +394,30 @@ def scrape_investindia(existing_links, existing_titles):
     return saved
 
 
+# ── Significance scoring — how "major" a story is, by EVENT TYPE (a change is
+#    coming), not by which company it's about. Used to fetch the biggest stories
+#    first so they can never be dropped before the processor ranks them. ──
+_MAJOR_PATTERNS = [
+    (r'\b(ceo|cfo|coo|chairman|chief executive|managing director|founder|president)\b.{0,45}\b(resign|step(s|ped)? down|quit|appoint|named|replace|to lead|ousted|fired|exit|succeed|depart)', 5),
+    (r'\b(acqui(re|res|sition)|to buy|buyout|take ?over|merger|merges?|\bstake\b|divest|spin[- ]?off)', 4),
+    (r'\b(bankrupt|insolvenc|default|layoff|job cuts?|shut(s|ting)? down|crisis|fraud|scam|collapse)', 4),
+    (r'\b(ipo|lists? on|public offering|goes public|fund ?rais|valuation of|raises? [₹$])', 4),
+    (r'\b(antitrust|lawsuit|sued|fined|penalt|ban(ned|s)?|sanction|probe|investigat|regulat|approv(es|ed|al)|\bsebi\b|\brbi\b|\bsec\b|\bcci\b)', 3),
+    (r'\b(crash|plunge|plummet|surge|soar|record (high|low)|all-time|tumbl|slump|rally|wipe[sd]? out|rout|sell-?off)', 3),
+    (r'\b(rate (cut|hike)|repo rate|budget|tariff|\bgdp\b|inflation|\bfed\b|monetary policy|stimulus|recession)', 3),
+    (r'\b(unveil|launch|breakthrough|enters? (the )?[a-z ]{0,20}market|exits?|partnership|to invest|landmark|first-ever|billion[- ]dollar)', 2),
+]
+_MAG_RE = re.compile(r'[₹$]\s?\d[\d,.]*\s?(billion|trillion|bn|tn|crore|lakh\s*crore)|\b\d{2,3}(\.\d+)?\s?%', re.I)
+
+def major_score(text):
+    """0+ : higher = a bigger, more change-signaling story."""
+    t = (text or '').lower()
+    s = sum(w for pat, w in _MAJOR_PATTERNS if re.search(pat, t))
+    if _MAG_RE.search(text or ''):
+        s += 2
+    return s
+
+
 def fetch_articles():
     cleanup_old_articles()
 
@@ -391,74 +425,69 @@ def fetch_articles():
     existing_links, existing_titles = get_existing_links()
     print(f"  Found {len(existing_links)} existing articles in DB")
 
-    total_saved = 0
-
+    # ── Phase 1: GATHER candidates from every feed (cheap — no scraping yet) ──
+    seen_links, seen_titles = set(existing_links), set(existing_titles)
+    candidates = []
     for feed_item in RSS_FEEDS:
-        feed_url = feed_item["url"]
-        category = feed_item["category"]
-
-        print(f"\n📡 [{category}] Fetching: {feed_url}")
+        feed_url, category = feed_item["url"], feed_item["category"]
+        print(f"\n📡 [{category}] {feed_url}")
         feed = fetch_feed(feed_url)
-
         if not feed or not feed.entries:
             print("  ⚠️  No entries found")
             continue
-
-        print(f"  ✅ Found {len(feed.entries)} articles")
-        saved_this_feed = 0
-
+        src = feed.feed.get('title', feed_url) if getattr(feed, 'feed', None) else feed_url
+        new_here = 0
         for entry in feed.entries[:FETCH_PER_FEED]:
-            try:
-                title = getattr(entry, 'title', 'No Title')
-                link  = getattr(entry, 'link', None)
+            title = getattr(entry, 'title', 'No Title')
+            link  = getattr(entry, 'link', None)
+            if not link or not is_today(entry):
+                continue
+            tkey = title[:60].lower().strip()
+            if link in seen_links or tkey in seen_titles:
+                continue
+            seen_links.add(link)
+            seen_titles.add(tkey)
+            summary = get_rss_summary(entry)
+            candidates.append({
+                "title": title, "link": link, "summary": summary,
+                "category": category, "source": src, "entry": entry,
+                "score": major_score(title + " " + summary),
+            })
+            new_here += 1
+        print(f"  ✅ {len(feed.entries)} found · {new_here} new")
 
-                if not link:
-                    continue
-                if not is_today(entry):
-                    continue
-                if link in existing_links:
-                    continue
-                if title[:60].lower().strip() in existing_titles:
-                    continue
+    # ── Phase 2: RANK — biggest, most change-signaling stories first ──
+    candidates.sort(key=lambda c: c["score"], reverse=True)
+    majors = sum(1 for c in candidates if c["score"] >= 3)
+    print(f"\n🏆 {len(candidates)} unique stories gathered · {majors} flagged major — saving the biggest first…")
 
-                content = scrape_content(link)
-                if len(content) < 100:
-                    rss_summary = get_rss_summary(entry)
-                    content = rss_summary if len(rss_summary) >= 30 else title
+    # ── Phase 3: SAVE (scrape + insert) in significance order, up to the cap ──
+    total_saved = 0
+    for c in candidates[:MAX_TOTAL_FETCH]:
+        try:
+            content = scrape_content(c["link"])
+            if len(content) < 100:
+                content = c["summary"] if len(c["summary"]) >= 30 else c["title"]
+            image_url = get_og_image(c["link"]) or get_image_from_entry(c["entry"])
+            supabase.table("raw_articles").insert({
+                "title":        c["title"],
+                "source":       c["source"],
+                "link":         c["link"],
+                "published_at": datetime.utcnow().isoformat(),
+                "content":      content,
+                "image_url":    image_url,
+                "category":     c["category"],
+            }).execute()
+            total_saved += 1
+            if total_saved % 50 == 0:
+                print(f"  📊 saved {total_saved}…")
+        except Exception as e:
+            msg = str(e)
+            if "23505" not in msg and "duplicate key" not in msg:
+                print(f"  ❌ ERROR: {e}")
 
-                # Use image URL directly — no Supabase storage upload
-                image_url = get_og_image(link) or get_image_from_entry(entry)
-
-                article_data = {
-                    "title":        title,
-                    "source":       feed.feed.get('title', feed_url),
-                    "link":         link,
-                    "published_at": datetime.utcnow().isoformat(),
-                    "content":      content,
-                    "image_url":    image_url,
-                    "category":     category,
-                }
-
-                supabase.table("raw_articles").insert(article_data).execute()
-                existing_links.add(link)
-                existing_titles.add(title[:60].lower().strip())
-                total_saved     += 1
-                saved_this_feed += 1
-
-            except Exception as e:
-                msg = str(e)
-                # A duplicate link just means another feed already carried this
-                # story — that's the de-dup working, not an error. Skip it quietly
-                # and remember the link so later feeds don't retry it.
-                if "23505" in msg or "duplicate key" in msg:
-                    existing_links.add(link)
-                else:
-                    print(f"  ❌ ERROR: {e}")
-
-        print(f"  📊 Saved {saved_this_feed} from this feed")
-
-    total_saved += scrape_vccircle(existing_links, existing_titles)
-    total_saved += scrape_investindia(existing_links, existing_titles)
+    total_saved += scrape_vccircle(seen_links, seen_titles)
+    total_saved += scrape_investindia(seen_links, seen_titles)
 
     print(f"\n🎉 DONE. Total articles saved: {total_saved}")
 
