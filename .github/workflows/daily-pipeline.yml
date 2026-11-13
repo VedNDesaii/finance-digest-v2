@@ -1,14 +1,14 @@
 name: Daily pipeline
 
 # Two scheduled runs a day (keys come from repo Secrets, never hard-coded):
-#   • 8:30 AM IST — morning news + daily quiz
-#   • 3:45 PM IST — market summary (after the 3:30 PM Indian market close, so it
-#     reflects the actual close, not stale pre-market data)
+#   • 8:45 AM IST — news refresh (./refresh-news.sh)
+#   • 3:50 PM IST — market summary (./update_market.sh), after the 3:30 PM Indian
+#     market close, so it reflects the actual close, not stale pre-market data.
 # A manual "Run workflow" runs BOTH, so you can test the whole thing on demand.
 on:
   schedule:
-    - cron: "0 3 * * *"     # 3:00 UTC  = 8:30 AM IST — news + quiz
-    - cron: "15 10 * * *"   # 10:15 UTC = 3:45 PM IST — market summary
+    - cron: "15 3 * * *"    # 3:15 UTC  = 8:45 AM IST — news refresh
+    - cron: "20 10 * * *"   # 10:20 UTC = 3:50 PM IST — market summary
   workflow_dispatch: {}      # manual "Run workflow" button (runs both)
 
 # allow the job to push the updated data files back to the repo
@@ -31,7 +31,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0     # full history so the rebase-before-push below works
+          fetch-depth: 0     # full history so the push below works
 
       - uses: actions/setup-python@v5
         with:
@@ -41,44 +41,48 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      # ── 8:30 AM IST: fetch + process news, then the daily quiz ──
-      - name: Morning — news + quiz
-        if: github.event.schedule == '0 3 * * *' || github.event_name == 'workflow_dispatch'
+      # The shell scripts read keys from .env (refresh-news.sh even unsets the
+      # shell ANTHROPIC_API_KEY on purpose, to let .env be the single source of
+      # truth). So materialise .env from the repo secrets. .env* is gitignored,
+      # and the runner is ephemeral, so nothing is ever committed or leaked.
+      - name: Write .env from secrets
         run: |
-          set -e
-          python fetch_news.py
-          python process_articles.py
-          python generate_quiz.py
+          {
+            echo "ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY"
+            echo "SUPABASE_URL=$SUPABASE_URL"
+            echo "SUPABASE_KEY=$SUPABASE_KEY"
+          } > .env
 
-      # ── 3:45 PM IST: market summary, after the Indian market close ──
+      # update_market.sh commits + pushes the static fallback itself, so give git
+      # an identity to commit under.
+      - name: Configure git
+        run: |
+          git config --global user.name  "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      # ── 8:45 AM IST: clear → fetch → process news (writes live to Supabase) ──
+      - name: Morning — refresh news
+        if: github.event.schedule == '15 3 * * *' || github.event_name == 'workflow_dispatch'
+        run: |
+          chmod +x refresh-news.sh
+          ./refresh-news.sh
+
+      # ── 3:50 PM IST: market summary, after the Indian market close ──
+      # (publishes live to Supabase, then commits + pushes the static fallback)
       - name: Afternoon — market summary
-        if: github.event.schedule == '15 10 * * *' || github.event_name == 'workflow_dispatch'
+        if: github.event.schedule == '20 10 * * *' || github.event_name == 'workflow_dispatch'
         run: |
-          set -e
-          python generate_market_summary.py
+          chmod +x update_market.sh
+          ./update_market.sh
 
-      - name: Commit updated data files
+      # Safety net: push any commit the scripts made but couldn't push on a flaky
+      # connection. Never fails the job — the live Supabase data is already up.
+      - name: Push any pending data commits
+        if: always()
+        continue-on-error: true
         run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add public/market-data.json public/daily-quiz.json
-          if git diff --cached --quiet; then
-            echo "No data changes to commit."
-            exit 0
-          fi
-          git commit -m "update market & quiz $(date -u +'%Y-%m-%d %H:%M')"
-          # Rebase on anything pushed since checkout, then push — retry a few
-          # times so a transient failure doesn't silently skip the daily update.
-          for i in 1 2 3 4 5; do
-            git pull --rebase --autostash origin main \
-              && git push origin HEAD:main \
-              && echo "✅ pushed on attempt $i" \
-              && exit 0
-            echo "⚠️  push attempt $i failed; retrying in 10s…"
-            sleep 10
-          done
-          echo "❌ could not push data files after 5 attempts"
-          exit 1
+          git pull --rebase --autostash origin main || true
+          git push origin HEAD:main || true
 
       # ── Keep this scheduled workflow permanently alive ──
       # GitHub auto-disables a cron schedule after 60 days when only automated

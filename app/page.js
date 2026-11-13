@@ -5,7 +5,6 @@ import { supabase } from '../lib/supabase'
 import DetailReader from '../components/DetailReader'
 import Tutorial from '../components/Tutorial'
 import { useAuth, useVisitorTracking } from '../hooks/useAuth'
-import WelcomeModal from '../components/WelcomeModal'
 import { registerPushNotification, touchLastSeen } from '../lib/pushNotifications'
 
 // Portfolio only renders on its own tab — load it on demand so the homepage
@@ -899,7 +898,7 @@ function hiliteDek(text) {
 // ── TodayView (editorial homepage) ───────────────────────────────────────────
 // Newspaper-style front page matched to the prototype: full index strip,
 // a lead Top Story, a 2×2 desk grid, sector performance, and top movers.
-function TodayView({ articles, dark, isMobile, loading }) {
+function TodayView({ articles, dark, isMobile, loading, prediction, handlePrediction, predictOpen, afterClose, weekend, predCorrect, rank, iqScore, rankIdx, onShowRanks }) {
   const [sel, setSel] = useState(null)
   const [j, setJ] = useState(null)
   useEffect(() => {
@@ -1019,6 +1018,52 @@ function TodayView({ articles, dark, isMobile, loading }) {
           </div>
         </div>
       )}
+
+      {/* ── Predict today's close (daily game — call it before 12:30 PM IST) ── */}
+      <div style={{ marginTop: '28px' }}>
+        <div style={{ fontFamily: mono, fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', borderTop: '1px solid var(--border-main)', paddingTop: '18px', marginBottom: '12px' }}>Form a view</div>
+        <div style={{ background: 'var(--bg-gist)', border: '1px solid var(--border-main)', borderRadius: '12px', padding: '15px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '11px' }}>
+            <span style={{ fontSize: '15px' }}>🎯</span>
+            <span style={{ fontFamily: display, fontWeight: 600, fontSize: '15.5px', color: 'var(--head-ink)' }}>Predict today&rsquo;s close</span>
+            <span style={{ marginLeft: 'auto', fontFamily: mono, fontSize: '9px', letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-muted)', border: '1px solid var(--border-main)', borderRadius: '6px', padding: '2px 6px' }}>by 12:30 PM</span>
+          </div>
+          {weekend ? (
+            <div style={{ fontFamily: 'var(--font-ui)', fontSize: '13px', lineHeight: 1.5, color: 'var(--text-secondary)' }}>Markets are closed this weekend — come back Monday to make your call.</div>
+          ) : prediction ? (
+            <div style={{ fontFamily: 'var(--font-ui)', fontSize: '13px', lineHeight: 1.5, color: 'var(--text-secondary)' }}>
+              {predCorrect === null
+                ? <>✓ Locked in — you called Nifty <b style={{ color: prediction === 'up' ? 'var(--up)' : 'var(--down)' }}>{prediction === 'up' ? 'higher' : 'lower'}</b>. Check back after close to see if you were right.</>
+                : predCorrect
+                  ? <span style={{ color: 'var(--up)', fontWeight: 600 }}>🎯 Correct! You called it {prediction === 'up' ? 'higher' : 'lower'}. +{PREDICTION_POINTS} IQ.</span>
+                  : <span style={{ color: 'var(--down)', fontWeight: 600 }}>Not this time — you called {prediction === 'up' ? 'higher' : 'lower'}. −{WRONG_PENALTY} IQ. Try again tomorrow.</span>}
+            </div>
+          ) : !predictOpen ? (
+            <div style={{ fontFamily: 'var(--font-ui)', fontSize: '13px', lineHeight: 1.5, color: 'var(--text-secondary)' }}>Predictions are closed for today (after 12:30 PM IST). Come back tomorrow morning to make your call.</div>
+          ) : (
+            <>
+              <div style={{ fontFamily: 'var(--font-ui)', fontSize: '13.5px', color: 'var(--text-secondary)', marginBottom: '12px' }}>Will the Nifty finish <b style={{ color: 'var(--head-ink)' }}>higher</b> today?</div>
+              <div style={{ display: 'flex', gap: '9px' }}>
+                <button onClick={() => handlePrediction && handlePrediction('up')} style={{ flex: 1, height: '40px', borderRadius: '9px', border: '1px solid var(--border-main)', background: 'var(--up-bg)', color: 'var(--up)', fontFamily: mono, fontWeight: 600, fontSize: '12.5px', letterSpacing: '0.03em', textTransform: 'uppercase', cursor: 'pointer' }}>▲ Yes, green</button>
+                <button onClick={() => handlePrediction && handlePrediction('down')} style={{ flex: 1, height: '40px', borderRadius: '9px', border: '1px solid var(--border-main)', background: 'var(--down-bg)', color: 'var(--down)', fontFamily: mono, fontWeight: 600, fontSize: '12.5px', letterSpacing: '0.03em', textTransform: 'uppercase', cursor: 'pointer' }}>▼ No, red</button>
+              </div>
+              <div style={{ fontFamily: mono, fontSize: '9.5px', color: 'var(--text-muted)', marginTop: '11px', lineHeight: 1.5 }}>+{PREDICTION_POINTS} IQ if right · −{WRONG_PENALTY} if wrong · +{STREAK_BONUS} for a 7-day streak. A game to sharpen your view — not advice.</div>
+            </>
+          )}
+        </div>
+
+        {/* Rank strip — current rank + opens the full points ladder */}
+        {rank && (
+          <button onClick={onShowRanks} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', marginTop: '9px', padding: '10px 12px', background: 'var(--bg-gist)', border: '1px solid var(--border-main)', borderRadius: '12px', cursor: 'pointer', textAlign: 'left' }}>
+            <div style={{ width: '34px', height: '34px', borderRadius: '50%', flexShrink: 0, display: 'grid', placeItems: 'center', fontSize: '18px', background: `color-mix(in srgb, ${rank.color} 16%, transparent)`, border: `1.5px solid ${rank.color}` }}>{rank.emoji}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: display, fontWeight: 600, fontSize: '13.5px', color: 'var(--head-ink)' }}>{rank.title}</div>
+              <div style={{ fontFamily: mono, fontSize: '10.5px', color: 'var(--text-muted)' }}>🧠 {(iqScore || 0).toLocaleString()} IQ · Rank {rankIdx + 1}/10</div>
+            </div>
+            <span style={{ fontFamily: mono, fontSize: '10px', letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--accent)', fontWeight: 600 }}>See all ›</span>
+          </button>
+        )}
+      </div>
 
         </aside>{/* end sidebar */}
       </div>{/* end 2-col */}
@@ -1713,7 +1758,7 @@ export default function Home() {
   const [navShrunk, setNavShrunk] = useState(false)
   const [navHovered, setNavHovered] = useState(false)
 
-  const { user, plan, loading: authLoading } = useAuth()
+  const { user } = useAuth()
   useVisitorTracking()   // records a unique visitor per day for weekly-unique stats
   const isPro   = true
   const isBasic = true
@@ -2129,7 +2174,6 @@ export default function Home() {
   return (
     <div style={{ background: 'var(--bg-page)', minHeight: '100vh', fontFamily: 'var(--font-ui)' }}>
 
-      <WelcomeModal dark={dark} user={user} authLoading={authLoading} />
       {showTutorial && <Tutorial onClose={dismissTutorial} />}
       <InstallBanner dark={dark} />
 
@@ -2343,7 +2387,10 @@ export default function Home() {
           }}>
 
             {activeSection === 'headlines' ? (
-              <TodayView articles={articles} dark={dark} isMobile={isMobile} loading={loading} />
+              <TodayView articles={articles} dark={dark} isMobile={isMobile} loading={loading}
+                prediction={prediction} handlePrediction={handlePrediction} predictOpen={predictOpen}
+                afterClose={afterClose} weekend={weekend} predCorrect={predCorrect}
+                rank={rank} iqScore={iqScore} rankIdx={rankIdx} onShowRanks={() => setShowRanks(true)} />
             ) : activeSection === 'markets' ? (
               <MarketsView isMobile={isMobile} />
             ) : activeSection === 'sectors' ? (
