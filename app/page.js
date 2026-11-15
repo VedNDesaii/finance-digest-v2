@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { supabase } from '../lib/supabase'
 import DetailReader from '../components/DetailReader'
-import Tutorial from '../components/Tutorial'
 import { useAuth, useVisitorTracking } from '../hooks/useAuth'
 import { registerPushNotification, touchLastSeen } from '../lib/pushNotifications'
 
@@ -1157,7 +1156,7 @@ function DiscoverView({ dark, isMobile }) {
 
   return (
     <div style={{ maxWidth: isMobile ? '100%' : '820px' }}>
-      <div className="fd2-eyebrow" style={{ marginTop: '8px' }}>Discover <span className="ln" /></div>
+      <div className="fd2-eyebrow" style={{ marginTop: '8px' }}>News <span className="ln" /></div>
       <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: isMobile ? '22px' : '26px', letterSpacing: '-0.01em', margin: '0 0 4px', color: 'var(--head-ink)', lineHeight: 1.1 }}>
         Everything, in one feed.
       </h2>
@@ -1739,7 +1738,6 @@ export default function Home() {
   const [currentIndex, setCurrentIndex]   = useState(0)
   const [fetchError, setFetchError]       = useState(null)
   const [dark, setDark]                   = useState(false)  // Light default (matches the editorial prototype)
-  const [showTutorial, setShowTutorial]   = useState(false)
   const [isMobile, setIsMobile]           = useState(false)
   const [sectionCounts, setSectionCounts] = useState({})
   const [overlay, setOverlay]             = useState(null)
@@ -1949,15 +1947,6 @@ export default function Home() {
     const saved = safeLS.getItem('fd-theme')
     if (saved === 'dark') setDark(true)
   }, [])
-
-  // One-time "what's new" tutorial — shows once, then never again.
-  useEffect(() => {
-    if (safeLS.getItem('fd-tutorial-v1') === 'done') return
-    const t = setTimeout(() => setShowTutorial(true), 700)
-    return () => clearTimeout(t)
-  }, [])
-
-  const dismissTutorial = () => { safeLS.setItem('fd-tutorial-v1', 'done'); setShowTutorial(false) }
 
   const toggleTheme = () => {
     setDark(d => { safeLS.setItem('fd-theme', !d ? 'dark' : 'light'); return !d })
@@ -2174,7 +2163,6 @@ export default function Home() {
   return (
     <div style={{ background: 'var(--bg-page)', minHeight: '100vh', fontFamily: 'var(--font-ui)' }}>
 
-      {showTutorial && <Tutorial onClose={dismissTutorial} />}
       <InstallBanner dark={dark} />
 
       {showPointPop && (
@@ -2215,7 +2203,7 @@ export default function Home() {
               {[
                 { id: 'headlines', label: 'Home' },
                 { id: 'markets', label: 'Markets' },
-                { id: 'discover', label: 'Discover' },
+                { id: 'discover', label: 'News' },
                 { id: 'review', label: 'In Review' },
               ].map(t => {
                 const on = (t.id === 'review' || t.id === 'discover') ? activeSection === t.id : navTab === t.id
@@ -2239,7 +2227,7 @@ export default function Home() {
         {[
           { id: 'headlines', label: 'Today',    d: 'M3 10.5 12 4l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z' },
           { id: 'markets',   label: 'Markets',  d: 'M4 19V5M4 15l5-5 4 3 7-8' },
-          { id: 'discover',  label: 'Discover', d: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM15.5 8.5l-2 5-5 2 2-5z' },
+          { id: 'discover',  label: 'News', d: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM15.5 8.5l-2 5-5 2 2-5z' },
           { id: 'review',    label: 'Review',   d: 'M7 3v3M17 3v3M4 8h16M5 6h14v14H5zM8 12h3M8 16h6' },
         ].map(t => {
           const on = (t.id === 'review' || t.id === 'discover') ? activeSection === t.id : navTab === t.id
