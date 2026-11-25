@@ -6,6 +6,15 @@ import DetailReader from '../components/DetailReader'
 import { useAuth, useVisitorTracking } from '../hooks/useAuth'
 import { registerPushNotification, touchLastSeen } from '../lib/pushNotifications'
 
+// Tap-to-open live chart + the gold/FX strip. Browser-only (lightweight-charts),
+// so load them client-side.
+const IndexChartModal = dynamic(() => import('../components/IndexChartModal'), { ssr: false })
+const GoldFxStrip = dynamic(() => import('../components/GoldFxStrip'), { ssr: false })
+
+// Index label → /api/chart symbol key, and a short descriptor for the modal header.
+const IX_KEY = { 'Sensex': 'sensex', 'Nifty 50': 'nifty', 'Bank Nifty': 'banknifty', 'S&P 500': 'sp500', 'Nasdaq': 'nasdaq', 'Dow Jones': 'dow' }
+const IX_TAG = { 'Sensex': 'BSE · 30 large-caps', 'Nifty 50': 'NSE · 50 large-caps', 'Bank Nifty': 'NSE · 12 banks', 'S&P 500': 'US · 500 large-caps', 'Nasdaq': 'US · tech-heavy', 'Dow Jones': 'US · 30 blue-chips' }
+
 // Portfolio only renders on its own tab — load it on demand so the homepage
 // doesn't ship its weight to every visitor (matters for memory-limited
 // in-app browsers like Instagram's).
@@ -324,6 +333,86 @@ function ThemeToggle({ dark, onToggle }) {
   )
 }
 
+// WhatsApp community invite link.
+const WHATSAPP_COMMUNITY_URL = 'https://chat.whatsapp.com/LJrLVfFGg2ADMZyO62Vq5p'
+
+function WhatsAppGlyph({ size = 18, color = 'currentColor' }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill={color} aria-hidden="true">
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.149-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347M12.05 21.785h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+    </svg>
+  )
+}
+
+// Header button linking straight to the WhatsApp community.
+function WhatsAppButton() {
+  return (
+    <a href={WHATSAPP_COMMUNITY_URL} target="_blank" rel="noopener noreferrer"
+      aria-label="Join our WhatsApp community" title="Join our WhatsApp community"
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        width: '32px', height: '32px', borderRadius: '8px',
+        background: '#25D366', color: '#fff', flexShrink: 0, textDecoration: 'none',
+      }}>
+      <WhatsAppGlyph size={18} color="#fff" />
+    </a>
+  )
+}
+
+// First-visit popup inviting the viewer to the WhatsApp community. Shows once
+// per browser (guest or signed-in); dismissing via × or Join never shows again.
+function WhatsAppCommunityModal() {
+  const [show, setShow] = useState(false)
+  useEffect(() => {
+    let seen = null
+    try { seen = localStorage.getItem('fd-wa-community-seen') } catch { /* blocked */ }
+    if (seen) return
+    const t = setTimeout(() => setShow(true), 1200)
+    return () => clearTimeout(t)
+  }, [])
+  const dismiss = () => {
+    try { localStorage.setItem('fd-wa-community-seen', '1') } catch { /* blocked */ }
+    setShow(false)
+  }
+  const join = () => {
+    dismiss()
+    try { window.open(WHATSAPP_COMMUNITY_URL, '_blank', 'noopener') } catch { /* ignore */ }
+  }
+  if (!show) return null
+  return (
+    <div onClick={dismiss} style={{
+      position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(0,0,0,0.55)',
+      backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '20px', fontFamily: 'var(--font-ui)',
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        position: 'relative', background: 'var(--bg-card)', border: '1px solid var(--border-main)',
+        borderRadius: '20px', padding: '32px 26px 24px', width: '100%', maxWidth: '380px',
+        textAlign: 'center', boxShadow: '0 24px 70px rgba(0,0,0,0.35)',
+      }}>
+        <button onClick={dismiss} aria-label="Close" style={{
+          position: 'absolute', top: '14px', right: '14px', width: '30px', height: '30px',
+          borderRadius: '9px', border: '1px solid var(--border-main)', background: 'var(--bg-page)',
+          color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '15px', display: 'grid', placeItems: 'center',
+        }}>✕</button>
+        <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#25D366', margin: '0 auto 16px', display: 'grid', placeItems: 'center' }}>
+          <WhatsAppGlyph size={34} color="#fff" />
+        </div>
+        <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '21px', color: 'var(--head-ink)', margin: '0 0 8px' }}>Join our WhatsApp community</h2>
+        <p style={{ fontSize: '14px', lineHeight: 1.5, color: 'var(--text-secondary)', margin: '0 0 20px' }}>Get the morning brief and the market close every day — the biggest stories, in plain English.</p>
+        <button onClick={join} style={{
+          width: '100%', height: '46px', borderRadius: '12px', border: 'none', background: '#25D366',
+          color: '#fff', fontWeight: 700, fontSize: '15px', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+        }}>
+          <WhatsAppGlyph size={18} color="#fff" /> Join the community
+        </button>
+        <button onClick={dismiss} style={{ marginTop: '12px', background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '13px', cursor: 'pointer', textDecoration: 'underline' }}>Maybe later</button>
+      </div>
+    </div>
+  )
+}
+
 function AccountButton({ dark, user }) {
   return (
     <a href={user ? '/account' : '/login'} style={{
@@ -572,6 +661,7 @@ function MarketSummaryCard({ market, dark, isMobile }) {
   const [showReport, setShowReport] = useState(false)
   const [summaryData, setSummaryData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [chartItem, setChartItem] = useState(null)   // tapped index → live chart
 
   useEffect(() => {
     async function fetchSummary() {
@@ -637,13 +727,15 @@ function MarketSummaryCard({ market, dark, isMobile }) {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', borderTop: '1px solid var(--border-main)', borderBottom: '1px solid var(--border-main)' }}>
         {indices.map((idx, i) => (
-          <div key={i} style={{ padding: '11px 12px', borderLeft: i ? '1px solid var(--border-main)' : 'none' }}>
+          <div key={i} onClick={() => IX_KEY[idx.label] && setChartItem({ key: IX_KEY[idx.label], name: idx.label, tag: IX_TAG[idx.label] || '', reason: (d.indexReasons || {})[idx.label] })}
+            style={{ padding: '11px 12px', borderLeft: i ? '1px solid var(--border-main)' : 'none', cursor: IX_KEY[idx.label] ? 'pointer' : 'default' }}>
             <div style={{ fontFamily: mono, fontSize: '9.5px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>{idx.label}</div>
             <div style={{ fontFamily: mono, fontWeight: 600, fontSize: '15px', color: 'var(--text-primary)', margin: '3px 0 1px' }}>{loading ? '—' : idx.value}</div>
             <div style={{ fontFamily: mono, fontSize: '10.5px', color: idx.up ? 'var(--up)' : 'var(--down)' }}>{idx.pct}</div>
           </div>
         ))}
       </div>
+      {chartItem && <IndexChartModal item={chartItem} reason={chartItem.reason} onClose={() => setChartItem(null)} />}
 
       {sectors.length > 0 && (
         <div style={{ padding: '12px 16px', display: 'flex', flexWrap: 'wrap', gap: '7px 14px', borderBottom: '1px solid var(--border-main)' }}>
@@ -900,6 +992,7 @@ function hiliteDek(text) {
 function TodayView({ articles, dark, isMobile, loading, prediction, handlePrediction, predictOpen, afterClose, weekend, predCorrect, rank, iqScore, rankIdx, onShowRanks }) {
   const [sel, setSel] = useState(null)
   const [j, setJ] = useState(null)
+  const [chartItem, setChartItem] = useState(null)   // tapped index → live chart
   useEffect(() => {
     let ok = true
     fetchMarketData().then(d => { if (ok && d) setJ(d) }).catch(() => {})
@@ -938,7 +1031,8 @@ function TodayView({ articles, dark, isMobile, loading, prediction, handlePredic
       {indexStrip.length > 0 && (
         <div style={{ display: 'flex', overflowX: 'auto', borderTop: '1px solid var(--border-main)', borderBottom: '1px solid var(--border-main)', margin: '0 0 6px', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
           {indexStrip.map((ix, k) => (
-            <div key={k} style={{ flex: '1 0 auto', minWidth: isMobile ? '116px' : '0', padding: '13px 16px', borderRight: k < indexStrip.length - 1 ? '1px solid var(--border-main)' : 'none' }}>
+            <div key={k} onClick={() => IX_KEY[ix.label] && setChartItem({ key: IX_KEY[ix.label], name: ix.label, tag: IX_TAG[ix.label] || '', reason: (indian.indexReasons || {})[ix.label] || (us.indexReasons || {})[ix.label] })}
+              style={{ flex: '1 0 auto', minWidth: isMobile ? '116px' : '0', padding: '13px 16px', borderRight: k < indexStrip.length - 1 ? '1px solid var(--border-main)' : 'none', cursor: IX_KEY[ix.label] ? 'pointer' : 'default' }}>
               <div style={{ fontFamily: mono, fontSize: '9.5px', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{ix.label}</div>
               <div style={{ fontFamily: mono, fontWeight: 600, fontSize: '16px', marginTop: '3px', color: ix.up ? 'var(--up)' : 'var(--down)' }}>{ix.value}</div>
               <div style={{ fontFamily: mono, fontSize: '11px', marginTop: '1px', color: ix.up ? 'var(--up)' : 'var(--down)' }}>{ix.pct}</div>
@@ -946,6 +1040,7 @@ function TodayView({ articles, dark, isMobile, loading, prediction, handlePredic
           ))}
         </div>
       )}
+      {chartItem && <IndexChartModal item={chartItem} reason={chartItem.reason} onClose={() => setChartItem(null)} />}
       {updatedAt && <div style={{ fontFamily: mono, fontSize: '9.5px', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', margin: '0 0 22px' }}>Prices as of {updatedAt} · AI-assisted</div>}
 
       {/* Desktop: 2-column (main stories | sidebar heat+movers). Mobile: stacked. */}
@@ -1251,6 +1346,7 @@ function SentimentDonut({ score, label }) {
 
 function MarketsView({ isMobile }) {
   const [j, setJ] = useState(null)
+  const [chartItem, setChartItem] = useState(null)   // the index/gold/FX whose live chart is open
   useEffect(() => {
     let ok = true
     fetchMarketData().then(d => { if (ok && d) setJ(d) }).catch(() => {})
@@ -1286,7 +1382,8 @@ function MarketsView({ isMobile }) {
       {cards.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: '12px', marginBottom: '6px' }}>
           {cards.map((m, i) => (
-            <div key={i} style={{ border: '1px solid var(--border-main)', borderRadius: '14px', padding: '14px 14px 6px', background: 'var(--bg-card)' }}>
+            <div key={i} onClick={() => setChartItem({ key: IX_KEY[m.label] || 'nifty', name: m.label, tag: IX_TAG[m.label] || '', reason: (ind.indexReasons || {})[m.label] })}
+              style={{ border: '1px solid var(--border-main)', borderRadius: '14px', padding: '14px 14px 8px', background: 'var(--bg-card)', cursor: 'pointer' }}>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9.5px', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{m.label}</div>
               <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, fontSize: '23px', letterSpacing: '-0.01em', color: 'var(--head-ink)', marginTop: '4px' }}>{m.value}</div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '2px' }}>
@@ -1294,15 +1391,21 @@ function MarketsView({ isMobile }) {
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-faint)' }}>intraday</span>
               </div>
               <div style={{ marginTop: '6px' }}><IdxSpark series={m.spark} up={!!m.up} gid={'spk' + i} /></div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--accent)', marginTop: '3px' }}>Tap for live chart →</div>
             </div>
           ))}
         </div>
       )}
 
+      <div className="fd2-eyebrow">Gold, commodities &amp; currencies <span className="ln" /></div>
+      <div style={{ marginBottom: '6px' }}>
+        <GoldFxStrip onOpen={setChartItem} isMobile={isMobile} />
+      </div>
+
       <div className="fd2-eyebrow">Indices <span className="ln" /></div>
       <div>
         {indices.map((m, i) => (
-          <div className="fd2-mrow" key={i}>
+          <div className="fd2-mrow" key={i} onClick={() => setChartItem({ key: IX_KEY[m.label] || 'nifty', name: m.label, tag: IX_TAG[m.label] || '', reason: (ind.indexReasons || {})[m.label] })} style={{ cursor: 'pointer' }}>
             <div className="nm">{m.label}</div>
             <div className="px"><div className="p">{m.value}</div><div className={'c ' + (m.up ? 'fd2-up' : 'fd2-dn')}>{m.pct}</div></div>
           </div>
@@ -1386,7 +1489,19 @@ function MarketsView({ isMobile }) {
         </>
       )}
 
-      <div className="fd2-disc">Real NSE/BSE data · as of latest close · AI-assisted commentary.</div>
+      <div className="fd2-eyebrow">Sources · where every number comes from <span className="ln" /></div>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', lineHeight: 1.8, color: 'var(--text-muted)' }}>
+        <div>· <b style={{ color: 'var(--text-secondary)' }}>Index levels &amp; charts</b> (Sensex, Nifty 50, Bank Nifty, S&amp;P 500, Nasdaq, Dow) — Yahoo Finance</div>
+        <div>· <b style={{ color: 'var(--text-secondary)' }}>Gold, crude &amp; FX</b> (USD/INR, EUR/INR, Brent) — Yahoo Finance</div>
+        <div>· <b style={{ color: 'var(--text-secondary)' }}>Top movers</b> (stock gainers/losers) — Yahoo Finance · NSE</div>
+        <div>· <b style={{ color: 'var(--text-secondary)' }}>Sector moves &amp; breadth</b> — NSE sector indices via Yahoo Finance</div>
+        <div>· <b style={{ color: 'var(--text-secondary)' }}>FII / DII flows</b> — NSE provisional daily data</div>
+        <div>· <b style={{ color: 'var(--text-secondary)' }}>News context</b> — GNews</div>
+        <div>· <b style={{ color: 'var(--text-secondary)' }}>Commentary</b> — AI-written (Claude) from the data above; figures are never invented</div>
+      </div>
+      <div className="fd2-disc">Real market data · as of latest close / live intraday · AI-assisted commentary.</div>
+
+      {chartItem && <IndexChartModal item={chartItem} reason={chartItem.reason} onClose={() => setChartItem(null)} />}
     </div>
   )
 }
@@ -2164,6 +2279,7 @@ export default function Home() {
     <div style={{ background: 'var(--bg-page)', minHeight: '100vh', fontFamily: 'var(--font-ui)' }}>
 
       <InstallBanner dark={dark} />
+      <WhatsAppCommunityModal />
 
       {showPointPop && (
         <div style={{
@@ -2212,9 +2328,11 @@ export default function Home() {
                     style={{ border: 'none', background: on ? 'var(--accent-light)' : 'transparent', color: on ? 'var(--accent)' : 'var(--text-secondary)', fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: '14px', padding: '7px 12px', borderRadius: '9px', cursor: 'pointer' }}>{t.label}</button>
                 )
               })}
+              <a href="/leaderboard" style={{ border: 'none', background: 'transparent', color: 'var(--text-secondary)', fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: '14px', padding: '7px 12px', borderRadius: '9px', cursor: 'pointer', textDecoration: 'none' }}>Leaderboard</a>
             </nav>
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+            <WhatsAppButton />
             <ThemeToggle dark={dark} onToggle={toggleTheme} />
             <AccountButton dark={dark} user={user} />
           </div>

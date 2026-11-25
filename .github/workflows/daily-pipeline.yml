@@ -7,9 +7,15 @@ name: Daily pipeline
 # A manual "Run workflow" runs BOTH, so you can test the whole thing on demand.
 on:
   schedule:
-    - cron: "15 3 * * *"    # 3:15 UTC  = 8:45 AM IST — news refresh
-    - cron: "20 10 * * *"   # 10:20 UTC = 3:50 PM IST — market summary
-  workflow_dispatch: {}      # manual "Run workflow" button (runs both)
+    - cron: "15 3 * * *"       # 3:15 UTC  = 8:45 AM IST — news refresh
+    # Intraday market-summary checkpoints (Mon–Fri). Each publishes LIVE to
+    # Supabase, so the site updates instantly — no push needed.
+    - cron: "45 3 * * 1-5"     # 3:45 UTC  = 9:15 AM IST  — market open
+    - cron: "15 5 * * 1-5"     # 5:15 UTC  = 10:45 AM IST — mid-morning
+    - cron: "0 7 * * 1-5"      # 7:00 UTC  = 12:30 PM IST — midday
+    - cron: "45 9 * * 1-5"     # 9:45 UTC  = 3:15 PM IST  — pre-close
+    - cron: "30 10 * * 1-5"    # 10:30 UTC = 4:00 PM IST  — full end-of-day summary
+  workflow_dispatch: {}        # manual "Run workflow" button (runs both)
 
 # allow the job to push the updated data files back to the repo
 permissions:
@@ -67,10 +73,18 @@ jobs:
           chmod +x refresh-news.sh
           ./refresh-news.sh
 
-      # ── 3:50 PM IST: market summary, after the Indian market close ──
-      # (publishes live to Supabase, then commits + pushes the static fallback)
-      - name: Afternoon — market summary
-        if: github.event.schedule == '20 10 * * *' || github.event_name == 'workflow_dispatch'
+      # ── Intraday + close market-summary checkpoints (9:15, 10:45, 12:30, 3:15, 4:00 IST) ──
+      # Each run re-reads live prices + news and rewrites the figure-backed summary
+      # (incl. per-index reasoning). Publishes live to Supabase; the 4:00 PM run is
+      # the full end-of-day write-up.
+      - name: Market summary (intraday + close)
+        if: >-
+          github.event_name == 'workflow_dispatch' ||
+          github.event.schedule == '45 3 * * 1-5' ||
+          github.event.schedule == '15 5 * * 1-5' ||
+          github.event.schedule == '0 7 * * 1-5' ||
+          github.event.schedule == '45 9 * * 1-5' ||
+          github.event.schedule == '30 10 * * 1-5'
         run: |
           chmod +x update_market.sh
           ./update_market.sh

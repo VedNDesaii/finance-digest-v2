@@ -1,0 +1,55 @@
+# Render Blueprint — scheduled pipelines on Render's cloud (precise timing,
+# runs your existing Python as-is; laptop can be off).
+#
+# Setup: Render dashboard → New → Blueprint → connect this repo. Render reads
+# this file and creates the two cron jobs. Then open each job → Environment and
+# paste the four secret values (they're sync:false, so they NEVER live in git):
+#   ANTHROPIC_API_KEY, SUPABASE_URL, SUPABASE_KEY, GNEWS_API_KEY
+#
+# Schedules are in UTC (IST = UTC + 5:30). The startCommand writes a .env from
+# the env vars first (the shell scripts read keys from .env), then runs the job.
+
+services:
+  # ── News: clear → fetch → process, 08:45 AM IST (publishes to Supabase) ──
+  - type: cron
+    name: fd-news-refresh
+    runtime: python
+    plan: starter
+    schedule: "15 3 * * *"            # 03:15 UTC = 08:45 AM IST (daily)
+    buildCommand: pip install -r requirements.txt
+    startCommand: >-
+      printf 'ANTHROPIC_API_KEY=%s\nSUPABASE_URL=%s\nSUPABASE_KEY=%s\nGNEWS_API_KEY=%s\n'
+      "$ANTHROPIC_API_KEY" "$SUPABASE_URL" "$SUPABASE_KEY" "$GNEWS_API_KEY" > .env
+      && bash ./refresh-news.sh
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: GNEWS_API_KEY
+        sync: false
+
+  # ── Market summary: every 30 min, ~09:30 AM–04:00 PM IST, Mon–Fri ──
+  # (near-live; publishes LIVE to Supabase each run — the 4:00 PM run is the
+  #  full end-of-day summary)
+  - type: cron
+    name: fd-market-summary
+    runtime: python
+    plan: starter
+    schedule: "0,30 4-10 * * 1-5"     # 04:00–10:30 UTC = 09:30 AM–04:00 PM IST, Mon–Fri
+    buildCommand: pip install -r requirements.txt
+    startCommand: >-
+      printf 'ANTHROPIC_API_KEY=%s\nSUPABASE_URL=%s\nSUPABASE_KEY=%s\nGNEWS_API_KEY=%s\n'
+      "$ANTHROPIC_API_KEY" "$SUPABASE_URL" "$SUPABASE_KEY" "$GNEWS_API_KEY" > .env
+      && bash ./update_market.sh
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: GNEWS_API_KEY
+        sync: false

@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import DoubtBox from './DoubtBox'
+import ShareButton from './ShareButton'
 
 const CAT_LABEL = {
   'indian-markets': 'Indian Markets', 'us-markets': 'US Markets', 'global-economy': 'Global',
@@ -76,6 +77,7 @@ export default function DetailReader({ article, dark, open, onClose }) {
         <button onClick={onClose} aria-label="Back" style={{ width: '34px', height: '34px', borderRadius: '10px', border: '1px solid var(--border-main)', background: 'var(--bg-card)', color: 'var(--text-primary)', cursor: 'pointer', fontSize: '17px', display: 'grid', placeItems: 'center' }}>‹</button>
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10.5px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--accent)', fontWeight: 600 }}>Full analysis</span>
         <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: '10.5px', color: 'var(--text-muted)' }}>{source}</span>
+        {article.id != null && <ShareButton url={`https://financedigest.xyz/article/${article.id}`} title={decodeEntities(article.headline || article.title)} compact />}
       </div>
 
       {/* body — opens straight to the full analysis (no second click) */}

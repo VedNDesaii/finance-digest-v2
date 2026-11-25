@@ -275,6 +275,11 @@ Write a market summary. Return ONLY this JSON:
   "lead": "<ONE short sentence, max 22 words: the day's verdict + the single biggest driver, plain English>",
   "brief": "<1 sentence with the key index moves in words, e.g. 'Sensex rose 0.8% and Nifty 0.6% on ...'>",
   "why": ["<2 to 4 short cause→effect reasons the market moved TODAY. Each names a concrete driver AND its effect on the index, in that order, plain English. Ground every one in the data/news above; NEVER invent numbers. e.g. 'A closing-auction recovery lifted the Sensex in the final hour', 'The rupee's slide on costlier oil pressured import-heavy sectors', 'Banking gains offset weakness in IT'>"],
+  "indexReasons": {{
+    "Sensex":     {{"drivers": ["<2 short, plain-English reasons the SENSEX specifically moved today, EACH naming a real stock or sector and its % move from the data above>"]}},
+    "Nifty 50":   {{"drivers": ["<2 reasons for the NIFTY 50 specifically; note where it diverged from the Sensex (e.g. a sector that helped or dragged more)>"]}},
+    "Bank Nifty": {{"drivers": ["<2 reasons for BANK NIFTY — these MUST be banking-specific: name the banks (SBI, HDFC Bank, ICICI, etc.) and their moves, or a rate/yield/credit driver>"]}}
+  }},
   "narrative": "PARA1\\n\\nPARA2 — 2 short paragraphs telling the day in full (open→close, the main driver, the undercurrents). Use ONLY facts from the data and news above; never invent figures.",
   "tiles": [
     {{"icon":"🌍","label":"Global cues",  "value":"<Weak/Mixed/Strong>","sub":"<1 line context>","subUp":false}},
@@ -292,6 +297,7 @@ Write a market summary. Return ONLY this JSON:
         "lead":     ai.get("lead") or fb,
         "brief":    ai.get("brief") or fb,
         "why":      ai.get("why", []),
+        "indexReasons": ai.get("indexReasons", {}),   # per-index figure-backed drivers (for the tap-to-open chart)
         "narrative": ai.get("narrative", ""),
         "indices":  indices,
         "sectors":  sectors,                      # REAL data
