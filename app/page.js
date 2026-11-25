@@ -803,6 +803,19 @@ const CAT_ICON = {
   'metals-mining': '🏗️', 'infrastructure': '🛣️', 'fmcg-consumer': '🛒',
   'renewables': '🌱', 'real-estate': '🏢', 'telecom-media': '📡', 'crypto': '₿',
 }
+// Canonical topic list for the News grid — every desk, de-duplicated by label
+// (so the two banking keys collapse to one "Deals & Banking" tile). Shown even
+// when a topic has no stories today.
+const TOPIC_LIST = (() => {
+  const out = [], seen = {}
+  for (const k of Object.keys(MB_CAT)) {
+    const label = MB_CAT[k]
+    if (seen[label]) continue
+    seen[label] = true
+    out.push({ label, icon: CAT_ICON[k] || '📰' })
+  }
+  return out
+})()
 function mbSentiColor(a) {
   const s = (a.sentiment || '').toLowerCase()
   return s === 'bullish' ? 'var(--up)' : s === 'bearish' ? 'var(--down)' : 'var(--text-muted)'
@@ -1239,7 +1252,8 @@ function ReviewView({ mode, setMode, dark, isMobile }) {
 function DiscoverView({ dark, isMobile }) {
   const [sel, setSel] = useState(null)
   const [rows, setRows] = useState(null)
-  const [cat, setCat] = useState(null)   // null = topic grid; else a category key
+  const [view, setView] = useState('all')   // 'all' = mixed feed · 'topics' = grid
+  const [cat, setCat] = useState(null)       // a topic label, when a tile is opened
   useEffect(() => {
     let ok = true
     supabase.from('processed_articles').select('*')
@@ -1250,53 +1264,66 @@ function DiscoverView({ dark, isMobile }) {
   }, [])
 
   const list = rows || []
-  // Counts per desk, for the topic tiles.
-  const counts = {}
-  list.forEach(a => { if (a.category) counts[a.category] = (counts[a.category] || 0) + 1 })
-  const topics = Object.keys(counts).sort((a, b) => counts[b] - counts[a])
-  const shown = cat ? list.filter(a => a.category === cat) : []
+  const countsByLabel = {}
+  list.forEach(a => { const l = MB_CAT[a.category]; if (l) countsByLabel[l] = (countsByLabel[l] || 0) + 1 })
+  const shown = cat ? list.filter(a => MB_CAT[a.category] === cat) : list
 
+  const h2 = { fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: isMobile ? '22px' : '26px', letterSpacing: '-0.01em', margin: '0 0 4px', color: 'var(--head-ink)', lineHeight: 1.1 }
+  const subP = { color: 'var(--text-secondary)', fontSize: '13.5px', margin: '0 0 14px', lineHeight: 1.5 }
+  const muted = { color: 'var(--text-muted)', fontSize: '13px', padding: '8px 2px' }
+
+  // ── A single topic's feed (opened from a tile) ──
+  if (cat) {
+    return (
+      <div style={{ maxWidth: isMobile ? '100%' : '820px' }}>
+        <button onClick={() => setCat(null)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', border: '1px solid var(--border-main)', background: 'var(--bg-card)', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', padding: '7px 12px', borderRadius: '9px', cursor: 'pointer', marginTop: '8px' }}>‹ All topics</button>
+        <div className="fd2-eyebrow" style={{ marginTop: '14px' }}>{cat} <span className="ln" /></div>
+        <h2 style={h2}>{cat}</h2>
+        <p style={subP}>{shown.length} stor{shown.length === 1 ? 'y' : 'ies'} · newest first</p>
+        {shown.length === 0
+          ? <p style={muted}>No stories in this topic yet — it fills in as the archive builds.</p>
+          : <div className="fd2-fivelist">{shown.map((a, i) => <Fd2Story key={a.id || i} a={a} onOpen={setSel} />)}</div>}
+        <DetailReader article={sel || {}} dark={dark} open={!!sel} onClose={() => setSel(null)} />
+      </div>
+    )
+  }
+
+  // ── Default: mixed feed, with an All news / Topics switch ──
   return (
     <div style={{ maxWidth: isMobile ? '100%' : '900px' }}>
-      {!cat ? (
-        <>
-          <div className="fd2-eyebrow" style={{ marginTop: '8px' }}>News <span className="ln" /></div>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: isMobile ? '22px' : '28px', letterSpacing: '-0.01em', margin: '0 0 4px', color: 'var(--head-ink)', lineHeight: 1.1 }}>Browse by topic</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '13.5px', margin: '0 0 16px', lineHeight: 1.5 }}>Pick a topic to read today’s stories in it — all desks, one tap away.</p>
-          {rows === null ? (
-            <p style={{ color: 'var(--text-muted)', fontSize: '13px', padding: '8px 2px' }}>Loading…</p>
-          ) : topics.length === 0 ? (
-            <p style={{ color: 'var(--text-muted)', fontSize: '13px', padding: '8px 2px' }}>No stories yet — this fills in as the archive builds.</p>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: '12px' }}>
-              {topics.map(k => (
-                <button key={k} onClick={() => setCat(k)}
-                  style={{ textAlign: 'left', background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '14px', padding: '16px 15px', cursor: 'pointer' }}>
-                  <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'var(--bg-gist)', display: 'grid', placeItems: 'center', fontSize: '20px' }}>{CAT_ICON[k] || '📰'}</div>
-                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: '15.5px', color: 'var(--head-ink)', marginTop: '11px', lineHeight: 1.2 }}>{MB_CAT[k] || k}</div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '5px', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--up)' }} />{counts[k]} stor{counts[k] === 1 ? 'y' : 'ies'}
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </>
+      <div className="fd2-eyebrow" style={{ marginTop: '8px' }}>News <span className="ln" /></div>
+      <h2 style={h2}>{view === 'all' ? 'Everything, in one feed.' : 'Browse by topic'}</h2>
+      <p style={subP}>{view === 'all' ? `${list.length} stor${list.length === 1 ? 'y' : 'ies'} across every desk — newest first.` : 'Pick a topic to read its stories.'}</p>
+
+      <div style={{ display: 'inline-flex', gap: '4px', background: 'var(--bg-gist)', border: '1px solid var(--border-main)', borderRadius: '10px', padding: '3px', marginBottom: '16px' }}>
+        {[['all', 'All news'], ['topics', 'Topics']].map(([v, l]) => (
+          <button key={v} onClick={() => setView(v)}
+            style={{ border: 'none', background: view === v ? 'var(--accent)' : 'transparent', color: view === v ? '#fff' : 'var(--text-secondary)', fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: '13px', padding: '7px 16px', borderRadius: '8px', cursor: 'pointer' }}>{l}</button>
+        ))}
+      </div>
+
+      {rows === null ? (
+        <p style={muted}>Loading…</p>
+      ) : view === 'all' ? (
+        list.length === 0
+          ? <p style={muted}>No stories yet — this fills in as the archive builds.</p>
+          : <div className="fd2-fivelist">{list.map((a, i) => <Fd2Story key={a.id || i} a={a} onOpen={setSel} />)}</div>
       ) : (
-        <>
-          <button onClick={() => setCat(null)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', border: '1px solid var(--border-main)', background: 'var(--bg-card)', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', padding: '7px 12px', borderRadius: '9px', cursor: 'pointer', marginTop: '8px' }}>‹ All topics</button>
-          <div className="fd2-eyebrow" style={{ marginTop: '14px' }}>{CAT_ICON[cat] || '📰'} {MB_CAT[cat] || cat} <span className="ln" /></div>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: isMobile ? '22px' : '26px', letterSpacing: '-0.01em', margin: '0 0 4px', color: 'var(--head-ink)', lineHeight: 1.1 }}>{MB_CAT[cat] || cat}</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '13.5px', margin: '0 0 14px', lineHeight: 1.5 }}>{shown.length} stor{shown.length === 1 ? 'y' : 'ies'} · newest first</p>
-          {shown.length === 0 ? (
-            <p style={{ color: 'var(--text-muted)', fontSize: '13px', padding: '8px 2px' }}>No stories in this topic yet.</p>
-          ) : (
-            <div className="fd2-fivelist">
-              {shown.map((a, i) => <Fd2Story key={a.id || i} a={a} onOpen={setSel} />)}
-            </div>
-          )}
-        </>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: '12px' }}>
+          {TOPIC_LIST.map(t => {
+            const n = countsByLabel[t.label] || 0
+            return (
+              <button key={t.label} onClick={() => setCat(t.label)}
+                style={{ textAlign: 'left', background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '14px', padding: '16px 15px', cursor: 'pointer', opacity: n ? 1 : 0.72 }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'var(--bg-gist)', display: 'grid', placeItems: 'center', fontSize: '20px' }}>{t.icon}</div>
+                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: '15.5px', color: 'var(--head-ink)', marginTop: '11px', lineHeight: 1.2 }}>{t.label}</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '5px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  {n ? <><span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--up)' }} />{n} stor{n === 1 ? 'y' : 'ies'}</> : 'No new stories'}
+                </div>
+              </button>
+            )
+          })}
+        </div>
       )}
       <DetailReader article={sel || {}} dark={dark} open={!!sel} onClose={() => setSel(null)} />
     </div>
