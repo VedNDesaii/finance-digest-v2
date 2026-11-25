@@ -18,7 +18,7 @@ cd "$(dirname "$0")"
 PY=".venv/bin/python"
 [ -x "$PY" ] || PY="python3"
 
-"$PY" generate_market_summary.py
+"$PY" generate_market_summary.py "$@"
 echo "✅ Market summary is LIVE (published to Supabase) — the site is already updated."
 
 # Keep the committed static file in sync as a fallback, when the connection

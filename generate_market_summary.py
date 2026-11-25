@@ -6,6 +6,7 @@ from supabase import create_client
 from dotenv import load_dotenv
 from datetime import datetime
 import os
+import sys
 
 load_dotenv(override=True)
 
@@ -228,7 +229,7 @@ def _fallback_lead(label: str, indices: list, verdict: str) -> str:
     return f"{label} markets {word}." + (f" {moves}." if moves else "")
 
 
-def generate_indian_summary() -> dict:
+def generate_indian_summary(light: bool = False) -> dict:
     print("  Fetching live Indian prices...")
     prices   = fetch_prices({"Sensex": "^BSESN", "Nifty 50": "^NSEI", "Bank Nifty": "^NSEBANK"})
     sectors  = fetch_sector_moves(INDIA_SECTORS)          # REAL sector moves, not AI guesses
@@ -262,6 +263,42 @@ def generate_indian_summary() -> dict:
     s_label = "Bullish" if s_score >= 60 else "Bearish" if s_score <= 40 else "Neutral"
     sentiment = {"score": s_score, "label": s_label}
     sector_txt = ", ".join(f"{x['name']} {x['pct']:+.1f}%" for x in sectors) or "n/a"
+
+    g  = movers.get("gainers", []) if isinstance(movers, dict) else []
+    lo = movers.get("losers", [])  if isinstance(movers, dict) else []
+    movers_txt = ", ".join(f"{m.get('sym','')} {m.get('pct',0):+.1f}%" for m in (g + lo)) or "n/a"
+    fb = _fallback_lead("Indian", indices, verdict)
+
+    if light:
+        # Small intraday update: live numbers + a short per-index "why" only.
+        # Skips the heavy narrative/tiles to stay fast + cheap — the full report is
+        # written once by the end-of-day run.
+        light_prompt = f"""Today is {today}. Intraday update — the Indian market is "{verdict}" so far.
+LIVE INDEX DATA: Sensex {s.get('pct')}, Nifty 50 {n.get('pct')}, Bank Nifty {b.get('pct')}.
+REAL SECTOR MOVES (reference, do NOT invent): {sector_txt}
+TOP STOCK MOVES (reference, do NOT invent): {movers_txt}
+
+Return ONLY this JSON:
+{{
+  "lead": "<one short sentence, max 20 words: the move so far + the single biggest driver>",
+  "indexReasons": {{
+    "Sensex":     {{"drivers": ["<2 short reasons the SENSEX moved so far, EACH naming a real stock/sector + its % from above>"]}},
+    "Nifty 50":   {{"drivers": ["<2 reasons for the NIFTY 50; note any divergence from the Sensex>"]}},
+    "Bank Nifty": {{"drivers": ["<2 BANKING-specific reasons naming banks (SBI, HDFC Bank, ICICI...) + their moves or a rate/yield/credit driver>"]}}
+  }}
+}}"""
+        ai = call_claude_cached(light_prompt, max_tokens=600)
+        return {
+            "verdict":      verdict,
+            "lead":         ai.get("lead") or fb,
+            "brief":        ai.get("lead") or fb,
+            "indexReasons": ai.get("indexReasons", {}),
+            "indices":      indices,
+            "sectors":      sectors,
+            "movers":       movers,
+            "sentiment":    sentiment,
+            "_light":       True,
+        }
 
     prompt = f"""Today is {today}. The Indian market had an overall "{verdict}" day.
 
@@ -398,29 +435,41 @@ def _load_existing_market_data() -> dict:
         return {}
 
 
-def save_to_json(indian: dict, us: dict):
-    """Write the FULL summaries to JSON. If a side is empty because its
-    generation failed (e.g. a yfinance timeout), KEEP the previous good data for
-    that side instead of blanking the site's market summary."""
+def save_to_json(indian: dict, us: dict, light: bool = False):
+    """Write summaries to JSON + publish live to Supabase.
+
+    light=True is a small intraday update: merge only the live numbers + per-index
+    reasons into the existing payload, keeping the full report (narrative/why/tiles)
+    from the last full run. If a side has no live prices, keep the previous data."""
     now  = datetime.utcnow().isoformat()
     prev = _load_existing_market_data()
 
-    def _pick(new: dict, key: str) -> dict:
-        # Valid only if we got at least one REAL live index price. (The AI prose
-        # can be missing — that's fine, we publish the numbers. But if yfinance
-        # returned nothing, keep yesterday's data rather than publishing N/A.)
-        has_real = bool(new) and any(
-            (i.get("value") not in (None, "", "N/A")) for i in (new.get("indices") or [])
-        )
-        if has_real:
-            return {**new, "updated_at": now}
-        old = prev.get(key)
-        if old:
-            print(f"  ⚠️  {key}: no live prices this run — keeping previous data ({old.get('updated_at', '?')})")
-            return old
-        return {**(new or {}), "updated_at": now}
+    def _has_real(new):
+        return bool(new) and any((i.get("value") not in (None, "", "N/A")) for i in (new.get("indices") or []))
 
-    payload = {"indian": _pick(indian, "indian"), "us": _pick(us, "us")}
+    if light:
+        base = dict(prev.get("indian") or {})
+        if _has_real(indian):
+            for k in ("verdict", "lead", "brief", "indexReasons", "indices", "sectors", "movers", "sentiment"):
+                if indian.get(k) is not None:
+                    base[k] = indian[k]
+            base["updated_at"] = now
+        else:
+            print("  ⚠️  light update: no live prices — keeping previous data")
+        payload = {"indian": base, "us": prev.get("us") or {}}
+    else:
+        def _pick(new: dict, key: str) -> dict:
+            # Valid only if we got at least one REAL live index price. (The AI prose
+            # can be missing — that's fine, we publish the numbers. But if yfinance
+            # returned nothing, keep yesterday's data rather than publishing N/A.)
+            if _has_real(new):
+                return {**new, "updated_at": now}
+            old = prev.get(key)
+            if old:
+                print(f"  ⚠️  {key}: no live prices this run — keeping previous data ({old.get('updated_at', '?')})")
+                return old
+            return {**(new or {}), "updated_at": now}
+        payload = {"indian": _pick(indian, "indian"), "us": _pick(us, "us")}
     os.makedirs("public", exist_ok=True)
     with open("public/market-data.json", "w") as f:
         json.dump(payload, f)
@@ -438,32 +487,36 @@ def save_to_json(indian: dict, us: dict):
 
 
 if __name__ == "__main__":
+    # "light" / "--light" → small intraday update (Indian numbers + per-index why).
+    # Default (no arg) → full end-of-day summary (Indian + US, full report).
+    LIGHT = any(a in ("light", "--light") for a in sys.argv[1:])
     print("=" * 50)
-    print("📊 Generating market summaries (Haiku 4.5, cached)")
-    print("   Estimated cost: ~$0.006 total for both summaries")
+    print("📊 " + ("Intraday light update" if LIGHT else "Generating market summaries") + " (Haiku 4.5, cached)")
     print("=" * 50)
 
     indian, us = {}, {}
-    print("\n🇮🇳 Generating Indian market summary...")
+    print("\n🇮🇳 " + ("Light Indian update..." if LIGHT else "Generating Indian market summary..."))
     try:
-        indian = generate_indian_summary()
-        save_summary("indian", indian)
+        indian = generate_indian_summary(light=LIGHT)
+        if not LIGHT:
+            save_summary("indian", indian)
         print(f"  Verdict: {indian.get('verdict')} | {indian.get('lead')}")
     except Exception as e:
         print(f"  ❌ Indian summary failed: {e}")
 
-    print("\n🇺🇸 Generating US market summary...")
-    try:
-        us = generate_us_summary()
-        save_summary("us", us)
-        print(f"  Verdict: {us.get('verdict')} | {us.get('lead')}")
-    except Exception as e:
-        print(f"  ❌ US summary failed: {e}")
+    if not LIGHT:
+        print("\n🇺🇸 Generating US market summary...")
+        try:
+            us = generate_us_summary()
+            save_summary("us", us)
+            print(f"  Verdict: {us.get('verdict')} | {us.get('lead')}")
+        except Exception as e:
+            print(f"  ❌ US summary failed: {e}")
 
     print("\n💾 Saving to JSON...")
     try:
-        save_to_json(indian, us)
+        save_to_json(indian, us, light=LIGHT)
     except Exception as e:
         print(f"  ❌ JSON save failed: {e}")
 
-    print("\n✅ Done! Estimated spend: ~$0.006")
+    print("\n✅ Done!" + (" (light update)" if LIGHT else ""))

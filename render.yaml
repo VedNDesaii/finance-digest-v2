@@ -1,4 +1,4 @@
-# Render Blueprint — scheduled pipelines at EXACT times (precise, runs your
+# Render Blueprint — scheduled pipelines at EXACT times (precise; runs your
 # Python as-is; laptop can be off).
 #
 # Setup: Render → New → Blueprint → connect this repo (branch: editorial-homepage).
@@ -6,8 +6,16 @@
 # secret values ONCE in the group → all jobs inherit them:
 #   ANTHROPIC_API_KEY, SUPABASE_URL, SUPABASE_KEY, GNEWS_API_KEY
 #
-# Schedules are UTC (IST = UTC + 5:30). Each job writes a .env from the env vars
-# first (the shell scripts read keys from .env), then runs.
+# Flow (IST, schedules in UTC = IST − 5:30):
+#   09:00  news refresh
+#   09:15  small market update   (light: numbers + per-index "why")
+#   10:45  small market update   (light)
+#   12:30  small market update   (light)
+#   14:15  small market update   (light)
+#   15:45  FULL market summary   (end-of-day: narrative, sectors, movers, signals)
+#
+# Each job writes a .env from the env vars first (the scripts read keys from .env),
+# then runs. "light" on update_market.sh = the small intraday update.
 
 envVarGroups:
   - name: fd-secrets
@@ -22,12 +30,12 @@ envVarGroups:
         sync: false
 
 services:
-  # ── News refresh — 08:45 AM IST daily ──
+  # ── 09:00 AM IST — news refresh ──
   - type: cron
     name: fd-news-refresh
     runtime: python
     plan: starter
-    schedule: "15 3 * * *"            # 03:15 UTC = 08:45 AM IST
+    schedule: "30 3 * * *"            # 03:30 UTC = 09:00 AM IST
     buildCommand: pip install -r requirements.txt
     startCommand: >-
       printf 'ANTHROPIC_API_KEY=%s\nSUPABASE_URL=%s\nSUPABASE_KEY=%s\nGNEWS_API_KEY=%s\n'
@@ -36,7 +44,7 @@ services:
     envVars:
       - fromGroup: fd-secrets
 
-  # ── Market summary — 09:15 AM IST (market open) ──
+  # ── 09:15 AM IST — small update ──
   - type: cron
     name: fd-market-0915
     runtime: python
@@ -46,11 +54,11 @@ services:
     startCommand: >-
       printf 'ANTHROPIC_API_KEY=%s\nSUPABASE_URL=%s\nSUPABASE_KEY=%s\nGNEWS_API_KEY=%s\n'
       "$ANTHROPIC_API_KEY" "$SUPABASE_URL" "$SUPABASE_KEY" "$GNEWS_API_KEY" > .env
-      && bash ./update_market.sh
+      && bash ./update_market.sh light
     envVars:
       - fromGroup: fd-secrets
 
-  # ── Market summary — 10:45 AM IST (mid-morning) ──
+  # ── 10:45 AM IST — small update ──
   - type: cron
     name: fd-market-1045
     runtime: python
@@ -60,11 +68,11 @@ services:
     startCommand: >-
       printf 'ANTHROPIC_API_KEY=%s\nSUPABASE_URL=%s\nSUPABASE_KEY=%s\nGNEWS_API_KEY=%s\n'
       "$ANTHROPIC_API_KEY" "$SUPABASE_URL" "$SUPABASE_KEY" "$GNEWS_API_KEY" > .env
-      && bash ./update_market.sh
+      && bash ./update_market.sh light
     envVars:
       - fromGroup: fd-secrets
 
-  # ── Market summary — 12:30 PM IST (midday) ──
+  # ── 12:30 PM IST — small update ──
   - type: cron
     name: fd-market-1230
     runtime: python
@@ -74,30 +82,30 @@ services:
     startCommand: >-
       printf 'ANTHROPIC_API_KEY=%s\nSUPABASE_URL=%s\nSUPABASE_KEY=%s\nGNEWS_API_KEY=%s\n'
       "$ANTHROPIC_API_KEY" "$SUPABASE_URL" "$SUPABASE_KEY" "$GNEWS_API_KEY" > .env
-      && bash ./update_market.sh
+      && bash ./update_market.sh light
     envVars:
       - fromGroup: fd-secrets
 
-  # ── Market summary — 03:15 PM IST (pre-close) ──
+  # ── 02:15 PM IST — small update ──
   - type: cron
-    name: fd-market-1515
+    name: fd-market-1415
     runtime: python
     plan: starter
-    schedule: "45 9 * * 1-5"          # 09:45 UTC = 03:15 PM IST, Mon–Fri
+    schedule: "45 8 * * 1-5"          # 08:45 UTC = 02:15 PM IST, Mon–Fri
     buildCommand: pip install -r requirements.txt
     startCommand: >-
       printf 'ANTHROPIC_API_KEY=%s\nSUPABASE_URL=%s\nSUPABASE_KEY=%s\nGNEWS_API_KEY=%s\n'
       "$ANTHROPIC_API_KEY" "$SUPABASE_URL" "$SUPABASE_KEY" "$GNEWS_API_KEY" > .env
-      && bash ./update_market.sh
+      && bash ./update_market.sh light
     envVars:
       - fromGroup: fd-secrets
 
-  # ── Market summary — 04:00 PM IST (full end-of-day summary) ──
+  # ── 03:45 PM IST — FULL end-of-day summary ──
   - type: cron
-    name: fd-market-1600
+    name: fd-market-1545-close
     runtime: python
     plan: starter
-    schedule: "30 10 * * 1-5"         # 10:30 UTC = 04:00 PM IST, Mon–Fri
+    schedule: "15 10 * * 1-5"         # 10:15 UTC = 03:45 PM IST, Mon–Fri
     buildCommand: pip install -r requirements.txt
     startCommand: >-
       printf 'ANTHROPIC_API_KEY=%s\nSUPABASE_URL=%s\nSUPABASE_KEY=%s\nGNEWS_API_KEY=%s\n'
