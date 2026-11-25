@@ -3,6 +3,7 @@
 // Live data from /api/chart (Yahoo), polled every 45s while open. Own theme.
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { createChart } from 'lightweight-charts'
+import { highlight } from '../lib/highlight'
 
 const mono = 'var(--font-mono)'
 const display = 'var(--font-display)'
@@ -177,7 +178,7 @@ export default function IndexChartModal({ item, reason, onClose }) {
                     <span style={{ fontWeight: 600, fontSize: 15, color: 'var(--head-ink)' }}>{s.what}</span>
                     {s.badge && <span style={{ fontFamily: mono, fontSize: 11.5, fontWeight: 600, padding: '2px 8px', borderRadius: 5, background: s.dir === 'up' ? 'var(--up-bg)' : s.dir === 'down' ? 'var(--down-bg)' : 'var(--bg-gist)', color: s.dir === 'up' ? 'var(--up)' : s.dir === 'down' ? 'var(--down)' : 'var(--text-secondary)' }}>{s.badge}</span>}
                   </div>
-                  {s.why && <div style={{ fontSize: 14.5, lineHeight: 1.6, color: 'var(--text-primary)', marginTop: 6 }}><span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Why: </span><span dangerouslySetInnerHTML={{ __html: s.why }} /></div>}
+                  {s.why && <div style={{ fontSize: 14.5, lineHeight: 1.6, color: 'var(--text-primary)', marginTop: 6 }}><span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Why: </span><span dangerouslySetInnerHTML={{ __html: highlight(s.why) }} /></div>}
                 </div>
               </div>
             )) : (
@@ -185,7 +186,7 @@ export default function IndexChartModal({ item, reason, onClose }) {
                 {reason.drivers.map((d, i) => (
                   <li key={i} style={{ display: 'flex', gap: 9, fontSize: 14.5, lineHeight: 1.55, color: 'var(--text-primary)' }}>
                     <span style={{ flexShrink: 0, width: 6, height: 6, borderRadius: '50%', marginTop: 8, background: 'var(--up)' }} />
-                    <span dangerouslySetInnerHTML={{ __html: d }} />
+                    <span dangerouslySetInnerHTML={{ __html: highlight(d) }} />
                   </li>
                 ))}
               </ul>

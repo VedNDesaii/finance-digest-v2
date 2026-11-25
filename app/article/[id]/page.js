@@ -3,6 +3,7 @@
 // and the page loads instantly without JS. Data comes from Supabase (public read).
 import { notFound } from 'next/navigation'
 import ShareButton from '../../../components/ShareButton'
+import { highlight } from '../../../lib/highlight'
 
 const BASE = 'https://financedigest.xyz'
 
@@ -93,7 +94,6 @@ export default async function ArticlePage({ params }) {
       {children}
     </section>
   )
-  const Para = ({ children }) => <p style={{ margin: '0 0 11px', fontSize: '15.5px', lineHeight: 1.7, color: 'var(--text-primary)' }}>{children}</p>
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-page)', color: 'var(--text-primary)', fontFamily: 'var(--font-ui)' }}>
@@ -150,20 +150,23 @@ export default async function ArticlePage({ params }) {
         {picture && (
           <Block head="The full picture">
             {fmtDetailed(picture).map((b, i) => (
-              <Para key={i}>{b.label && <strong style={{ fontWeight: 600 }}>{b.label}. </strong>}{b.body}</Para>
+              <p key={i} style={{ margin: '0 0 11px', fontSize: '15.5px', lineHeight: 1.7, color: 'var(--text-primary)' }}>
+                {b.label && <strong style={{ fontWeight: 600 }}>{b.label}. </strong>}
+                <span dangerouslySetInnerHTML={{ __html: highlight(b.body) }} />
+              </p>
             ))}
           </Block>
         )}
 
         {impact && (
           <Block head="Market impact">
-            {impact.split(/\n\n+/).filter(Boolean).map((p, i) => <Para key={i}>{decodeEntities(p)}</Para>)}
+            {impact.split(/\n\n+/).filter(Boolean).map((p, i) => <p key={i} style={{ margin: '0 0 11px', fontSize: '15.5px', lineHeight: 1.7, color: 'var(--text-primary)' }} dangerouslySetInnerHTML={{ __html: highlight(decodeEntities(p)) }} />)}
           </Block>
         )}
 
         {means && (
           <Block head="What this means for you">
-            {means.split(/\n\n+/).filter(Boolean).map((p, i) => <Para key={i}>{decodeEntities(p)}</Para>)}
+            {means.split(/\n\n+/).filter(Boolean).map((p, i) => <p key={i} style={{ margin: '0 0 11px', fontSize: '15.5px', lineHeight: 1.7, color: 'var(--text-primary)' }} dangerouslySetInnerHTML={{ __html: highlight(decodeEntities(p)) }} />)}
           </Block>
         )}
 

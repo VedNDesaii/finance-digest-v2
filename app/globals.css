@@ -371,4 +371,11 @@ aside {
 .fd2-tab svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.7}
 .fd2-tab.on{color:var(--accent)}
 .fd2-followbtn{width:100%;background:var(--bg-gist);border:1px solid var(--border-main);color:var(--text-primary);font-family:var(--font-mono);font-weight:600;font-size:12px;letter-spacing:.05em;text-transform:uppercase;padding:12px;border-radius:12px;cursor:pointer;margin:2px 0 20px}
+
+/* highlighted key terms inside market explanations (see lib/highlight.js) */
+.fd-ent{font-weight:600;color:var(--head-ink)}
+.fd-n{font-family:var(--font-mono);font-weight:600;font-size:.9em;padding:1px 6px;border-radius:5px;white-space:nowrap}
+.fd-n.up{background:var(--up-bg);color:var(--up)}
+.fd-n.dn{background:var(--down-bg);color:var(--down)}
+.fd-n.ac{background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent)}
 .fd2-followbtn.on{background:var(--accent);border-color:var(--accent);color:#fff}

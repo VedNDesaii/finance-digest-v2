@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import DetailReader from '../components/DetailReader'
 import { useAuth, useVisitorTracking } from '../hooks/useAuth'
 import { registerPushNotification, touchLastSeen } from '../lib/pushNotifications'
+import { highlight } from '../lib/highlight'
 
 // Tap-to-open live chart + the gold/FX strip. Browser-only (lightweight-charts),
 // so load them client-side.
@@ -1454,7 +1455,7 @@ function MarketsView({ isMobile }) {
             {why.map((r, i) => (
               <div key={i} style={{ display: 'flex', gap: '11px', alignItems: 'flex-start' }}>
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', fontWeight: 600, color: 'var(--accent)', flexShrink: 0, marginTop: '3px' }}>{i + 1}</span>
-                <p style={{ margin: 0, fontSize: '14.5px', lineHeight: 1.55, color: 'var(--text-primary)' }}>{r}</p>
+                <p style={{ margin: 0, fontSize: '14.5px', lineHeight: 1.55, color: 'var(--text-primary)' }} dangerouslySetInnerHTML={{ __html: highlight(r) }} />
               </div>
             ))}
           </div>
@@ -1466,7 +1467,7 @@ function MarketsView({ isMobile }) {
           <div className="fd2-eyebrow">The day in full <span className="ln" /></div>
           <div>
             {narrative.split(/\n\n+/).filter(Boolean).map((p, i) => (
-              <p key={i} style={{ fontSize: '14px', lineHeight: 1.65, color: 'var(--text-secondary)', margin: '0 0 10px' }}>{p}</p>
+              <p key={i} style={{ fontSize: '14px', lineHeight: 1.65, color: 'var(--text-secondary)', margin: '0 0 10px' }} dangerouslySetInnerHTML={{ __html: highlight(p) }} />
             ))}
           </div>
         </>
