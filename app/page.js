@@ -16,6 +16,43 @@ const GoldFxStrip = dynamic(() => import('../components/GoldFxStrip'), { ssr: fa
 const IX_KEY = { 'Sensex': 'sensex', 'Nifty 50': 'nifty', 'Bank Nifty': 'banknifty', 'S&P 500': 'sp500', 'Nasdaq': 'nasdaq', 'Dow Jones': 'dow' }
 const IX_TAG = { 'Sensex': 'BSE · 30 large-caps', 'Nifty 50': 'NSE · 50 large-caps', 'Bank Nifty': 'NSE · 12 banks', 'S&P 500': 'US · 500 large-caps', 'Nasdaq': 'US · tech-heavy', 'Dow Jones': 'US · 30 blue-chips' }
 
+// Live index quotes — same Yahoo source as the tap-to-open chart, so the strip
+// never shows a stale AI-pipeline snapshot. Polls /api/quotes every 30 s while
+// mounted and refreshes when the tab regains focus. Keyed by friendly key.
+function useLiveQuotes(keys = ['nifty', 'sensex', 'banknifty', 'nasdaq', 'sp500']) {
+  const [quotes, setQuotes] = useState(null)
+  const [liveAt, setLiveAt] = useState(null)
+  useEffect(() => {
+    let ok = true
+    const k = keys.join(',')
+    const load = () => fetch(`/api/quotes?k=${k}`, { cache: 'no-store' })
+      .then(r => r.json())
+      .then(d => { if (ok && d && d.ok && d.quotes) { setQuotes(d.quotes); setLiveAt(Date.now()) } })
+      .catch(() => {})
+    load()
+    const id = setInterval(load, 30000)
+    const onVis = () => { if (document.visibilityState === 'visible') load() }
+    document.addEventListener('visibilitychange', onVis)
+    return () => { ok = false; clearInterval(id); document.removeEventListener('visibilitychange', onVis) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  return { quotes, liveAt }
+}
+
+// Overlay a live quote (price + pct from /api/quotes) onto an index object that
+// came from the AI snapshot, so value/pct/up reflect the real market. Falls back
+// to the snapshot fields when a live quote isn't available for that label.
+function liveIx(ix, quotes) {
+  const q = quotes && quotes[IX_KEY[ix.label]]
+  if (!q) return ix
+  return {
+    ...ix,
+    value: Math.round(q.price).toLocaleString('en-IN'),
+    pct: (q.pct >= 0 ? '+' : '') + q.pct.toFixed(2) + '%',
+    up: q.pct >= 0,
+  }
+}
+
 // Portfolio only renders on its own tab — load it on demand so the homepage
 // doesn't ship its weight to every visitor (matters for memory-limited
 // in-app browsers like Instagram's).
@@ -663,6 +700,7 @@ function MarketSummaryCard({ market, dark, isMobile }) {
   const [summaryData, setSummaryData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [chartItem, setChartItem] = useState(null)   // tapped index → live chart
+  const { quotes: liveQ } = useLiveQuotes(isIndia ? ['nifty', 'sensex', 'banknifty'] : ['sp500', 'nasdaq', 'dow'])
 
   useEffect(() => {
     async function fetchSummary() {
@@ -693,7 +731,7 @@ function MarketSummaryCard({ market, dark, isMobile }) {
     sectors: [], tiles: [], lead: 'Market summary updates after the next close.', watch: '',
   }
   const d = summaryData || {}
-  const indices   = (d.indices && d.indices.length) ? d.indices : FB.indices
+  const indices   = ((d.indices && d.indices.length) ? d.indices : FB.indices).map(ix => liveIx(ix, liveQ))
   const sectors   = (d.sectors && d.sectors.length) ? d.sectors : FB.sectors
   const tiles     = d.tiles || FB.tiles
   const lead      = d.lead || d.headline || FB.lead
@@ -1015,6 +1053,7 @@ function TodayView({ articles, dark, isMobile, loading, prediction, handlePredic
   const [sel, setSel] = useState(null)
   const [j, setJ] = useState(null)
   const [chartItem, setChartItem] = useState(null)   // tapped index → live chart
+  const { quotes: liveQ, liveAt } = useLiveQuotes()   // live index prices (Yahoo)
   useEffect(() => {
     let ok = true
     fetchMarketData().then(d => { if (ok && d) setJ(d) }).catch(() => {})
@@ -1027,7 +1066,7 @@ function TodayView({ articles, dark, isMobile, loading, prediction, handlePredic
   const allIx = [...(indian.indices || []), ...(us.indices || [])]
   const order = ['Nifty 50', 'Sensex', 'Bank Nifty', 'Nasdaq', 'S&P 500']
   const stripOrdered = order.map(l => allIx.find(x => x.label === l)).filter(Boolean)
-  const indexStrip = stripOrdered.length ? stripOrdered : allIx
+  const indexStrip = (stripOrdered.length ? stripOrdered : allIx).map(ix => liveIx(ix, liveQ))
   const sectors = (indian.sectors || [])
   const movers = indian.movers || { gainers: [], losers: [] }
   const updatedAt = indian.updated_at
@@ -1063,7 +1102,11 @@ function TodayView({ articles, dark, isMobile, loading, prediction, handlePredic
         </div>
       )}
       {chartItem && <IndexChartModal item={chartItem} reason={chartItem.reason} onClose={() => setChartItem(null)} />}
-      {updatedAt && <div style={{ fontFamily: mono, fontSize: '9.5px', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', margin: '0 0 22px' }}>Prices as of {updatedAt} · AI-assisted</div>}
+      <div style={{ fontFamily: mono, fontSize: '9.5px', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', margin: '0 0 22px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        {liveAt
+          ? <><span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--up)', display: 'inline-block', boxShadow: '0 0 0 3px var(--up-bg)' }} />Live prices · {new Date(liveAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })} IST · Yahoo Finance</>
+          : (updatedAt ? <>Prices as of {updatedAt} · AI-assisted</> : null)}
+      </div>
 
       {/* Desktop: 2-column (main stories | sidebar heat+movers). Mobile: stacked. */}
       <div style={{ display: isMobile ? 'block' : 'grid', gridTemplateColumns: isMobile ? undefined : 'minmax(0,1.62fr) minmax(0,1fr)', gap: isMobile ? undefined : '44px', alignItems: 'start' }}>
@@ -1392,6 +1435,7 @@ function SentimentDonut({ score, label }) {
 function MarketsView({ isMobile }) {
   const [j, setJ] = useState(null)
   const [chartItem, setChartItem] = useState(null)   // the index/gold/FX whose live chart is open
+  const { quotes: liveQ } = useLiveQuotes()          // live index prices (Yahoo)
   useEffect(() => {
     let ok = true
     fetchMarketData().then(d => { if (ok && d) setJ(d) }).catch(() => {})
@@ -1399,8 +1443,8 @@ function MarketsView({ isMobile }) {
   }, [])
   const ind = (j && j.indian) || {}
   const us = (j && j.us) || {}
-  const indices = [...((ind.indices) || []), ...((us.indices) || [])]
-  const cards = (ind.indices || []).slice(0, 3)   // Nifty / Sensex / Bank Nifty, with intraday charts
+  const indices = [...((ind.indices) || []), ...((us.indices) || [])].map(ix => liveIx(ix, liveQ))
+  const cards = (ind.indices || []).slice(0, 3).map(ix => liveIx(ix, liveQ))   // Nifty / Sensex / Bank Nifty, with intraday charts
   const sectors = (ind.sectors) || []
   const verdict = ind.verdict || 'mixed'
   const V = verdict === 'up' ? { c: 'up', a: '▲', l: 'Up day' }
