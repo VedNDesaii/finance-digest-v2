@@ -1,5 +1,6 @@
 import anthropic
 import json
+import re
 import time
 import yfinance as yf
 from supabase import create_client
@@ -269,6 +270,172 @@ def _fallback_lead(label: str, indices: list, verdict: str) -> str:
     return f"{label} markets {word}." + (f" {moves}." if moves else "")
 
 
+# ── Number guard — the AI may ONLY state figures we actually fetched this run ──
+# Soft prompt rules aren't enough (that's how "$96 Brent" / a stale rupee slipped
+# in). This validates every price/level/% in the AI prose against the real numbers
+# fetched this run; anything unsourced triggers one correction retry, then is
+# stripped before publish. Net effect: the site can only ever show live figures.
+_UNIT_RE = re.compile(
+    r'(?:\$|₹|Rs\.?\s?)\s?\d[\d,]*(?:\.\d+)?'          # $96 / ₹92.98 / Rs 92
+    r'|\d[\d,]*(?:\.\d+)?\s?%'                          # 1.9% / +0.80%
+    r'|\d[\d,]*(?:\.\d+)?\s?/\s?(?:bbl|oz|barrel)',     # 92.02/bbl / 3704/oz
+    re.I,
+)
+# Bare decimals ≥10 with no unit (catches a raw FX level like "92.4450").
+_DEC_RE = re.compile(r'(?<![\w.$₹])\d{1,3}(?:,\d{3})*\.\d+(?![\w%])')
+
+
+def _mag(tok: str):
+    m = re.search(r'\d[\d,]*(?:\.\d+)?', tok)
+    if not m:
+        return None
+    try:
+        return round(abs(float(m.group().replace(",", ""))), 2)
+    except Exception:
+        return None
+
+
+def _candidate_tokens(text: str) -> list:
+    """Price/percent/level tokens in a piece of prose that must be data-backed."""
+    toks = [m.group().strip() for m in _UNIT_RE.finditer(text or "")]
+    for m in _DEC_RE.finditer(text or ""):
+        v = _mag(m.group())
+        if v is not None and v >= 10:
+            toks.append(m.group().strip())
+    return toks
+
+
+def build_allowed(indices=None, sectors=None, movers=None, cfx=None) -> set:
+    """Every numeric magnitude we actually fetched this run — the whitelist."""
+    allowed = set()
+
+    def add(s):
+        for tok in re.findall(r'\d[\d,]*(?:\.\d+)?', str(s)):
+            try:
+                allowed.add(round(abs(float(tok.replace(",", ""))), 2))
+            except Exception:
+                pass
+
+    for ix in (indices or []):
+        add(ix.get("value")); add(ix.get("pct")); add(ix.get("change"))
+    for sc in (sectors or []):
+        add(sc.get("pct"))
+    if isinstance(movers, dict):
+        for m in (movers.get("gainers", []) + movers.get("losers", [])):
+            add(m.get("pct")); add(m.get("value"))
+    for v in (cfx or {}).values():
+        add(v.get("value")); add(v.get("pct"))
+    return allowed
+
+
+def _is_sourced(tok: str, allowed: set) -> bool:
+    v = _mag(tok)
+    if v is None:
+        return True
+    # Percentages tolerate rounding (1.9%→2%); price/FX levels must be near-exact
+    # so a stale rupee like 92.44 can't pass as the live 92.98.
+    is_pct = "%" in tok
+    for a in allowed:
+        tol = 0.15 if is_pct else max(0.03, a * 0.002)
+        if abs(v - a) <= tol:
+            return True
+    return False
+
+
+def _prose_fields(data: dict):
+    """Yield (setter, text) for every AI-written string field in a summary dict."""
+    for key in ("lead", "brief", "narrative"):
+        if data.get(key):
+            yield (key, None, data[key])
+    for i, w in enumerate(data.get("why", []) or []):
+        yield ("why", i, w)
+    for i, t in enumerate(data.get("tiles", []) or []):
+        if isinstance(t, dict) and t.get("sub"):
+            yield ("tile.sub", i, t["sub"])
+    for lbl, obj in (data.get("indexReasons") or {}).items():
+        for i, dr in enumerate((obj or {}).get("drivers", []) or []):
+            yield (("indexReasons", lbl), i, dr)
+
+
+def find_unsourced(data: dict, allowed: set) -> list:
+    """List of (field, token) the AI stated that isn't backed by fetched data."""
+    bad = []
+    for field, _idx, text in _prose_fields(data):
+        for tok in _candidate_tokens(text):
+            if not _is_sourced(tok, allowed):
+                bad.append((field, tok))
+    return bad
+
+
+def sanitize_numbers(data: dict, allowed: set) -> list:
+    """Last-resort scrub: drop list items / sentences that carry an unsourced
+    number, and fall back to data-only text for lead/brief. Returns what changed."""
+    removed = []
+
+    def clean_sentences(text):
+        keep = []
+        for sent in re.split(r'(?<=[.!?])\s+', text or ""):
+            toks = _candidate_tokens(sent)
+            if any(not _is_sourced(t, allowed) for t in toks):
+                removed.append(sent.strip())
+            else:
+                keep.append(sent)
+        return " ".join(keep).strip()
+
+    # lead / brief: drop the offending sentence(s). If nothing survives, leave it
+    # empty so the caller falls back to the data-only _fallback_lead (real numbers).
+    for key in ("lead", "brief"):
+        if data.get(key) and any(not _is_sourced(t, allowed) for t in _candidate_tokens(data[key])):
+            data[key] = clean_sentences(data[key])
+    # narrative: drop only the offending sentences.
+    if data.get("narrative"):
+        data["narrative"] = clean_sentences(data["narrative"])
+    # why bullets: drop the whole bullet if it has an unsourced number.
+    if data.get("why"):
+        data["why"] = [w for w in data["why"]
+                       if all(_is_sourced(t, allowed) for t in _candidate_tokens(w))
+                       or removed.append(w) or False]
+    # index-reason drivers: same.
+    for lbl, obj in (data.get("indexReasons") or {}).items():
+        drs = (obj or {}).get("drivers")
+        if drs:
+            obj["drivers"] = [d for d in drs
+                              if all(_is_sourced(t, allowed) for t in _candidate_tokens(d))
+                              or removed.append(d) or False]
+    # tiles: blank only the offending sub (keep the tile + its label/value).
+    for t in (data.get("tiles") or []):
+        if isinstance(t, dict) and t.get("sub") and any(
+                not _is_sourced(x, allowed) for x in _candidate_tokens(t["sub"])):
+            removed.append(t["sub"]); t["sub"] = ""
+    return removed
+
+
+def validate_and_fix(prompt: str, max_tokens: int, allowed: set) -> dict:
+    """Generate, then guarantee no unsourced number survives: one targeted
+    correction retry, then a hard scrub. Always returns a dict (never raises)."""
+    ai = call_claude_cached(prompt, max_tokens)
+    if not ai:
+        return ai
+    bad = find_unsourced(ai, allowed)
+    if bad:
+        toks = ", ".join(sorted({t for _, t in bad}))
+        print(f"  ⚠️  unsourced numbers in AI output: {toks} — requesting correction.")
+        note = ("\n\nCORRECTION: your previous reply used these numbers that are NOT "
+                f"in the data provided: {toks}. Rewrite the SAME JSON, replacing each "
+                "with the correct figure from the data blocks above, or rephrasing with "
+                "no number. Do not introduce any other number that isn't in the data.")
+        ai2 = call_claude_cached(prompt + note, max_tokens)
+        bad2 = find_unsourced(ai2, allowed) if ai2 else bad
+        if ai2 and len(bad2) <= len(bad):
+            ai, bad = ai2, bad2
+    if bad:
+        dropped = sanitize_numbers(ai, allowed)
+        print(f"  🧹 scrubbed {len(dropped)} unsourced figure(s) before publish.")
+    else:
+        print("  ✓ all figures in AI output are backed by live data.")
+    return ai
+
+
 def generate_indian_summary(light: bool = False) -> dict:
     print("  Fetching live Indian prices...")
     prices   = fetch_prices({"Sensex": "^BSESN", "Nifty 50": "^NSEI", "Bank Nifty": "^NSEBANK"})
@@ -331,7 +498,8 @@ Return ONLY this JSON:
     "Bank Nifty": {{"drivers": ["<2 BANKING-specific reasons naming banks (SBI, HDFC Bank, ICICI...) + their moves or a rate/yield/credit driver>"]}}
   }}
 }}"""
-        ai = call_claude_cached(light_prompt, max_tokens=600)
+        allowed = build_allowed(indices, sectors, movers, None)
+        ai = validate_and_fix(light_prompt, 600, allowed)
         return {
             "verdict":      verdict,
             "lead":         ai.get("lead") or fb,
@@ -373,7 +541,8 @@ Write a market summary. Return ONLY this JSON:
   "watch": "<one sentence, max 22 words, the key thing to watch tomorrow>"
 }}"""
 
-    ai = call_claude_cached(prompt, max_tokens=1400)
+    allowed = build_allowed(indices, sectors, movers, cfx)
+    ai = validate_and_fix(prompt, 1400, allowed)
     fb = _fallback_lead("Indian", indices, verdict)
     return {
         "verdict":  verdict,
@@ -441,7 +610,8 @@ Write a market summary. Return ONLY this JSON:
   "watch": "<one sentence, max 22 words, key thing to watch tomorrow>"
 }}"""
 
-    ai = call_claude_cached(prompt, max_tokens=1400)
+    allowed = build_allowed(indices, sectors, None, cfx)
+    ai = validate_and_fix(prompt, 1400, allowed)
     fb = _fallback_lead("US", indices, verdict)
     return {
         "verdict":  verdict,
