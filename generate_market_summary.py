@@ -80,6 +80,46 @@ def fetch_prices(tickers: dict) -> dict:
     return results
 
 
+def fetch_commodities_fx() -> dict:
+    """Real Brent, USD/INR and gold levels from Yahoo — the SAME source the on-site
+    Gold/FX widgets use — so AI prose can cite exact figures that match the widgets
+    instead of inventing them. Decimals matter here (unlike the whole-number indices)."""
+    specs = {  # name: (symbol, prefix, suffix, decimals)
+        "Brent crude": ("BZ=F",  "$", "/bbl", 2),
+        "USD/INR":     ("INR=X", "₹", "/$",   2),
+        "Gold":        ("GC=F",  "$", "/oz",  0),
+    }
+    out = {}
+    for name, (sym, pfx, sfx, dp) in specs.items():
+        prev, curr = _recent_closes(sym)
+        if curr is None:
+            continue
+        change = (curr - prev) if prev is not None else 0.0
+        pct    = (change / prev * 100) if prev else 0.0
+        out[name] = {
+            "value": f"{pfx}{curr:,.{dp}f}{sfx}",
+            "pct":   f"{'+' if change >= 0 else ''}{pct:.2f}%",
+            "up":    bool(change >= 0),
+        }
+    return out
+
+
+def commodities_fx_text(cfx: dict) -> str:
+    """One unambiguous line for the prompt. Phrases the rupee by its OWN direction
+    (USD/INR up = rupee weaker), so the model can't flip it."""
+    parts = []
+    b = cfx.get("Brent crude")
+    if b:
+        parts.append(f"Brent crude {'rose' if b['up'] else 'fell'} to {b['value']} ({b['pct']} today)")
+    g = cfx.get("Gold")
+    if g:
+        parts.append(f"gold {'rose' if g['up'] else 'fell'} to {g['value']} ({g['pct']})")
+    u = cfx.get("USD/INR")
+    if u:
+        parts.append(f"the rupee {'weakened' if u['up'] else 'strengthened'} to {u['value']} (USD/INR {u['pct']})")
+    return "; ".join(parts) or "n/a"
+
+
 def fetch_sector_moves(tickers: dict) -> list:
     """Real sector index moves (percent), sorted best→worst. Robust to yfinance flakiness."""
     out = []
@@ -234,6 +274,8 @@ def generate_indian_summary(light: bool = False) -> dict:
     prices   = fetch_prices({"Sensex": "^BSESN", "Nifty 50": "^NSEI", "Bank Nifty": "^NSEBANK"})
     sectors  = fetch_sector_moves(INDIA_SECTORS)          # REAL sector moves, not AI guesses
     movers   = fetch_movers(NIFTY_MOVERS)                 # REAL top gainers/losers
+    cfx      = fetch_commodities_fx()                     # REAL Brent/USD-INR/gold (matches the on-site widgets)
+    cfx_txt  = commodities_fx_text(cfx)
     try:
         articles = get_recent_articles(["indian-markets", "banking-finance", "macro-policy"])
     except Exception as e:
@@ -278,6 +320,8 @@ LIVE INDEX DATA: Sensex {s.get('pct')}, Nifty 50 {n.get('pct')}, Bank Nifty {b.g
 REAL SECTOR MOVES (reference, do NOT invent): {sector_txt}
 TOP STOCK MOVES (reference, do NOT invent): {movers_txt}
 
+NUMBERS RULE — use only the figures above. Do NOT mention oil, Brent, gold or the rupee here (no price data for them is provided this run).
+
 Return ONLY this JSON:
 {{
   "lead": "<one short sentence, max 20 words: the move so far + the single biggest driver>",
@@ -304,24 +348,27 @@ Return ONLY this JSON:
 
 LIVE INDEX DATA: Sensex {s.get('pct')}, Nifty 50 {n.get('pct')}, Bank Nifty {b.get('pct')}.
 REAL SECTOR MOVES (already computed — reference these, do NOT invent numbers): {sector_txt}
+COMMODITIES & CURRENCY (today, REAL — these are the ONLY oil/gold/rupee figures you may cite; they match the live on-site widgets): {cfx_txt}
 RECENT NEWS HEADLINES:
 {news}
+
+NUMBERS RULE — every price, level or % you write MUST come verbatim from a data block above (indices, sectors, commodities & currency, or the news). If a figure isn't listed above, describe the move in words with NO number. Never state a Brent, gold, rupee or stock price that isn't given above — do not recall or estimate one.
 
 Write a market summary. Return ONLY this JSON:
 {{
   "lead": "<ONE short sentence, max 22 words: the day's verdict + the single biggest driver, plain English>",
   "brief": "<1 sentence with the key index moves in words, e.g. 'Sensex rose 0.8% and Nifty 0.6% on ...'>",
-  "why": ["<2 to 4 short cause→effect reasons the market moved TODAY. Each names a concrete driver AND its effect on the index, in that order, plain English. Ground every one in the data/news above; NEVER invent numbers. e.g. 'A closing-auction recovery lifted the Sensex in the final hour', 'The rupee's slide on costlier oil pressured import-heavy sectors', 'Banking gains offset weakness in IT'>"],
+  "why": ["<2 to 4 short cause→effect reasons the market moved TODAY. Each names a concrete driver AND its effect on the index, in that order, plain English. Ground every one in the data/news above; NEVER invent numbers. Only mention oil or the rupee if it is in the COMMODITIES & CURRENCY line, and then use that exact figure. e.g. 'A closing-auction recovery lifted the Sensex in the final hour', 'Banking gains offset weakness in IT'>"],
   "indexReasons": {{
     "Sensex":     {{"drivers": ["<2 short, plain-English reasons the SENSEX specifically moved today, EACH naming a real stock or sector and its % move from the data above>"]}},
     "Nifty 50":   {{"drivers": ["<2 reasons for the NIFTY 50 specifically; note where it diverged from the Sensex (e.g. a sector that helped or dragged more)>"]}},
     "Bank Nifty": {{"drivers": ["<2 reasons for BANK NIFTY — these MUST be banking-specific: name the banks (SBI, HDFC Bank, ICICI, etc.) and their moves, or a rate/yield/credit driver>"]}}
   }},
-  "narrative": "PARA1\\n\\nPARA2 — 2 short paragraphs telling the day in full (open→close, the main driver, the undercurrents). Use ONLY facts from the data and news above; never invent figures.",
+  "narrative": "PARA1\\n\\nPARA2 — 2 short paragraphs telling the day in full (open→close, the main driver, the undercurrents). Use ONLY facts from the data and news above; never invent figures. Any oil/gold/rupee number must be the exact one from the COMMODITIES & CURRENCY line.",
   "tiles": [
     {{"icon":"🌍","label":"Global cues",  "value":"<Weak/Mixed/Strong>","sub":"<1 line context>","subUp":false}},
     {{"icon":"🏦","label":"FII activity", "value":"<Buying/Selling/Mixed>","sub":"<1 line, only if the news mentions it, else 'No fresh data'>","subUp":null}},
-    {{"icon":"🛢","label":"Crude oil",    "value":"<Rising/Falling/Steady>","sub":"<1 line context>","subUp":false}}
+    {{"icon":"🛢","label":"Crude oil",    "value":"<Rising/Falling/Steady — match the Brent direction in COMMODITIES & CURRENCY>","sub":"<1 line; cite the exact Brent figure from that line, e.g. 'Brent at $91.89/bbl (+1.4%)'>","subUp":false}}
   ],
   "watch": "<one sentence, max 22 words, the key thing to watch tomorrow>"
 }}"""
@@ -360,6 +407,8 @@ def generate_us_summary() -> dict:
     nq = prices.get("Nasdaq",   {})
     dj = prices.get("Dow Jones",{})
     sectors = fetch_sector_moves(US_SECTORS)          # REAL sector moves
+    cfx     = fetch_commodities_fx()                   # REAL Brent/gold (matches on-site widgets)
+    cfx_txt = commodities_fx_text(cfx)
     indices = [
         {"label": "S&P 500",   "value": sp.get("value"), "change": sp.get("change"), "pct": sp.get("pct"), "up": sp.get("up", True)},
         {"label": "Nasdaq",    "value": nq.get("value"), "change": nq.get("change"), "pct": nq.get("pct"), "up": nq.get("up", True)},
@@ -372,8 +421,11 @@ def generate_us_summary() -> dict:
 
 LIVE INDEX DATA: S&P 500 {sp.get('pct')}, Nasdaq {nq.get('pct')}, Dow {dj.get('pct')}.
 REAL SECTOR MOVES (reference these, do NOT invent numbers): {sector_txt}
+COMMODITIES (today, REAL — the ONLY oil/gold figures you may cite): {cfx_txt}
 RECENT NEWS HEADLINES:
 {news}
+
+NUMBERS RULE — every price, level or % you write MUST come verbatim from a data block above. If a figure isn't listed, describe the move in words with NO number. Never state an oil, gold or stock price that isn't given above.
 
 Write a market summary. Return ONLY this JSON:
 {{
